@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/.venv/
+.venv/
+venv/
+ENV/
+
+# Environment Variables & Secrets (Keep .env local!)
+.env
+
+# SQLite local DB
+*.sqlite3
+
+# Operating System & IDEs
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Flutter & Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+frontend/.dart_tool/
+frontend/.packages
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+
+# Keep frontend/build/web so hosting platforms don't need Flutter SDK to serve the web app
+frontend/build/app/
+frontend/build/ios/

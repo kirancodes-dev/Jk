@@ -1,0 +1,75 @@
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/models.dart';
+import 'api_service.dart';
+
+class AuthProvider extends ChangeNotifier {
+  User? _currentUser;
+  bool _isLoading = false;
+  String _currentRole = 'CITIZEN';
+
+  User? get currentUser => _currentUser;
+  bool get isLoading => _isLoading;
+  bool get isAuthenticated => _currentUser != null;
+  String get currentRole => _currentUser?.role ?? _currentRole;
+
+  static const Map<String, String> demoEmails = {
+    'CITIZEN': 'citizen@jharkhand.gov.in',
+    'GOVERNMENT_ADMIN': 'admin@jharkhand.gov.in',
+    'UNIVERSITY': 'university@bitmesra.ac.in',
+    'FACULTY_MENTOR': 'faculty@bitmesra.ac.in',
+    'STUDENT': 'student@bitmesra.ac.in',
+    'INDUSTRY': 'industry@tatasteel.com',
+  };
+
+  AuthProvider() {
+    _loadUserFromPrefs();
+  }
+
+  Future<void> _loadUserFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    final userData = prefs.getString('user_data');
+    if (token != null && userData != null) {
+      ApiService.setToken(token);
+      _currentUser = User.fromJson(jsonDecode(userData));
+      _currentRole = _currentUser!.role;
+      notifyListeners();
+    }
+  }
+
+  Future<void> login(String email, String password) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final res = await ApiService.login(email, password);
+      _currentUser = User.fromJson(res);
+      _currentRole = _currentUser!.role;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', res['access_token']);
+      await prefs.setString('user_data', jsonEncode(res));
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Quick Switch for SIH Evaluator / Jury demo flow
+  Future<void> quickSwitchRole(String role) async {
+    final email = demoEmails[role];
+    if (email != null) {
+      await login(email, 'password123');
+    }
+  }
+
+  Future<void> logout() async {
+    _currentUser = null;
+    _currentRole = 'CITIZEN';
+    ApiService.setToken(null);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('user_data');
+    notifyListeners();
+  }
+}
