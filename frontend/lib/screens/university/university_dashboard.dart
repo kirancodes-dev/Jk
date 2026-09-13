@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
 import '../../core/theme.dart';
+import '../../widgets/sip_app_bar.dart';
+import '../../widgets/sip_card.dart';
+import '../../widgets/status_badge.dart';
+import '../../widgets/section_header.dart';
+import '../../widgets/empty_state_view.dart';
 import 'challenge_discovery_screen.dart';
 import 'create_project_screen.dart';
 import 'project_dashboard_screen.dart';
@@ -56,9 +61,10 @@ class _UniversityDashboardState extends State<UniversityDashboard> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('University Portal')),
-        body: const Center(child: CircularProgressIndicator()),
+      return const Scaffold(
+        backgroundColor: AppTheme.background,
+        appBar: SIPAppBar(title: 'University Portal'),
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
       );
     }
 
@@ -67,51 +73,77 @@ class _UniversityDashboardState extends State<UniversityDashboard> {
     final assignedList = d['assigned_challenges'] as List? ?? [];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('University Dashboard'),
+      backgroundColor: AppTheme.background,
+      appBar: SIPAppBar(
+        title: 'University Portal',
+        subtitle: 'Higher & Technical Education Research',
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none),
+            icon: const Icon(Icons.notifications_none_rounded, color: AppTheme.primaryGreen),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
           ),
           IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
+            icon: const Icon(Icons.account_circle_outlined, color: AppTheme.primaryGreen),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadDashboard,
+        color: AppTheme.primaryGreen,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Institution Header Card
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF0A5C36), Color(0xFF166534)],
+                    colors: [Color(0xFF0A5C36), Color(0xFF14532D)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryGreen.withOpacity(0.2),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('NODAL INSTITUTION', style: TextStyle(color: Colors.white70, fontSize: 10, letterSpacing: 1.2, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(univName, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.verified, color: AppTheme.accentGold, size: 16),
-                        SizedBox(width: 6),
-                        Text('Atal Incubation Center • SIH Innovation Lab', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentGold.withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'NODAL INSTITUTION',
+                            style: TextStyle(color: AppTheme.accentGold, fontSize: 10, letterSpacing: 1.0, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const Spacer(),
+                        const Icon(Icons.verified, color: AppTheme.accentGold, size: 18),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      univName,
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, height: 1.25),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Atal Incubation Center • SIH Institutional R&D Center',
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ],
                 ),
@@ -119,8 +151,8 @@ class _UniversityDashboardState extends State<UniversityDashboard> {
               const SizedBox(height: 20),
 
               // Statistics Grid (U1)
-              const Text('Innovation & Research Metrics', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
+              const SectionHeader(title: 'Research & Innovation Metrics'),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   _statBox('Assigned', '${d['assigned_challenges_count'] ?? 0}', AppTheme.info),
@@ -129,7 +161,7 @@ class _UniversityDashboardState extends State<UniversityDashboard> {
                   const SizedBox(width: 8),
                   _statBox('Student Teams', '${d['student_teams_count'] ?? 0}', AppTheme.primaryGreen),
                   const SizedBox(width: 8),
-                  _statBox('Faculty Mentors', '${d['faculty_mentors_count'] ?? 0}', Colors.purple),
+                  _statBox('Faculty Mentors', '${d['faculty_mentors_count'] ?? 0}', const Color(0xFF7C3AED)),
                 ],
               ),
               const SizedBox(height: 20),
@@ -138,18 +170,24 @@ class _UniversityDashboardState extends State<UniversityDashboard> {
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.explore_outlined, size: 18),
-                      label: const Text('Discover Challenges', style: TextStyle(fontSize: 12)),
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeDiscoveryScreen())),
+                    child: SizedBox(
+                      height: 44,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.explore_rounded, size: 18),
+                        label: const Text('Discover Challenges', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChallengeDiscoveryScreen())),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.folder_shared_outlined, size: 18),
-                      label: const Text('Active Projects', style: TextStyle(fontSize: 12)),
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProjectDashboardScreen(projectId: 1))),
+                    child: SizedBox(
+                      height: 44,
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.folder_shared_rounded, size: 18),
+                        label: const Text('Active Projects', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProjectDashboardScreen(projectId: 1))),
+                      ),
                     ),
                   ),
                 ],
@@ -157,56 +195,87 @@ class _UniversityDashboardState extends State<UniversityDashboard> {
               const SizedBox(height: 24),
 
               // Assigned Challenges
-              const Text('Assigned Challenges for Mobilization', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
+              SectionHeader(
+                title: 'Assigned Challenges for Mobilization',
+                trailing: Text('${assignedList.length} assigned', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ),
+              const SizedBox(height: 10),
               if (assignedList.isEmpty)
-                const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No assigned challenges at the moment.')))
+                const EmptyStateView(
+                  icon: Icons.assignment_turned_in_outlined,
+                  title: 'No pending assigned challenges',
+                  description: 'All assigned societal problems are currently mobilized into active projects.',
+                )
               else
-                ...assignedList.map((ch) => Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.primaryGreen.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(6),
+                ...assignedList.map((ch) {
+                  final priority = ch['priority']?.toString() ?? 'MEDIUM';
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: SIPCard(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryGreen.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  ch['category']?.toString().toUpperCase() ?? 'GENERAL',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              StatusBadge(status: priority, isPriority: true),
+                              const Spacer(),
+                              Text(
+                                ch['district_name'] ?? 'Jharkhand',
+                                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            ch['title'] ?? '',
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.3),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 38,
+                                  child: OutlinedButton(
+                                    onPressed: () => _acceptChallenge(ch['id']),
+                                    child: const Text('Accept & Mobilize', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                                   ),
-                                  child: Text(ch['category'] ?? '', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
                                 ),
-                                const SizedBox(width: 8),
-                                Text('Priority: ${ch['priority']}', style: const TextStyle(fontSize: 11, color: Colors.deepOrange, fontWeight: FontWeight.bold)),
-                                const Spacer(),
-                                Text(ch['district_name'] ?? '', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(ch['title'] ?? '', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                OutlinedButton(
-                                  onPressed: () => _acceptChallenge(ch['id']),
-                                  child: const Text('Accept & Form Team'),
-                                ),
-                                const SizedBox(width: 8),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => CreateProjectScreen(challengeId: ch['id'])),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: SizedBox(
+                                  height: 38,
+                                  child: ElevatedButton(
+                                    onPressed: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => CreateProjectScreen(challengeId: ch['id'])),
+                                    ),
+                                    child: const Text('Create Project', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                   ),
-                                  child: const Text('Create Project'),
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    )),
+                    ),
+                  );
+                }),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -217,20 +286,27 @@ class _UniversityDashboardState extends State<UniversityDashboard> {
   Widget _statBox(String label, String value, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: Column(
           children: [
             Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
             const SizedBox(height: 4),
-            Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+            ),
           ],
         ),
       ),
     );
   }
 }
+

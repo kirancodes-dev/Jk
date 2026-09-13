@@ -3,6 +3,7 @@ import '../../core/file_picker_helper.dart';
 import '../../core/api_service.dart';
 import '../../core/offline_draft_service.dart';
 import '../../core/theme.dart';
+import '../../widgets/sip_card.dart';
 import 'ai_analysis_screen.dart';
 
 class ReportChallengeScreen extends StatefulWidget {
@@ -133,13 +134,15 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
   }
 
   void _useCurrentLocation() {
-    // Simulated GPS read with Chota Nagpur coordinates
     setState(() {
       _latitude = 23.3441 + (DateTime.now().millisecond % 50) / 1000.0;
       _longitude = 85.3096 + (DateTime.now().millisecond % 50) / 1000.0;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('GPS Auto-detected: Lat $_latitude, Lon $_longitude')),
+      SnackBar(
+        content: Text('GPS Auto-detected: Lat ${_latitude.toStringAsFixed(4)}, Lon ${_longitude.toStringAsFixed(4)}'),
+        backgroundColor: AppTheme.info,
+      ),
     );
   }
 
@@ -199,7 +202,6 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
     setState(() => _isSubmitting = true);
 
     final mediaUrls = _uploadedMedia.map((m) => m['file_url'] as String).toList();
-    // Provide default representative photo if no custom media was selected
     if (mediaUrls.isEmpty) {
       mediaUrls.add('/uploads/demo/water_shortage_angara.jpg');
     }
@@ -239,330 +241,347 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
         SnackBar(content: Text('Failed: ${e.toString()}'), backgroundColor: AppTheme.error),
       );
     } finally {
-      setState(() => _isSubmitting = false);
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.surfaceLight,
       appBar: AppBar(
         title: const Text('Report Societal Challenge'),
         actions: [
           IconButton(
             icon: _isSavingDraft
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Icon(Icons.save_outlined),
+                : const Icon(Icons.bookmark_border),
             tooltip: 'Save Draft Offline',
             onPressed: _saveDraftLocally,
           ),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Notice banner
+              // Government Process Notice
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryGreen.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.3)),
+                  color: AppTheme.primaryGreen.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.25)),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.lightbulb_outline, color: AppTheme.primaryGreen),
+                    Icon(Icons.shield_outlined, color: AppTheme.primaryGreen, size: 22),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Your report is analyzed immediately by the SIH AI engine and routed to suitable Jharkhand universities.',
-                        style: TextStyle(fontSize: 12, color: AppTheme.textPrimary),
+                        'Your report is analyzed immediately by the SIH AI engine and routed to suitable Jharkhand universities & district authorities.',
+                        style: TextStyle(fontSize: 12, color: AppTheme.textPrimary, height: 1.35),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // Title
-              TextFormField(
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Challenge Title *',
-                  hintText: 'e.g. Severe drinking water shortage and fluoride contamination',
-                ),
-                validator: (v) => v == null || v.trim().length < 5 ? 'Enter at least 5 characters' : null,
-              ),
               const SizedBox(height: 16),
 
-              // Description
-              TextFormField(
-                controller: _descController,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Detailed Description of the Ground Problem *',
-                  hintText: 'Describe who is affected, how long the issue has persisted, and symptoms.',
-                  alignLabelWithHint: true,
-                ),
-                validator: (v) => v == null || v.trim().length < 15 ? 'Provide at least 15 characters' : null,
-              ),
-              const SizedBox(height: 16),
+              // SECTION 1: Problem Information
+              _buildSectionHeader('1', 'Problem Information', 'Core summary of the societal challenge'),
+              SIPCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextFormField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Challenge Title *',
+                        hintText: 'e.g. Severe drinking water shortage and fluoride contamination',
+                      ),
+                      validator: (v) => v == null || v.trim().length < 5 ? 'Please enter at least 5 characters' : null,
+                    ),
+                    const SizedBox(height: 14),
 
-              // Category & Urgency Row
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
+                    TextFormField(
+                      controller: _descController,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Detailed Ground Description *',
+                        hintText: 'Describe who is affected, how long the issue has persisted, and symptoms.',
+                        alignLabelWithHint: true,
+                      ),
+                      validator: (v) => v == null || v.trim().length < 15 ? 'Please provide at least 15 characters' : null,
+                    ),
+                    const SizedBox(height: 14),
+
+                    DropdownButtonFormField<String>(
                       value: _selectedCategory,
-                      decoration: const InputDecoration(labelText: 'Category *'),
+                      decoration: const InputDecoration(labelText: 'Primary Problem Domain *'),
                       items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 13)))).toList(),
                       onChanged: (v) => setState(() => _selectedCategory = v!),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedUrgency,
-                      decoration: const InputDecoration(labelText: 'Urgency *'),
-                      items: _urgencies.map((u) => DropdownMenuItem(value: u, child: Text(u, style: const TextStyle(fontSize: 13)))).toList(),
-                      onChanged: (v) => setState(() => _selectedUrgency = v!),
+                    const SizedBox(height: 14),
+
+                    const Text('Urgency Level *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: _urgencies.map((u) {
+                        final isSelected = _selectedUrgency == u;
+                        Color chipColor = AppTheme.info;
+                        if (u == 'Medium') chipColor = AppTheme.warning;
+                        if (u == 'High') chipColor = Colors.deepOrange;
+                        if (u == 'Critical') chipColor = AppTheme.error;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(u, style: TextStyle(fontSize: 11, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : AppTheme.textPrimary)),
+                            selected: isSelected,
+                            selectedColor: chipColor,
+                            onSelected: (val) {
+                              if (val) setState(() => _selectedUrgency = u);
+                            },
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+
+                    TextFormField(
+                      controller: _subCategoryController,
+                      decoration: const InputDecoration(
+                        labelText: 'Sub-Category / Tags (Optional)',
+                        hintText: 'e.g. Tube Wells, Solar Pumps, Crop Blight',
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
 
-              // Sub-category
-              TextFormField(
-                controller: _subCategoryController,
-                decoration: const InputDecoration(
-                  labelText: 'Sub-Category (Optional)',
-                  hintText: 'e.g. Drinking Water, Tube Wells, Crop Blight',
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              const Text('Location Details (Jharkhand)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _districtController.text,
-                      decoration: const InputDecoration(labelText: 'District *'),
-                      items: _districts.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13)))).toList(),
-                      onChanged: (v) => setState(() => _districtController.text = v!),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _blockController,
-                      decoration: const InputDecoration(labelText: 'Block / Tehsil'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _villageController,
-                      decoration: const InputDecoration(labelText: 'Village / Town / City'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _locationController,
-                      decoration: const InputDecoration(labelText: 'Landmark / Address'),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // GPS Row
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Text(
-                        'GPS: ${_latitude.toStringAsFixed(4)}, ${_longitude.toStringAsFixed(4)}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    onPressed: _useCurrentLocation,
-                    icon: const Icon(Icons.my_location, size: 16),
-                    label: const Text('Auto GPS', style: TextStyle(fontSize: 12)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Expected impact
-              TextFormField(
-                controller: _impactController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Expected Impact / Beneficiaries',
-                  hintText: 'e.g. Will provide safe drinking water to 350 rural tribal households.',
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Media Attachments
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Photo / Video / Document Evidence', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                  if (_uploadedMedia.isNotEmpty)
-                    Text('${_uploadedMedia.length} attached', style: const TextStyle(fontSize: 12, color: AppTheme.primaryGreen, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Upload real photos, drone footage, lab reports, or documents from your device (JPG, PNG, PDF, DOCX, MP4).',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-              ),
-              const SizedBox(height: 12),
-
-              // Upload Action Box
-              InkWell(
-                onTap: _isUploadingMedia ? null : _pickAndUploadFiles,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryGreen.withOpacity(0.04),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.3), style: BorderStyle.solid),
-                  ),
-                  child: Column(
-                    children: [
-                      if (_isUploadingMedia) ...[
-                        const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: AppTheme.primaryGreen),
+              // SECTION 2: Location
+              _buildSectionHeader('2', 'Geographic Location', 'Where is this problem located in Jharkhand?'),
+              SIPCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _districtController.text,
+                            decoration: const InputDecoration(labelText: 'District *'),
+                            items: _districts.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13)))).toList(),
+                            onChanged: (v) => setState(() => _districtController.text = v!),
+                          ),
                         ),
-                        const SizedBox(height: 10),
-                        const Text('Uploading media to secure cloud storage...', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
-                      ] else ...[
-                        const Icon(Icons.cloud_upload_outlined, size: 36, color: AppTheme.primaryGreen),
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Tap to Browse & Upload Real Media',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Supports multiple file selection • Real-time server upload',
-                          style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _blockController,
+                            decoration: const InputDecoration(labelText: 'Block / Tehsil *'),
+                            validator: (v) => v == null || v.trim().isEmpty ? 'Block required' : null,
+                          ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _villageController,
+                            decoration: const InputDecoration(labelText: 'Village / Ward *'),
+                            validator: (v) => v == null || v.trim().isEmpty ? 'Village required' : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _locationController,
+                            decoration: const InputDecoration(labelText: 'Landmark / Address'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // GPS Auto-detect Row
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.borderLight),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.my_location, size: 16, color: AppTheme.primaryGreen),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'GPS Coordinates: ${_latitude.toStringAsFixed(4)}° N, ${_longitude.toStringAsFixed(4)}° E',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _useCurrentLocation,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text('Auto-Detect', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // SECTION 3: Evidence & Media
+              _buildSectionHeader('3', 'Ground Evidence & Documents', 'Attach photos, videos, or lab reports to accelerate university adoption'),
+              SIPCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    InkWell(
+                      onTap: _isUploadingMedia ? null : _pickAndUploadFiles,
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryGreen.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.35), style: BorderStyle.solid),
+                        ),
+                        child: Column(
+                          children: [
+                            if (_isUploadingMedia) ...[
+                              const SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(strokeWidth: 2.5, color: AppTheme.primaryGreen),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text('Uploading media to cloud storage...', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
+                            ] else ...[
+                              const Icon(Icons.cloud_upload_outlined, size: 36, color: AppTheme.primaryGreen),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Tap to Browse & Attach Photos or Documents',
+                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Supports JPG, PNG, PDF, MP4 • Real device multi-file picker',
+                                style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    if (_uploadedMedia.isNotEmpty) ...[
+                      const SizedBox(height: 14),
+                      Text('${_uploadedMedia.length} File(s) Attached', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                      const SizedBox(height: 8),
+                      ..._uploadedMedia.asMap().entries.map((entry) {
+                        final idx = entry.key;
+                        final item = entry.value;
+                        final fileName = item['file_name']?.toString() ?? 'evidence_file';
+                        final fileUrl = item['file_url']?.toString() ?? '';
+                        final isImage = fileName.toLowerCase().endsWith('.jpg') ||
+                            fileName.toLowerCase().endsWith('.jpeg') ||
+                            fileName.toLowerCase().endsWith('.png') ||
+                            fileName.toLowerCase().endsWith('.webp');
+                        final isPdf = fileName.toLowerCase().endsWith('.pdf');
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.borderLight),
+                          ),
+                          child: Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: isImage
+                                    ? Image.network(
+                                        ApiService.resolveMediaUrl(fileUrl),
+                                        width: 36,
+                                        height: 36,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 24, color: AppTheme.primaryGreen),
+                                      )
+                                    : Icon(
+                                        isPdf ? Icons.picture_as_pdf : Icons.insert_drive_file,
+                                        color: isPdf ? Colors.red.shade700 : AppTheme.primaryGreen,
+                                        size: 28,
+                                      ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(fileName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                    const SizedBox(height: 2),
+                                    Text('✓ Attached to report', style: TextStyle(fontSize: 10, color: Colors.green.shade700, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 16, color: Colors.red),
+                                onPressed: () => setState(() => _uploadedMedia.removeAt(idx)),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
                     ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // SECTION 4: Impact Scope
+              _buildSectionHeader('4', 'Impact Scope & Beneficiaries', 'How many citizens are affected by this problem?'),
+              SIPCard(
+                padding: const EdgeInsets.all(16),
+                child: TextFormField(
+                  controller: _impactController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Expected Impact / Citizens Affected',
+                    hintText: 'e.g. Will provide clean fluorosis-free drinking water to ~450 tribal households in Angara block.',
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
 
-              // Uploaded Media List
-              if (_uploadedMedia.isNotEmpty) ...[
-                Column(
-                  children: _uploadedMedia.asMap().entries.map((entry) {
-                    final idx = entry.key;
-                    final item = entry.value;
-                    final fileName = item['file_name']?.toString() ?? 'uploaded_file';
-                    final fileUrl = item['file_url']?.toString() ?? '';
-                    final isImage = fileName.toLowerCase().endsWith('.jpg') ||
-                        fileName.toLowerCase().endsWith('.jpeg') ||
-                        fileName.toLowerCase().endsWith('.png') ||
-                        fileName.toLowerCase().endsWith('.webp');
-                    final isPdf = fileName.toLowerCase().endsWith('.pdf');
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      elevation: 0.5,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      child: ListTile(
-                        leading: isImage
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: Image.network(
-                                  ApiService.resolveMediaUrl(fileUrl),
-                                  width: 44,
-                                  height: 44,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => const Icon(Icons.image, color: AppTheme.primaryGreen),
-                                ),
-                              )
-                            : Icon(
-                                isPdf ? Icons.picture_as_pdf : Icons.insert_drive_file,
-                                color: isPdf ? Colors.red.shade700 : AppTheme.primaryGreen,
-                                size: 32,
-                              ),
-                        title: Text(
-                          fileName,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.green.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text('✓ Uploaded', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
-                            ),
-                            const SizedBox(width: 8),
-                            if (item['size'] != null)
-                              Text(
-                                '${((item['size'] as int) / 1024).toStringAsFixed(1)} KB',
-                                style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
-                              ),
-                          ],
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                          tooltip: 'Remove',
-                          onPressed: () {
-                            setState(() => _uploadedMedia.removeAt(idx));
-                          },
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-              const SizedBox(height: 32),
-
-              // Buttons
+              // Actions Row
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.save_alt),
+                      icon: const Icon(Icons.bookmark_border, size: 18),
                       label: const Text('Save Draft'),
                       onPressed: _isSavingDraft ? null : _saveDraftLocally,
                     ),
@@ -572,18 +591,53 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                     flex: 2,
                     child: ElevatedButton.icon(
                       icon: _isSubmitting
-                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.send),
-                      label: const Text('Submit Challenge'),
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.send, size: 18),
+                      label: const Text('Submit Challenge Now', style: TextStyle(fontWeight: FontWeight.bold)),
                       onPressed: _isSubmitting ? null : _submitChallenge,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 40),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String number, String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: const BoxDecoration(
+              color: AppTheme.primaryGreen,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                Text(subtitle, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

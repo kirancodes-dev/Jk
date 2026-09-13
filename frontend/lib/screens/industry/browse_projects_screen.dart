@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
+import '../../widgets/sip_app_bar.dart';
+import '../../widgets/sip_card.dart';
+import '../../widgets/empty_state_view.dart';
 import '../university/project_dashboard_screen.dart';
 
 class BrowseProjectsScreen extends StatefulWidget {
@@ -48,18 +51,20 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDlgState) => AlertDialog(
-          title: Text('Offer Industry Collaboration (I3)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Offer Industry Collaboration', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Project: ${p.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('Project: ${p.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
+              const SizedBox(height: 2),
               Text('University: ${p.universityName}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
               const SizedBox(height: 14),
 
               DropdownButtonFormField<String>(
                 value: selectedSupport,
-                decoration: const InputDecoration(labelText: 'Collaboration Type (I3)'),
+                decoration: const InputDecoration(labelText: 'Collaboration Type *'),
                 items: const [
                   DropdownMenuItem(value: 'Mentorship', child: Text('Mentorship & Guidance')),
                   DropdownMenuItem(value: 'Technical Support', child: Text('Technical & Lab Support')),
@@ -103,48 +108,73 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Browse Societal Projects')),
+      backgroundColor: AppTheme.background,
+      appBar: const SIPAppBar(
+        title: 'Browse Societal Projects',
+        subtitle: 'University Technological Innovations',
+      ),
       body: Column(
         children: [
+          // Filter Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+            ),
             child: Row(
               children: [
-                const Text('Domain: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const Icon(Icons.filter_list_rounded, size: 18, color: AppTheme.primaryGreen),
+                const SizedBox(width: 8),
+                const Text('Domain: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: DropdownButton<String>(
-                    value: _selectedDomain,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    items: _domains.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13)))).toList(),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() => _selectedDomain = v);
-                        _load();
-                      }
-                    },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedDomain,
+                        isExpanded: true,
+                        items: _domains.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)))).toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() => _selectedDomain = v);
+                            _load();
+                          }
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1),
 
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen))
                 : _projects.isEmpty
-                    ? const Center(child: Text('No projects available in this domain'))
+                    ? const Center(
+                        child: EmptyStateView(
+                          icon: Icons.folder_open_rounded,
+                          title: 'No projects in this domain',
+                          description: 'Try selecting "All" or a different domain to discover university projects.',
+                        ),
+                      )
                     : ListView.builder(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                         itemCount: _projects.length,
                         itemBuilder: (context, index) {
                           final p = _projects[index];
-                          return Card(
-                            margin: const EdgeInsets.symmetric(vertical: 6),
-                            child: Padding(
-                              padding: const EdgeInsets.all(14),
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: SIPCard(
+                              padding: const EdgeInsets.all(16),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -152,35 +182,63 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        decoration: BoxDecoration(color: AppTheme.primaryGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
-                                        child: Text(p.currentStage, style: const TextStyle(color: AppTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 10)),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryGreen.withOpacity(0.08),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          p.currentStage.toUpperCase(),
+                                          style: const TextStyle(color: AppTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 10),
+                                        ),
                                       ),
-                                      Text('${p.progressPercentage.toStringAsFixed(0)}% Progress', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                      Text(
+                                        '${p.progressPercentage.toStringAsFixed(0)}% Progress',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryGreen),
+                                      ),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    p.name,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimary),
+                                  ),
                                   const SizedBox(height: 4),
-                                  Text('University: ${p.universityName}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                                  const SizedBox(height: 12),
+                                  Text(
+                                    'University: ${p.universityName}',
+                                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                                  ),
+                                  const SizedBox(height: 14),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      OutlinedButton(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(builder: (_) => ProjectDashboardScreen(projectId: p.id)),
-                                          );
-                                        },
-                                        child: const Text('View Details', style: TextStyle(fontSize: 11)),
+                                      SizedBox(
+                                        height: 36,
+                                        child: OutlinedButton(
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          onPressed: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(builder: (_) => ProjectDashboardScreen(projectId: p.id)),
+                                            );
+                                          },
+                                          child: const Text('View Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                        ),
                                       ),
-                                      ElevatedButton.icon(
-                                        icon: const Icon(Icons.handshake, size: 14),
-                                        label: const Text('Offer Collaboration (I3)', style: TextStyle(fontSize: 11)),
-                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
-                                        onPressed: () => _showOfferSupportDialog(p),
+                                      SizedBox(
+                                        height: 36,
+                                        child: ElevatedButton.icon(
+                                          icon: const Icon(Icons.handshake_rounded, size: 16),
+                                          label: const Text('Offer Support', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                          style: ElevatedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          onPressed: () => _showOfferSupportDialog(p),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -196,3 +254,4 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
     );
   }
 }
+

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
 import '../../core/theme.dart';
+import '../../widgets/sip_app_bar.dart';
+import '../../widgets/sip_card.dart';
+import '../../widgets/status_badge.dart';
+import '../../widgets/section_header.dart';
 import 'track_solution_screen.dart';
 
 class ChallengeDetailsScreen extends StatefulWidget {
@@ -22,6 +26,12 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   void initState() {
     super.initState();
     _loadDetails();
+  }
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadDetails() async {
@@ -53,16 +63,29 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Challenge Details')),
-        body: const Center(child: CircularProgressIndicator()),
+      return const Scaffold(
+        backgroundColor: AppTheme.background,
+        appBar: SIPAppBar(title: 'Challenge Details'),
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
       );
     }
 
     if (_detail == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Challenge Details')),
-        body: const Center(child: Text('Challenge not found')),
+        backgroundColor: AppTheme.background,
+        appBar: const SIPAppBar(title: 'Challenge Details'),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: AppTheme.textSecondary),
+              const SizedBox(height: 12),
+              const Text('Challenge not found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              ElevatedButton(onPressed: _loadDetails, child: const Text('Retry')),
+            ],
+          ),
+        ),
       );
     }
 
@@ -71,14 +94,19 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     final media = d['media'] as List? ?? [];
     final history = d['status_history'] as List? ?? [];
     final comments = d['comments'] as List? ?? [];
+    final status = d['status']?.toString() ?? 'SUBMITTED';
+    final priority = d['priority']?.toString() ?? 'MEDIUM';
+    final tier = d['current_tier']?.toString() ?? 'PANCHAYAT';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Challenge #${d['id']}'),
+      backgroundColor: AppTheme.background,
+      appBar: SIPAppBar(
+        title: 'Challenge #${d['id']}',
+        subtitle: loc['district_name'] ?? 'Jharkhand',
         actions: [
           IconButton(
-            icon: const Icon(Icons.timeline),
-            tooltip: 'Track Solution',
+            icon: const Icon(Icons.timeline_rounded, color: AppTheme.primaryGreen),
+            tooltip: 'Track Solution Lifecycle',
             onPressed: () {
               Navigator.push(
                 context,
@@ -89,119 +117,130 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Status & Priority Bar
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryGreen,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    d['status'].toString().replaceAll('_', ' '),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade100,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'PRIORITY: ${d['priority']}',
-                    style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 11),
-                  ),
-                ),
-                const Spacer(),
-                Text(d['created_at'].toString().split('T').first, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // Administrative Governance Tier & Escalation Banner
-            Row(
-              children: [
-                _buildTierBadge(d['current_tier'] ?? 'PANCHAYAT'),
-                const SizedBox(width: 8),
-                Text(
-                  'Escalation Level: ${d['escalation_level'] ?? 1} / 4',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
-                ),
-              ],
-            ),
-            if (d['escalated_by'] != null && d['escalated_by'].toString().isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.shade300),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.arrow_upward, size: 14, color: Colors.deepOrange),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Escalated by ${d['escalated_by']}',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.deepOrange),
-                        ),
-                      ],
-                    ),
-                    if (d['escalation_remarks'] != null) ...[
-                      const SizedBox(height: 4),
+            SIPCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      StatusBadge(label: status, type: StatusBadgeType.status),
+                      const SizedBox(width: 8),
+                      StatusBadge(label: priority, type: StatusBadgeType.priority),
+                      const Spacer(),
                       Text(
-                        'Remarks: "${d['escalation_remarks']}"',
-                        style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.brown.shade800),
+                        d['created_at'] != null ? d['created_at'].toString().split('T').first : '',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
                       ),
                     ],
+                  ),
+                  const Divider(height: 20, color: Color(0xFFE2E8F0)),
+                  Row(
+                    children: [
+                      StatusBadge(label: tier, type: StatusBadgeType.tier),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Escalation Level: ${d['escalation_level'] ?? 1} / 4',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                      ),
+                    ],
+                  ),
+                  if (d['escalated_by'] != null && d['escalated_by'].toString().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.arrow_upward_rounded, size: 14, color: Colors.deepOrange),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Escalated by ${d['escalated_by']}',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.deepOrange),
+                              ),
+                            ],
+                          ),
+                          if (d['escalation_remarks'] != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '"${d['escalation_remarks']}"',
+                              style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFF92400E)),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
-            ],
-            const SizedBox(height: 14),
-
-            // Title
-            Text(
-              d['title'] ?? '',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-            ),
-            const SizedBox(height: 10),
-
-            // Description
-            Text(
-              d['description'] ?? '',
-              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
             ),
             const SizedBox(height: 16),
 
-            // Location Box
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Row(
+            // Title & Description
+            SIPCard(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.location_on, color: AppTheme.primaryGreen, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${loc['village_or_city'] ?? ''}, Block: ${loc['block_name'] ?? ''}, ${loc['district_name'] ?? 'Jharkhand'}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryGreen.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          d['category']?.toString().toUpperCase() ?? 'GENERAL',
+                          style: const TextStyle(color: AppTheme.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    d['title'] ?? '',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary, height: 1.3),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    d['description'] ?? '',
+                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.5),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Location Box
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.location_on_rounded, color: AppTheme.primaryGreen, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${loc['village_or_city'] ?? ''}, Block: ${loc['block_name'] ?? ''}, ${loc['district_name'] ?? 'Jharkhand'}',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -210,31 +249,46 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             const SizedBox(height: 16),
 
             // Assigned University Card
-            if (d['assigned_university_name'] != null)
-              Card(
-                color: Colors.green.shade50.withOpacity(0.5),
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    backgroundColor: AppTheme.primaryGreen,
-                    child: Icon(Icons.school, color: Colors.white, size: 20),
-                  ),
-                  title: const Text('Assigned Higher Education Institution', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                  subtitle: Text(
-                    d['assigned_university_name'] ?? 'University',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
-                  ),
+            if (d['assigned_university_name'] != null) ...[
+              SIPCard(
+                borderColor: AppTheme.primaryGreen.withOpacity(0.3),
+                backgroundColor: AppTheme.primaryGreen.withOpacity(0.04),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: AppTheme.primaryGreen,
+                      child: const Icon(Icons.school, color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'ASSIGNED HIGHER EDUCATION INSTITUTION',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen, letterSpacing: 0.5),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            d['assigned_university_name'] ?? 'University',
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            const SizedBox(height: 20),
+              const SizedBox(height: 16),
+            ],
 
             // Attached Media & Evidence Section
             if (media.isNotEmpty) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Evidence & Media Attachments', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                  Text('${media.length} file(s)', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                ],
+              SectionHeader(
+                title: 'Evidence & Media Attachments',
+                trailing: Text('${media.length} file(s)', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
               const SizedBox(height: 10),
               SizedBox(
@@ -258,13 +312,15 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
                         onTap: () {
                           showDialog(
                             context: context,
                             builder: (_) => Dialog(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -313,7 +369,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                                         ApiService.resolveMediaUrl(fileUrl),
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, __, ___) => Container(
-                                          color: Colors.grey.shade100,
+                                          color: const Color(0xFFF1F5F9),
                                           child: const Icon(Icons.broken_image, color: Colors.grey),
                                         ),
                                       )
@@ -328,7 +384,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.all(6),
+                              padding: const EdgeInsets.all(8),
                               child: Text(
                                 fileName,
                                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
@@ -347,63 +403,121 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             ],
 
             // Status Timeline History
-            const Text('Status Audit History', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            ...history.map((h) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.radio_button_checked, size: 14, color: AppTheme.primaryGreen),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${h['to_status']} • ${h['updated_by']}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
-                            if (h['remarks'] != null)
-                              Text(h['remarks'], style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
+            const SectionHeader(title: 'Status Audit Trail'),
+            const SizedBox(height: 10),
+            SIPCard(
+              padding: const EdgeInsets.all(16),
+              child: history.isEmpty
+                  ? const Text('Initial status recorded.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))
+                  : Column(
+                      children: history.asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final h = entry.value;
+                        final isLast = i == history.length - 1;
+                        return IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Column(
+                                children: [
+                                  Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primaryGreen,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: Colors.white, width: 2),
+                                    ),
+                                  ),
+                                  if (!isLast)
+                                    Expanded(
+                                      child: Container(width: 2, color: const Color(0xFFCBD5E1)),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${h['to_status']} • ${h['updated_by']}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary),
+                                      ),
+                                      if (h['remarks'] != null) ...[
+                                        const SizedBox(height: 2),
+                                        Text(h['remarks'], style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+            ),
             const SizedBox(height: 20),
 
             // Discussion & Comments Section
-            const Text('Stakeholder Comments & Discussion', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+            SectionHeader(
+              title: 'Stakeholder Discussion',
+              trailing: Text('${comments.length} message(s)', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            ),
+            const SizedBox(height: 10),
             if (comments.isEmpty)
-              const Text('No comments yet.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12))
+              const SIPCard(
+                padding: EdgeInsets.all(16),
+                child: Text('No stakeholder comments yet.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+              )
             else
-              ...comments.map((c) => Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
+              ...comments.map((c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: SIPCard(
+                      padding: const EdgeInsets.all(14),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(c['author_name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: AppTheme.primaryGreen.withOpacity(0.1),
+                                    child: Text(
+                                      (c['author_name'] ?? 'U')[0].toUpperCase(),
+                                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(c['author_name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                ],
+                              ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(4)),
-                                child: Text(c['author_role'] ?? 'CITIZEN', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  c['author_role'] ?? 'CITIZEN',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
+                                ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(c['content'] ?? '', style: const TextStyle(fontSize: 12)),
+                          const SizedBox(height: 8),
+                          Text(c['content'] ?? '', style: const TextStyle(fontSize: 13, color: AppTheme.textPrimary, height: 1.4)),
                         ],
                       ),
                     ),
                   )),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
             // Add Comment Input
             Row(
@@ -411,63 +525,41 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                 Expanded(
                   child: TextField(
                     controller: _commentController,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Add an inquiry or update...',
-                      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 IconButton.filled(
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppTheme.primaryGreen,
+                    padding: const EdgeInsets.all(14),
+                  ),
                   icon: _isPostingComment
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.send, size: 18),
+                      : const Icon(Icons.send_rounded, size: 18, color: Colors.white),
                   onPressed: _isPostingComment ? null : _addComment,
                 ),
               ],
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 32),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildTierBadge(String tier) {
-    Color bg;
-    Color fg;
-    String label;
-    switch (tier.toUpperCase()) {
-      case 'PANCHAYAT':
-        bg = Colors.amber.shade100;
-        fg = Colors.amber.shade900;
-        label = 'TIER 1: GRAM PANCHAYAT';
-        break;
-      case 'BLOCK':
-        bg = Colors.indigo.shade100;
-        fg = Colors.indigo.shade900;
-        label = 'TIER 2: BLOCK (BDO)';
-        break;
-      case 'DISTRICT':
-        bg = Colors.teal.shade100;
-        fg = Colors.teal.shade900;
-        label = 'TIER 3: DISTRICT (DC)';
-        break;
-      case 'STATE':
-      default:
-        bg = Colors.green.shade100;
-        fg = Colors.green.shade900;
-        label = 'TIER 4: STATE HQ';
-        break;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: fg.withOpacity(0.3)),
-      ),
-      child: Text(label, style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 10)),
-    );
-  }
 }
+

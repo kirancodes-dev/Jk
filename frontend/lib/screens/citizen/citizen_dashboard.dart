@@ -4,12 +4,17 @@ import '../../core/auth_provider.dart';
 import '../../core/api_service.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
+import '../../widgets/sip_app_bar.dart';
+import '../../widgets/sip_card.dart';
+import '../../widgets/status_badge.dart';
+import '../../widgets/empty_state_view.dart';
+import '../../widgets/loading_skeleton.dart';
+import '../../widgets/section_header.dart';
 import 'report_challenge_screen.dart';
 import 'my_challenges_screen.dart';
 import 'nearby_challenges_screen.dart';
 import 'track_solution_screen.dart';
-import '../common/notifications_screen.dart';
-import '../common/profile_screen.dart';
+import 'challenge_details_screen.dart';
 
 class CitizenDashboard extends StatefulWidget {
   const CitizenDashboard({super.key});
@@ -22,7 +27,7 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
   List<Challenge> _challenges = [];
   bool _isLoading = true;
 
-  int _submitted = 0;
+  int _total = 0;
   int _underReview = 0;
   int _inProgress = 0;
   int _resolved = 0;
@@ -40,40 +45,35 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
       if (!mounted) return;
       setState(() {
         _challenges = list;
-        _submitted = list.where((c) => c.status == 'SUBMITTED').length;
-        _underReview = list.where((c) => c.status == 'UNDER_REVIEW' || c.status == 'AI_ANALYSIS').length;
+        _total = list.length;
+        _underReview = list.where((c) => c.status == 'SUBMITTED' || c.status == 'AI_ANALYSIS' || c.status == 'UNDER_REVIEW').length;
         _inProgress = list.where((c) => c.status != 'SUBMITTED' && c.status != 'UNDER_REVIEW' && c.status != 'AI_ANALYSIS' && c.status != 'RESOLVED').length;
         _resolved = list.where((c) => c.status == 'RESOLVED').length;
       });
     } catch (_) {
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().currentUser;
+    final firstName = user?.fullName.split(' ').first ?? 'Citizen';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Jharkhand Citizen Portal'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
-          ),
-        ],
+      backgroundColor: AppTheme.surfaceLight,
+      appBar: const SIPAppBar(
+        title: 'Citizen Portal',
+        subtitle: 'Government of Jharkhand',
+        showLeading: false,
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppTheme.primaryGreen,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Report Challenge', style: TextStyle(fontWeight: FontWeight.bold)),
+        elevation: 3,
+        icon: const Icon(Icons.add_a_photo_outlined, size: 20),
+        label: const Text('Report Challenge', style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2)),
         onPressed: () async {
           final res = await Navigator.push(
             context,
@@ -84,25 +84,30 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
       ),
       body: RefreshIndicator(
         onRefresh: _loadDashboardData,
+        color: AppTheme.primaryGreen,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Greeting Card
+              // Hero Greeting & Action Banner
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppTheme.primaryGreen, Color(0xFF147A49)],
+                    colors: [Color(0xFF0A5C36), Color(0xFF147A49)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4)),
+                    BoxShadow(
+                      color: const Color(0xFF0A5C36).withOpacity(0.25),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
                   ],
                 ),
                 child: Column(
@@ -111,37 +116,63 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Johar, ${user?.fullName.split(' ').first ?? 'Citizen'}! 🙏',
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        Row(
+                          children: [
+                            const Text('Johar, ', style: TextStyle(color: Color(0xFFD1FAE5), fontSize: 18, fontWeight: FontWeight.w500)),
+                            Text('$firstName!', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                          ],
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: Colors.white.withOpacity(0.2)),
                           ),
-                          child: const Text('Ranchi District', style: TextStyle(color: Colors.white, fontSize: 11)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.location_pin, size: 12, color: AppTheme.accentGoldLight),
+                              const SizedBox(width: 4),
+                              Text(
+                                user?.districtName ?? 'Jharkhand',
+                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Crowdsource community issues directly to Jharkhand universities & industry research centers.',
-                      style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.3),
+                      'Report local ground challenges in your village or ward to connect with university research teams and CSR innovation funding.',
+                      style: TextStyle(color: Color(0xFFE2E8F0), fontSize: 12.5, height: 1.45),
                     ),
-                    const SizedBox(height: 14),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.accentGold,
-                        foregroundColor: Colors.black87,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      ),
-                      icon: const Icon(Icons.campaign, size: 18),
-                      label: const Text('Report New Problem', style: TextStyle(fontWeight: FontWeight.bold)),
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ReportChallengeScreen()),
+                    const SizedBox(height: 18),
+
+                    // Primary Prominent CTA
+                    SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accentGold,
+                          foregroundColor: const Color(0xFF1E293B),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.campaign, size: 20),
+                        label: const Text(
+                          'REPORT A CHALLENGE NOW',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.4),
+                        ),
+                        onPressed: () async {
+                          final res = await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ReportChallengeScreen()),
+                          );
+                          if (res == true) _loadDashboardData();
+                        },
                       ),
                     ),
                   ],
@@ -149,88 +180,76 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
               ),
               const SizedBox(height: 20),
 
-              // Statistics Section
-              const Text('My Challenge Statistics', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
+              // Status Summary Cards (4 Metrics)
               Row(
                 children: [
-                  _statCard('Submitted', _submitted, AppTheme.info),
+                  _metricBox('My Challenges', _total, AppTheme.primaryGreen, Icons.folder_outlined),
                   const SizedBox(width: 8),
-                  _statCard('Under Review', _underReview, AppTheme.warning),
+                  _metricBox('Under Review', _underReview, AppTheme.warning, Icons.pending_outlined),
                   const SizedBox(width: 8),
-                  _statCard('In Progress', _inProgress, AppTheme.accentGold),
+                  _metricBox('In Progress', _inProgress, AppTheme.accentGold, Icons.engineering_outlined),
                   const SizedBox(width: 8),
-                  _statCard('Resolved', _resolved, AppTheme.success),
+                  _metricBox('Resolved', _resolved, AppTheme.success, Icons.task_alt_outlined),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 10),
 
-              // Quick Actions Grid
-              const Text('Quick Actions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
+              // Quick Actions Row
               Row(
                 children: [
                   Expanded(
-                    child: _actionCard(
-                      icon: Icons.list_alt,
-                      title: 'My Challenges',
-                      desc: 'Track progress & updates',
-                      color: AppTheme.primaryGreen,
+                    child: _actionButton(
+                      icon: Icons.checklist_rtl_outlined,
+                      title: 'My Submissions',
+                      subtitle: 'Track your filed issues',
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyChallengesScreen())),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
                   Expanded(
-                    child: _actionCard(
-                      icon: Icons.near_me,
-                      title: 'Nearby Challenges',
-                      desc: 'Issues in your district',
-                      color: AppTheme.accentGold,
+                    child: _actionButton(
+                      icon: Icons.explore_outlined,
+                      title: 'Nearby Issues',
+                      subtitle: 'District community feed',
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NearbyChallengesScreen())),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
 
-              // Recent Challenges List
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Recent Submissions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  TextButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyChallengesScreen())),
-                    child: const Text('View All'),
-                  ),
-                ],
+              // Recent Challenges Section
+              SectionHeader(
+                title: 'Recent Submissions',
+                subtitle: 'Track live status & university R&D progress',
+                actionLabel: _challenges.isNotEmpty ? 'View All' : null,
+                onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyChallengesScreen())),
               ),
-              if (_isLoading)
-                const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-              else if (_challenges.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(Icons.assignment_outlined, size: 48, color: Colors.grey.shade400),
-                      const SizedBox(height: 8),
-                      const Text('No challenges submitted yet', style: TextStyle(color: AppTheme.textSecondary)),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportChallengeScreen())),
-                        child: const Text('Report Your First Challenge'),
-                      ),
-                    ],
+
+              if (_isLoading) ...[
+                const LoadingSkeleton(height: 80),
+                const LoadingSkeleton(height: 80),
+              ] else if (_challenges.isEmpty)
+                EmptyStateView(
+                  icon: Icons.campaign_outlined,
+                  title: 'No challenges reported yet',
+                  description: 'Be the first to report a water, road, sanitation, or farming problem in your community.',
+                  actionLabel: 'Report Challenge',
+                  onAction: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ReportChallengeScreen()),
                   ),
                 )
               else
-                ..._challenges.take(3).map((ch) => _challengeCard(ch)),
-              const SizedBox(height: 60),
+                ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _challenges.take(4).length,
+                  itemBuilder: (context, index) {
+                    final ch = _challenges[index];
+                    return _challengeTile(ch);
+                  },
+                ),
+              const SizedBox(height: 70),
             ],
           ),
         ),
@@ -238,26 +257,26 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
     );
   }
 
-  Widget _statCard(String title, int count, Color color) {
+  Widget _metricBox(String label, int count, Color color, IconData icon) {
     return Expanded(
-      child: Container(
+      child: SIPCard(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
+        margin: EdgeInsets.zero,
         child: Column(
           children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(height: 6),
             Text(
               count.toString(),
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
-              title,
+              label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 9.5, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
             ),
           ],
         ),
@@ -265,66 +284,120 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
     );
   }
 
-  Widget _actionCard({
+  Widget _actionButton({
     required IconData icon,
     required String title,
-    required String desc,
-    required Color color,
+    required String subtitle,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    return SIPCard(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: color.withOpacity(0.12),
-              child: Icon(icon, color: color, size: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryGreen.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(height: 10),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            const SizedBox(height: 2),
-            Text(desc, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
-          ],
-        ),
+            child: Icon(icon, size: 20, color: AppTheme.primaryGreen),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                const SizedBox(height: 1),
+                Text(subtitle, style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward_ios, size: 12, color: AppTheme.textMuted),
+        ],
       ),
     );
   }
 
-  Widget _challengeCard(Challenge ch) {
-    Color badgeColor = AppTheme.info;
-    if (ch.status == 'RESOLVED') badgeColor = AppTheme.success;
-    if (ch.status == 'IN_PROGRESS') badgeColor = AppTheme.accentGold;
-
-    return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        title: Text(ch.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: Row(
+  Widget _challengeTile(Challenge ch) {
+    return SIPCard(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.all(14),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ChallengeDetailsScreen(challengeId: ch.id)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: badgeColor.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
-                child: Text(ch.status.replaceAll('_', ' '), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: badgeColor)),
-              ),
+              StatusBadge(status: ch.status),
               const SizedBox(width: 8),
-              Text(ch.category, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+              StatusBadge(status: ch.currentTier, isTier: true),
+              const Spacer(),
+              Text(
+                'Priority: ${ch.priority}',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: ch.priority == 'CRITICAL' ? AppTheme.error : (ch.priority == 'HIGH' ? Colors.deepOrange : AppTheme.textSecondary),
+                ),
+              ),
             ],
           ),
-        ),
-        trailing: const Icon(Icons.chevron_right, size: 20),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TrackSolutionScreen(challengeId: ch.id))),
+          const SizedBox(height: 10),
+          Text(
+            ch.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            ch.description,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.35),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.category_outlined, size: 13, color: AppTheme.textMuted),
+                  const SizedBox(width: 4),
+                  Text(ch.category, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, fontWeight: FontWeight.w500)),
+                ],
+              ),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => TrackSolutionScreen(challengeId: ch.id)),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Track Solution', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen)),
+                        SizedBox(width: 2),
+                        Icon(Icons.arrow_forward, size: 12, color: AppTheme.primaryGreen),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

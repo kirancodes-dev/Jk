@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
 import '../../core/theme.dart';
+import '../../widgets/sip_app_bar.dart';
+import '../../widgets/sip_card.dart';
+import '../../widgets/status_badge.dart';
+import '../../widgets/section_header.dart';
+import '../../widgets/empty_state_view.dart';
 import '../citizen/challenge_details_screen.dart';
 
 class JharkhandMapScreen extends StatefulWidget {
@@ -36,9 +41,10 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Jharkhand District Distribution')),
-        body: const Center(child: CircularProgressIndicator()),
+      return const Scaffold(
+        backgroundColor: AppTheme.background,
+        appBar: SIPAppBar(title: 'Jharkhand District Map'),
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
       );
     }
 
@@ -50,61 +56,95 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
     final chList = currentDist['challenges'] as List? ?? [];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Jharkhand 24-District Map (A2)')),
+      backgroundColor: AppTheme.background,
+      appBar: const SIPAppBar(
+        title: 'Jharkhand 24-District Map',
+        subtitle: 'Geographic Challenge Distribution & Heatmap',
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Geographic Visual Header
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF064E3B), Color(0xFF047857)],
+                  colors: [Color(0xFF0A5C36), Color(0xFF14532D)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryGreen.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.map, color: AppTheme.accentGold, size: 24),
-                      SizedBox(width: 8),
-                      Text('Statewide Geospatial Coverage', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentGold.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.map_rounded, color: AppTheme.accentGold, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Statewide Geospatial Coverage',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              '24 Districts • 260+ Blocks • 4,300+ Gram Panchayats',
+                              style: TextStyle(color: Colors.white70, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Track challenges reported across all 24 administrative districts of Jharkhand.',
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
-                  ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
 
-                  // District Selector Chip Row
-                  DropdownButtonFormField<String>(
-                    value: _selectedDistrict,
-                    dropdownColor: const Color(0xFF064E3B),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.15),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  // District Selector Dropdown
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
                     ),
-                    items: _districtData
-                        .map((d) => DropdownMenuItem<String>(
-                              value: d['district_name'],
-                              child: Text('${d['district_name']} (${d['challenge_count']} challenges)'),
-                            ))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) setState(() => _selectedDistrict = v);
-                    },
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _selectedDistrict,
+                        dropdownColor: const Color(0xFF0A5C36),
+                        isExpanded: true,
+                        icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                        items: _districtData
+                            .map((d) => DropdownMenuItem<String>(
+                                  value: d['district_name'],
+                                  child: Text('${d['district_name']} (${d['challenge_count']} challenges)'),
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) setState(() => _selectedDistrict = v);
+                        },
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -113,75 +153,126 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
 
             // District Demographic & Geo Summary
             if (currentDist.isNotEmpty) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('${currentDist['district_name']} District', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: AppTheme.primaryGreen, borderRadius: BorderRadius.circular(12)),
-                            child: Text('${currentDist['challenge_count']} Issues Reported', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+              SIPCard(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${currentDist['district_name']} District',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryGreen,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        ],
-                      ),
-                      const Divider(height: 20),
-                      Row(
-                        children: [
-                          _demographicItem('Population', '${currentDist['total_population'] ?? '25,00,000'}'),
-                          _demographicItem('Rural Share', '${currentDist['rural_population_pct'] ?? 80}%'),
-                          _demographicItem('GPS Lat/Lon', '${currentDist['latitude']}, ${currentDist['longitude']}'),
-                        ],
-                      ),
-                    ],
-                  ),
+                          child: Text(
+                            '${currentDist['challenge_count']} Issues Reported',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24, color: Color(0xFFE2E8F0)),
+                    Row(
+                      children: [
+                        _demographicItem('Est. Population', '${currentDist['total_population'] ?? '25,00,000'}'),
+                        _demographicItem('Rural Share', '${currentDist['rural_population_pct'] ?? 80}%'),
+                        _demographicItem('Coordinates', '${currentDist['latitude'] ?? '23.34'}, ${currentDist['longitude'] ?? '85.30'}'),
+                      ],
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
 
               // Challenges in this district
-              Text('Ground Challenges in $_selectedDistrict', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              SectionHeader(
+                title: 'Ground Challenges in $_selectedDistrict',
+                trailing: Text('${chList.length} recorded', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ),
               const SizedBox(height: 10),
               if (chList.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: Text('No challenges recorded in this district yet')),
-                  ),
+                const EmptyStateView(
+                  icon: Icons.check_circle_outline_rounded,
+                  title: 'No pending challenges in this district',
+                  description: 'All reported issues have either been resolved or none have been submitted yet.',
                 )
               else
-                ...chList.map((c) => Card(
-                      child: ListTile(
-                        title: Text(c['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        subtitle: Text('${c['category']} • Priority: ${c['priority']} • Status: ${c['status']}', style: const TextStyle(fontSize: 11)),
-                        trailing: const Icon(Icons.chevron_right, size: 18),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => ChallengeDetailsScreen(challengeId: c['id'])),
-                          );
-                        },
+                ...chList.map((c) {
+                  final priority = c['priority']?.toString() ?? 'MEDIUM';
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: SIPCard(
+                      padding: const EdgeInsets.all(14),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => ChallengeDetailsScreen(challengeId: c['id'])),
+                        );
+                      },
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryGreen.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        c['category']?.toString().toUpperCase() ?? 'GENERAL',
+                                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    StatusBadge(label: priority, type: StatusBadgeType.priority),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  c['title'] ?? '',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFF94A3B8)),
+                        ],
                       ),
-                    )),
+                    ),
+                  );
+                }),
             ],
             const SizedBox(height: 24),
 
             // All 24 Districts Grid Summary
-            const Text('All 24 Districts Summary', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SectionHeader(
+              title: 'All 24 Districts Directory',
+              trailing: Text('Tap to filter', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            ),
             const SizedBox(height: 10),
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 2.2,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
+                childAspectRatio: 2.3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
               ),
               itemCount: _districtData.length,
               itemBuilder: (context, index) {
@@ -189,13 +280,16 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
                 final isSelected = d['district_name'] == _selectedDistrict;
                 return InkWell(
                   onTap: () => setState(() => _selectedDistrict = d['district_name']),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primaryGreen.withOpacity(0.12) : Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: isSelected ? AppTheme.primaryGreen : Colors.grey.shade200, width: isSelected ? 1.5 : 1),
+                      color: isSelected ? AppTheme.primaryGreen.withOpacity(0.1) : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? AppTheme.primaryGreen : const Color(0xFFE2E8F0),
+                        width: isSelected ? 1.5 : 1,
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -204,15 +298,26 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
                           child: Text(
                             d['district_name'] ?? '',
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, fontSize: 12),
+                            style: TextStyle(
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              fontSize: 13,
+                              color: isSelected ? AppTheme.primaryGreen : AppTheme.textPrimary,
+                            ),
                           ),
                         ),
-                        CircleAvatar(
-                          radius: 12,
-                          backgroundColor: isSelected ? AppTheme.primaryGreen : Colors.grey.shade200,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppTheme.primaryGreen : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           child: Text(
                             '${d['challenge_count']}',
-                            style: TextStyle(color: isSelected ? Colors.white : AppTheme.textPrimary, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : AppTheme.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -221,7 +326,7 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
                 );
               },
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 36),
           ],
         ),
       ),
@@ -233,11 +338,12 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary)),
-          const SizedBox(height: 2),
-          Text(val, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+          const SizedBox(height: 4),
+          Text(val, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
         ],
       ),
     );
   }
 }
+
