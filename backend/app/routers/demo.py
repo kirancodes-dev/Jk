@@ -1,12 +1,18 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db, Base, engine
+from backend.app.core.config import settings
 from backend.app.services.seed_data import seed_database
 
 router = APIRouter(prefix="/demo", tags=["Demo & Seeding"])
 
 @router.post("/reset")
 def reset_demo_data(db: Session = Depends(get_db)):
+    if not settings.DEMO_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Database reset is disabled in production (DEMO_MODE=false)."
+        )
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     seed_database(db)
@@ -17,6 +23,11 @@ def reset_demo_data(db: Session = Depends(get_db)):
 
 @router.get("/accounts")
 def get_demo_accounts():
+    if not settings.DEMO_MODE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Demo account discovery is disabled in production (DEMO_MODE=false)."
+        )
     return {
         "password_for_all": "password123",
         "accounts": [

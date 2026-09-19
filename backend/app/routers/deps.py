@@ -133,3 +133,82 @@ def require_permissions(required_permissions: List[str]):
                 )
         return current_user
     return permission_checker
+
+def verify_project_membership(project_id: int, current_user: User, db: Session):
+    """
+    Enforces object-level authorization (IDOR prevention).
+    Ensures that students, faculty, or universities can only access or modify
+    projects they are officially assigned to.
+    """
+    from backend.app.models.models import Project, ProjectMember, Student, Faculty, University
+
+    # Government administrators have state-wide oversight
+    if current_user.role == UserRole.GOVERNMENT_ADMIN:
+        return True
+
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    if current_user.role == UserRole.UNIVERSITY:
+        univ = db.query(University).filter(University.user_id == current_user.id).first()
+        if univ and project.university_id == univ.id:
+            return True
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: This project belongs to another academic institution."
+        )
+
+    if current_user.role == UserRole.FACULTY_MENTOR:
+        faculty = db.query(Faculty).filter(Faculty.user_id == current_user.id).first()
+        if faculty and (project.faculty_mentor_id == faculty.id or project.university_id == faculty.university_id):
+            return True
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You are not the assigned faculty mentor for this project."
+        )
+
+    if current_user.role == UserRole.STUDENT:
+        student = db.query(Student).filter(Student.user_id == current_user.id).first()
+        if student:
+            is_member = db.query(ProjectMember).filter(
+                ProjectMember.project_id == project_id,
+                ProjectMember.student_id == student.id
+            ).first()
+            if is_member:
+                return True
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You are not an assigned student team member for this project."
+        )
+
+    if current_user.role == UserRole.INDUSTRY:
+        # Industry can view projects, but modifying milestones or tasks is restricted
+        return True
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Forbidden: You do not have permission to access this project."
+    )
+
+def verify_challenge_ownership(challenge_id: int, current_user: User, db: Session):
+    """
+    Ensures that citizens can only modify or submit private feedback on challenges they created.
+    """
+    from backend.app.models.models import Challenge, Citizen
+
+    if current_user.role == UserRole.GOVERNMENT_ADMIN:
+        return True
+
+    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Challenge not found")
+
+    citizen = db.query(Citizen).filter(Citizen.user_id == current_user.id).first()
+    if citizen and challenge.citizen_id == citizen.id:
+        return True
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Forbidden: You are not the reporter of this challenge."
+    )

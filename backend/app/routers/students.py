@@ -96,12 +96,30 @@ def submit_task_work(
     task = db.query(ProjectTask).filter(ProjectTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-        
+
+    # Object-level authorization: ensure student is assigned to task or project member
+    if current_user.role != "GOVERNMENT_ADMIN":
+        student = db.query(Student).filter(Student.user_id == current_user.id).first()
+        if not student:
+            raise HTTPException(status_code=403, detail="Only registered students can submit task work")
+
+        is_assigned = (task.assigned_to_student_id == student.id)
+        is_project_member = db.query(ProjectMember).filter(
+            ProjectMember.project_id == task.project_id,
+            ProjectMember.student_id == student.id
+        ).first()
+
+        if not (is_assigned or is_project_member):
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden: You are not assigned to this task or this project's research team"
+            )
+
     task.is_completed = True if payload.is_completed is None else payload.is_completed
     if payload.submission_notes:
         task.submission_notes = payload.submission_notes
     if payload.submission_attachment:
         task.submission_attachment = payload.submission_attachment
-        
+
     db.commit()
     return {"status": "success", "message": "Work submitted successfully for mentor review"}

@@ -67,7 +67,20 @@ def approve_milestone(
     ms = db.query(ProjectMilestone).filter(ProjectMilestone.id == milestone_id).first()
     if not ms:
         raise HTTPException(status_code=404, detail="Milestone not found")
-        
+
+    # Object-level authorization: ensure faculty is mentor of the milestone's project or admin
+    if current_user.role != "GOVERNMENT_ADMIN":
+        faculty = db.query(Faculty).filter(Faculty.user_id == current_user.id).first()
+        if not faculty:
+            raise HTTPException(status_code=403, detail="Only verified faculty mentors can approve milestones")
+
+        project = db.query(Project).filter(Project.id == ms.project_id).first()
+        if not project or (project.faculty_mentor_id != faculty.id and project.university_id != faculty.university_id):
+            raise HTTPException(
+                status_code=403,
+                detail="Forbidden: You are not the assigned mentor for this project."
+            )
+
     ms.approved_by_faculty = True
     ms.approved_at = datetime.now(timezone.utc)
     ms.status = MilestoneStatus.APPROVED

@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status, BackgroundTasks, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from backend.app.core.database import get_db
@@ -24,14 +24,53 @@ from backend.app.models.models import AuditLog
 
 router = APIRouter(prefix="/challenges", tags=["Challenges"])
 
+def run_background_ai_analysis(challenge_id: int, user_id: int, district_name: str, title: str):
+    """
+    Executes heavy AI NLP, duplicate detection, and university ranking
+    in the background to prevent API latency spikes.
+    """
+    from backend.app.core.database import SessionLocal
+    db = SessionLocal()
+    try:
+        challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+        if challenge:
+            ai_service.analyze_challenge(challenge, db)
+            db.add(StatusHistory(
+                challenge_id=challenge.id,
+                from_status="SUBMITTED",
+                to_status="AI_ANALYSIS",
+                updated_by="SIH AI Engine (Background Worker)",
+                remarks="Asynchronous AI Classification, Priority Assessment & University Matching completed"
+            ))
+            notification_service.notify_role(
+                db,
+                UserRole.GOVERNMENT_ADMIN,
+                title="New Societal Challenge Ready for Triage",
+                message=f"Challenge '{title}' in {district_name} has completed automated AI screening.",
+                reference_id=challenge.id
+            )
+            notification_service.create_notification(
+                db,
+                user_id=user_id,
+                title="Challenge AI Screening Complete",
+                message=f"Your challenge '{title}' has been categorized and routed for government review.",
+                reference_id=challenge.id
+            )
+            db.commit()
+    finally:
+        db.close()
+
 @router.get("", response_model=List[ChallengeOut])
 def list_challenges(
+    response: Response,
     category: Optional[str] = None,
     district: Optional[str] = None,
     status: Optional[str] = None,
     priority: Optional[str] = None,
     tier: Optional[str] = None,
     search: Optional[str] = None,
+    page: Optional[int] = Query(None, ge=1, description="Page number"),
+    page_size: Optional[int] = Query(None, ge=1, le=100, description="Items per page"),
     db: Session = Depends(get_db)
 ):
     query = db.query(Challenge)
@@ -49,8 +88,18 @@ def list_challenges(
     if search:
         term = f"%{search}%"
         query = query.filter(or_(Challenge.title.ilike(term), Challenge.description.ilike(term)))
+
+    total_count = query.count()
+    response.headers["X-Total-Count"] = str(total_count)
+
+    query = query.order_by(Challenge.created_at.desc())
+    if page and page_size:
+        response.headers["X-Page"] = str(page)
+        response.headers["X-Page-Size"] = str(page_size)
+        response.headers["X-Total-Pages"] = str((total_count + page_size - 1) // page_size)
+        query = query.offset((page - 1) * page_size).limit(page_size)
         
-    challenges = query.order_by(Challenge.created_at.desc()).all()
+    challenges = query.all()
     
     result = []
     for ch in challenges:
@@ -80,6 +129,8 @@ def list_challenges(
 @router.post("", response_model=ChallengeDetailOut, status_code=status.HTTP_201_CREATED)
 def report_challenge(
     payload: ChallengeCreate,
+    background_tasks: BackgroundTasks,
+    async_ai: bool = Query(False, description="Whether to run AI processing asynchronously in background"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -140,36 +191,45 @@ def report_challenge(
     ))
     db.commit()
     
-    # Run AI Analysis Pipeline
-    ai_service.analyze_challenge(challenge, db)
-    
-    # Record AI status transition
-    db.add(StatusHistory(
-        challenge_id=challenge.id,
-        from_status="SUBMITTED",
-        to_status="AI_ANALYSIS",
-        updated_by="SIH AI Engine",
-        remarks="AI Categorization, Priority Scoring & University Matching completed"
-    ))
-    
-    # Notify Admin of new challenge
-    notification_service.notify_role(
-        db,
-        UserRole.GOVERNMENT_ADMIN,
-        title="New Societal Challenge Submitted",
-        message=f"A new challenge '{challenge.title}' was reported in {payload.location.district_name}.",
-        reference_id=challenge.id
-    )
-    
-    # Notify Citizen
-    notification_service.create_notification(
-        db,
-        user_id=current_user.id,
-        title="Challenge Submitted & AI Analyzed",
-        message=f"Your challenge '{challenge.title}' is logged and analyzed by the AI engine.",
-        reference_id=challenge.id
-    )
-    db.commit()
+    if async_ai:
+        background_tasks.add_task(
+            run_background_ai_analysis,
+            challenge.id,
+            current_user.id,
+            payload.location.district_name,
+            challenge.title
+        )
+    else:
+        # Run AI Analysis Pipeline synchronously
+        ai_service.analyze_challenge(challenge, db)
+        
+        # Record AI status transition
+        db.add(StatusHistory(
+            challenge_id=challenge.id,
+            from_status="SUBMITTED",
+            to_status="AI_ANALYSIS",
+            updated_by="SIH AI Engine",
+            remarks="AI Categorization, Priority Scoring & University Matching completed"
+        ))
+        
+        # Notify Admin of new challenge
+        notification_service.notify_role(
+            db,
+            UserRole.GOVERNMENT_ADMIN,
+            title="New Societal Challenge Submitted",
+            message=f"A new challenge '{challenge.title}' was reported in {payload.location.district_name}.",
+            reference_id=challenge.id
+        )
+        
+        # Notify Citizen
+        notification_service.create_notification(
+            db,
+            user_id=current_user.id,
+            title="Challenge Submitted & AI Analyzed",
+            message=f"Your challenge '{challenge.title}' is logged and analyzed by the AI engine.",
+            reference_id=challenge.id
+        )
+        db.commit()
     
     return get_challenge_detail(challenge.id, current_user=current_user, db=db)
 

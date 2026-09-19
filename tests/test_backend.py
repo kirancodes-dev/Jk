@@ -4,8 +4,11 @@ from backend.app.main import app
 from backend.app.core.database import Base, engine, SessionLocal
 from backend.app.services.seed_data import seed_database
 
+from backend.app.core.config import settings
+
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
+    settings.DEMO_MODE = True
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:

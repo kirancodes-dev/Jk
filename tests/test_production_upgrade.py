@@ -178,3 +178,47 @@ def test_verification_record_submission_and_review(client):
     }, headers=admin_headers)
     assert review_res.status_code == 200
     assert review_res.json()["verification_status"] in ["VERIFIED", "APPROVED"]
+
+def test_pagination_headers(client):
+    res = client.get("/api/v1/challenges?page=1&page_size=5")
+    assert res.status_code == 200
+    assert "X-Total-Count" in res.headers
+    assert "X-Page" in res.headers
+    assert res.headers["X-Page"] == "1"
+    assert "X-Page-Size" in res.headers
+    assert res.headers["X-Page-Size"] == "5"
+    assert len(res.json()) <= 5
+
+def test_demo_mode_gating(client):
+    from backend.app.core.config import settings
+    # Test when DEMO_MODE is False
+    settings.DEMO_MODE = False
+    res = client.post("/api/v1/demo/reset")
+    assert res.status_code == 403
+    accounts_res = client.get("/api/v1/demo/accounts")
+    assert accounts_res.status_code == 403
+    # Restore for other tests
+    settings.DEMO_MODE = True
+
+def test_async_ai_background_processing(client):
+    login_res = client.post("/api/v1/auth/login", json={
+        "email": "citizen@jharkhand.gov.in",
+        "password": "password123"
+    })
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    res = client.post("/api/v1/challenges?async_ai=true", json={
+        "title": "Broken Handpump in Tamar Village",
+        "description": "Deep borehole handpump handle snapped off, leaving 120 villagers without water.",
+        "category": "Water Management",
+        "urgency": "High",
+        "location": {
+            "district_name": "Ranchi",
+            "block_name": "Tamar",
+            "village_or_city": "Ulidih"
+        }
+    }, headers=headers)
+    assert res.status_code == 201
+    data = res.json()
+    assert data["id"] is not None

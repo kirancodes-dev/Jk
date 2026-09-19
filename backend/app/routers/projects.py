@@ -1,6 +1,6 @@
 from typing import List, Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.models.models import (
@@ -20,8 +20,24 @@ from backend.app.routers.deps import get_current_user
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
 @router.get("", response_model=List[ProjectOut])
-def list_projects(db: Session = Depends(get_db)):
-    projects = db.query(Project).order_by(Project.created_at.desc()).all()
+def list_projects(
+    response: Response,
+    page: Optional[int] = Query(None, ge=1, description="Page number"),
+    page_size: Optional[int] = Query(None, ge=1, le=100, description="Items per page"),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Project)
+    total_count = query.count()
+    response.headers["X-Total-Count"] = str(total_count)
+
+    query = query.order_by(Project.created_at.desc())
+    if page and page_size:
+        response.headers["X-Page"] = str(page)
+        response.headers["X-Page-Size"] = str(page_size)
+        response.headers["X-Total-Pages"] = str((total_count + page_size - 1) // page_size)
+        query = query.offset((page - 1) * page_size).limit(page_size)
+
+    projects = query.all()
     out = []
     for p in projects:
         out.append(ProjectOut(
