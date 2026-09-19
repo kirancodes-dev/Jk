@@ -17,7 +17,9 @@ from backend.app.schemas.schemas import (
 from backend.app.services.ai_service import ai_service
 from backend.app.services.storage_service import storage_service
 from backend.app.services.notification_service import notification_service
-from backend.app.routers.deps import get_current_user, require_roles
+from backend.app.routers.deps import get_current_user, require_roles, get_optional_current_user
+from backend.app.core.state_machine import validate_and_apply_challenge_transition
+from backend.app.models.models import AuditLog
 
 router = APIRouter(prefix="/challenges", tags=["Challenges"])
 
@@ -168,7 +170,7 @@ def report_challenge(
     )
     db.commit()
     
-    return get_challenge_detail(challenge.id, db)
+    return get_challenge_detail(challenge.id, current_user=current_user, db=db)
 
 @router.get("/my", response_model=List[ChallengeOut])
 def get_my_challenges(
@@ -229,7 +231,11 @@ def get_nearby_challenges(
     return result
 
 @router.get("/{challenge_id}", response_model=ChallengeDetailOut)
-def get_challenge_detail(challenge_id: int, db: Session = Depends(get_db)):
+def get_challenge_detail(
+    challenge_id: int, 
+    current_user: Optional[User] = Depends(get_optional_current_user),
+    db: Session = Depends(get_db)
+):
     ch = db.query(Challenge).filter(Challenge.id == challenge_id).first()
     if not ch:
         raise HTTPException(status_code=404, detail="Challenge not found")
@@ -239,14 +245,26 @@ def get_challenge_detail(challenge_id: int, db: Session = Depends(get_db)):
     
     loc_out = None
     if ch.location:
+        is_privileged = (
+            current_user is not None and (
+                current_user.role == UserRole.GOVERNMENT_ADMIN or 
+                (ch.citizen and ch.citizen.user_id == current_user.id)
+            )
+        )
+        lat = ch.location.latitude
+        lng = ch.location.longitude
+        if not is_privileged and lat is not None and lng is not None:
+            lat = round(lat, 2)
+            lng = round(lng, 2)
+
         loc_out = ChallengeLocationOut(
             id=ch.location.id,
             district_name=ch.location.district_name,
             block_name=ch.location.block_name,
             village_or_city=ch.location.village_or_city,
-            location_address=ch.location.location_address,
-            latitude=ch.location.latitude,
-            longitude=ch.location.longitude
+            location_address=ch.location.location_address if is_privileged else f"{ch.location.block_name or ch.location.district_name}, Jharkhand",
+            latitude=lat,
+            longitude=lng
         )
         
     media_out = [
@@ -354,17 +372,16 @@ def update_challenge_status(
     if not ch:
         raise HTTPException(status_code=404, detail="Challenge not found")
         
-    old_status = ch.status.value if ch.status else None
-    ch.status = payload.status
-    
-    # Audit log
-    db.add(StatusHistory(
-        challenge_id=ch.id,
-        from_status=old_status,
-        to_status=payload.status.value,
-        updated_by=f"{current_user.full_name} ({current_user.role.value})",
-        remarks=payload.remarks or f"Status transitioned to {payload.status.value}"
-    ))
+    # Enforce state machine transition & immutable audit log
+    validate_and_apply_challenge_transition(
+        db=db,
+        challenge=ch,
+        to_status=payload.status,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        actor_name=current_user.full_name,
+        remarks=payload.remarks
+    )
     
     # Notify citizen if challenge has citizen
     if ch.citizen and ch.citizen.user:
@@ -382,7 +399,7 @@ def update_challenge_status(
 def assign_university(
     challenge_id: int,
     payload: AssignUniversityRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_roles([UserRole.GOVERNMENT_ADMIN])),
     db: Session = Depends(get_db)
 ):
     ch = db.query(Challenge).filter(Challenge.id == challenge_id).first()
@@ -402,6 +419,18 @@ def assign_university(
         to_status="UNIVERSITY_ASSIGNED",
         updated_by=f"{current_user.full_name} ({current_user.role.value})",
         remarks=f"Challenge formally assigned to {univ.institution_name}"
+    ))
+
+    db.add(AuditLog(
+        actor_id=current_user.id,
+        actor_name=current_user.full_name,
+        actor_role=current_user.role.value,
+        action="CHALLENGE_ASSIGN_UNIVERSITY",
+        entity_name="Challenge",
+        entity_id=ch.id,
+        old_state=old_status,
+        new_state=f"Assigned to {univ.institution_name} (ID: {univ.id})",
+        reason=f"Government routing to {univ.institution_name}"
     ))
     
     # Notify University user
@@ -457,7 +486,34 @@ def add_comment(
 
 @router.post("/upload")
 async def upload_challenge_file(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user)
 ):
     url = await storage_service.save_file(file, subfolder="challenges")
     return {"file_url": url, "file_name": file.filename}
+
+@router.get("/{challenge_id}/history")
+def get_challenge_history(
+    challenge_id: int,
+    db: Session = Depends(get_db)
+):
+    ch = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    logs = db.query(AuditLog).filter(
+        AuditLog.entity_name == "Challenge",
+        AuditLog.entity_id == challenge_id
+    ).order_by(AuditLog.timestamp.desc()).all()
+    if not logs:
+        return [
+            {
+                "actor_name": h.updated_by,
+                "action": "STATUS_CHANGED",
+                "old_state": h.from_status,
+                "new_state": h.to_status,
+                "reason": h.remarks,
+                "timestamp": h.changed_at.isoformat() if h.changed_at else ""
+            }
+            for h in sorted(ch.status_history, key=lambda x: x.changed_at, reverse=True)
+        ]
+    return logs

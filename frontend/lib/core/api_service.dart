@@ -67,11 +67,23 @@ class ApiService {
 
   // ----------------- AUTH -----------------
 
-  static Future<Map<String, dynamic>> login(String email, String password) async {
+  static Future<Map<String, dynamic>> login(
+    String email,
+    String password, {
+    String? role,
+    int? universityId,
+  }) async {
+    final Map<String, dynamic> body = {
+      'email': email,
+      'password': password,
+    };
+    if (role != null) body['role'] = role;
+    if (universityId != null) body['university_id'] = universityId;
+
     final res = await http.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
+      body: jsonEncode(body),
     );
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);

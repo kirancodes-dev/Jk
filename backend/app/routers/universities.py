@@ -15,10 +15,33 @@ def list_universities(db: Session = Depends(get_db)):
     univs = db.query(University).all()
     results = []
     for u in univs:
+        city = u.district_name
+        state = "Jharkhand"
+        if u.address:
+            addr_lower = u.address.lower()
+            if "karnataka" in addr_lower or "bengaluru" in addr_lower or "bangalore" in addr_lower:
+                state = "Karnataka"
+            elif "jharkhand" in addr_lower:
+                state = "Jharkhand"
+            elif "bihar" in addr_lower:
+                state = "Bihar"
+            elif "delhi" in addr_lower:
+                state = "Delhi"
+            elif "maharashtra" in addr_lower:
+                state = "Maharashtra"
+
+        is_verified = True
+        if u.user and hasattr(u.user, "is_verified"):
+            is_verified = bool(u.user.is_verified)
+
         results.append({
             "id": u.id,
             "institution_name": u.institution_name,
             "district_name": u.district_name,
+            "city": city,
+            "state": state,
+            "is_verified": is_verified,
+            "address": u.address,
             "website": u.website,
             "has_incubation_center": u.has_incubation_center,
             "has_innovation_center": u.has_innovation_center,

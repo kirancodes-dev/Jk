@@ -1,0 +1,180 @@
+import pytest
+from fastapi.testclient import TestClient
+from backend.app.main import app
+from backend.app.core.database import Base, engine, SessionLocal
+from backend.app.services.seed_data import seed_database
+from backend.app.models.models import Challenge, AuditLog, CitizenFeedback, VerificationRecord
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_db():
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        seed_database(db)
+    finally:
+        db.close()
+    yield
+
+@pytest.fixture
+def client():
+    with TestClient(app) as c:
+        yield c
+
+def test_refresh_token_flow(client):
+    login_res = client.post("/api/v1/auth/login", json={
+        "email": "admin@jharkhand.gov.in",
+        "password": "password123"
+    })
+    assert login_res.status_code == 200
+    tokens = login_res.json()
+    assert "access_token" in tokens
+    assert "refresh_token" in tokens
+
+    # Test token refresh
+    refresh_res = client.post("/api/v1/auth/refresh", json={
+        "refresh_token": tokens["refresh_token"]
+    })
+    assert refresh_res.status_code == 200
+    new_tokens = refresh_res.json()
+    assert "access_token" in new_tokens
+    assert "refresh_token" in new_tokens
+
+def test_token_logout_revocation(client):
+    login_res = client.post("/api/v1/auth/login", json={
+        "email": "citizen@jharkhand.gov.in",
+        "password": "password123"
+    })
+    token = login_res.json()["access_token"]
+
+    # Verify active access works
+    me_res = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me_res.status_code == 200
+
+    # Logout
+    logout_res = client.post(
+        "/api/v1/auth/logout",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert logout_res.status_code == 200
+
+    # Revoked token should be rejected on protected endpoints
+    revoked_res = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert revoked_res.status_code == 401
+
+def test_unauthenticated_upload_rejected(client):
+    # Missing Authorization header
+    res = client.post("/api/v1/challenges/upload")
+    assert res.status_code == 401
+
+def test_invalid_otp_rejected(client):
+    res = client.post("/api/v1/auth/verify-otp", json={
+        "email": "citizen@jharkhand.gov.in",
+        "otp": "999999"
+    })
+    assert res.status_code == 400
+
+def test_state_machine_transition_and_audit_logging(client):
+    # 1. Login as Admin
+    admin_login = client.post("/api/v1/auth/login", json={
+        "email": "admin@jharkhand.gov.in",
+        "password": "password123"
+    })
+    admin_token = admin_login.json()["access_token"]
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # 2. Get existing challenge
+    ch_res = client.get("/api/v1/challenges")
+    assert ch_res.status_code == 200
+    challenges = ch_res.json()
+    assert len(challenges) > 0
+    target_ch = challenges[0]
+    ch_id = target_ch["id"]
+
+    # 3. Transition challenge status as Admin
+    status_res = client.post(
+        f"/api/v1/challenges/{ch_id}/status",
+        json={"status": "UNDER_REVIEW", "remarks": "Official government validation"},
+        headers=admin_headers
+    )
+    assert status_res.status_code == 200
+
+    # 4. Verify audit log / status history was created
+    audit_res = client.get(f"/api/v1/challenges/{ch_id}/history")
+    assert audit_res.status_code == 200
+    logs = audit_res.json()
+    assert len(logs) >= 1
+    assert any("UNDER_REVIEW" in str(log) for log in logs)
+
+def test_citizen_feedback_and_impact_metrics(client):
+    # Login citizen
+    login_res = client.post("/api/v1/auth/login", json={
+        "email": "citizen@jharkhand.gov.in",
+        "password": "password123"
+    })
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    ch_res = client.get("/api/v1/challenges")
+    ch_id = ch_res.json()[0]["id"]
+
+    # Submit citizen feedback
+    fb_res = client.post("/api/v1/impact/feedback", json={
+        "challenge_id": ch_id,
+        "rating": 5,
+        "is_issue_resolved": True,
+        "satisfaction_score": 95.0,
+        "comments": "Solar water pump is installed and working perfectly for all 400 students."
+    }, headers=headers)
+    assert fb_res.status_code == 201
+    fb_data = fb_res.json()
+    assert fb_data["rating"] == 5
+
+    # Check metrics
+    metrics_res = client.get("/api/v1/impact/metrics")
+    assert metrics_res.status_code == 200
+    metrics = metrics_res.json()
+    assert "citizen_satisfaction_avg" in metrics
+    assert "total_challenges" in metrics
+
+def test_verification_record_submission_and_review(client):
+    # Login as Student
+    stud_login = client.post("/api/v1/auth/login", json={
+        "email": "rahul.verma@bitmesra.ac.in",
+        "password": "password123"
+    })
+    stud_token = stud_login.json()["access_token"]
+    stud_headers = {"Authorization": f"Bearer {stud_token}"}
+
+    # Get a project
+    proj_res = client.get("/api/v1/projects")
+    assert proj_res.status_code == 200
+    projects = proj_res.json()
+    assert len(projects) > 0
+    proj_id = projects[0]["id"]
+
+    # Submit verification record
+    v_res = client.post("/api/v1/verification/records", json={
+        "project_id": proj_id,
+        "verification_type": "FIELD_INSPECTION",
+        "inspector_name": "Field Officer Ananya",
+        "evidence_urls": ["https://storage.jharkhand.gov.in/evidence/water_test.pdf"],
+        "geotagged_lat": 23.3441,
+        "geotagged_lng": 85.3096,
+        "inspection_notes": "Groundwater filtration unit inspected and water purity verified."
+    }, headers=stud_headers)
+    assert v_res.status_code == 201
+    record_id = v_res.json()["id"]
+
+    # Admin review and approval
+    admin_login = client.post("/api/v1/auth/login", json={
+        "email": "admin@jharkhand.gov.in",
+        "password": "password123"
+    })
+    admin_headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+
+    review_res = client.post(f"/api/v1/verification/records/{record_id}/review", json={
+        "status": "APPROVED",
+        "review_notes": "Complies with drinking water safety standards ISO 10500:2012."
+    }, headers=admin_headers)
+    assert review_res.status_code == 200
+    assert review_res.json()["verification_status"] in ["VERIFIED", "APPROVED"]

@@ -12,9 +12,10 @@ CREATE TYPE challenge_priority AS ENUM (
 );
 
 CREATE TYPE challenge_status AS ENUM (
-    'SUBMITTED', 'AI_ANALYSIS', 'UNDER_REVIEW', 'VALIDATED',
-    'UNIVERSITY_ASSIGNED', 'TEAM_FORMED', 'SOLUTION_PROPOSED',
-    'APPROVED', 'PROTOTYPE', 'FIELD_TESTING', 'DEPLOYMENT', 'RESOLVED', 'REJECTED'
+    'SUBMITTED', 'AI_ANALYSIS', 'UNDER_REVIEW', 'NEEDS_MORE_INFO', 'DUPLICATE',
+    'VALIDATED', 'UNIVERSITY_ASSIGNED', 'TEAM_FORMED', 'SOLUTION_PROPOSED',
+    'APPROVED', 'PROTOTYPE', 'FIELD_TESTING', 'DEPLOYMENT', 'IN_PROGRESS',
+    'FIELD_VERIFICATION', 'RESOLVED', 'CLOSED', 'REJECTED'
 );
 
 CREATE TYPE milestone_status AS ENUM (
@@ -356,3 +357,82 @@ CREATE TABLE impact_metrics (
     category VARCHAR(100) DEFAULT 'General',
     last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 29. Revoked Tokens (Session Revocation Registry)
+CREATE TABLE revoked_tokens (
+    id SERIAL PRIMARY KEY,
+    jti VARCHAR(255) UNIQUE NOT NULL,
+    revoked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL
+);
+CREATE INDEX idx_revoked_tokens_jti ON revoked_tokens(jti);
+
+-- 30. Audit Logs (Tamper-Evident Governance Trail)
+CREATE TABLE audit_logs (
+    id SERIAL PRIMARY KEY,
+    actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    actor_name VARCHAR(255),
+    actor_role VARCHAR(50),
+    action VARCHAR(100) NOT NULL,
+    entity_name VARCHAR(100) NOT NULL,
+    entity_id INTEGER NOT NULL,
+    old_state TEXT,
+    new_state TEXT,
+    ip_address VARCHAR(50),
+    user_agent VARCHAR(255),
+    reason TEXT,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_name, entity_id);
+CREATE INDEX idx_audit_logs_timestamp ON audit_logs(timestamp);
+
+-- 31. Organization Profiles (Accreditation & KYC Verification)
+CREATE TABLE organization_profiles (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    legal_name VARCHAR(255) NOT NULL,
+    org_type VARCHAR(100) NOT NULL,
+    registration_number VARCHAR(100),
+    tax_identifier VARCHAR(100),
+    verification_status VARCHAR(50) DEFAULT 'PENDING',
+    submitted_documents TEXT,
+    approved_by_user_id INTEGER REFERENCES users(id),
+    verification_notes TEXT,
+    verified_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_org_profiles_status ON organization_profiles(verification_status);
+
+-- 32. Verification Records (Field Inspections & Evidence Sign-off)
+CREATE TABLE verification_records (
+    id SERIAL PRIMARY KEY,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    milestone_id INTEGER REFERENCES project_milestones(id) ON DELETE SET NULL,
+    verification_type VARCHAR(100) NOT NULL,
+    inspector_name VARCHAR(255) NOT NULL,
+    inspector_role VARCHAR(100) NOT NULL,
+    verification_status VARCHAR(50) DEFAULT 'SUBMITTED',
+    evidence_urls TEXT,
+    geotagged_lat FLOAT,
+    geotagged_lng FLOAT,
+    inspection_notes TEXT,
+    verified_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_verification_records_project ON verification_records(project_id);
+
+-- 33. Citizen Feedback (Post-Resolution Validation)
+CREATE TABLE citizen_feedback (
+    id SERIAL PRIMARY KEY,
+    challenge_id INTEGER NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+    citizen_id INTEGER NOT NULL REFERENCES citizens(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL,
+    is_issue_resolved BOOLEAN DEFAULT TRUE,
+    satisfaction_score FLOAT DEFAULT 100.0,
+    comments TEXT,
+    evidence_photo_url VARCHAR(500),
+    submitted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_citizen_feedback_challenge ON citizen_feedback(challenge_id);
+

@@ -27,6 +27,8 @@ class ChallengeStatus(str, enum.Enum):
     SUBMITTED = "SUBMITTED"
     AI_ANALYSIS = "AI_ANALYSIS"
     UNDER_REVIEW = "UNDER_REVIEW"
+    NEEDS_MORE_INFO = "NEEDS_MORE_INFO"
+    DUPLICATE = "DUPLICATE"
     VALIDATED = "VALIDATED"
     UNIVERSITY_ASSIGNED = "UNIVERSITY_ASSIGNED"
     TEAM_FORMED = "TEAM_FORMED"
@@ -36,7 +38,9 @@ class ChallengeStatus(str, enum.Enum):
     FIELD_TESTING = "FIELD_TESTING"
     DEPLOYMENT = "DEPLOYMENT"
     IN_PROGRESS = "IN_PROGRESS"
+    FIELD_VERIFICATION = "FIELD_VERIFICATION"
     RESOLVED = "RESOLVED"
+    CLOSED = "CLOSED"
     REJECTED = "REJECTED"
 
 class MilestoneStatus(str, enum.Enum):
@@ -215,6 +219,10 @@ class Challenge(Base):
     
     citizen_id = Column(Integer, ForeignKey("citizens.id"), nullable=True)
     assigned_university_id = Column(Integer, ForeignKey("universities.id"), nullable=True)
+    affected_population = Column(Integer, default=100)
+    moderation_reason = Column(Text, nullable=True)
+    moderated_by = Column(String(255), nullable=True)
+    moderated_at = Column(DateTime, nullable=True)
     
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
@@ -362,6 +370,8 @@ class ProjectMilestone(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     completion_percentage = Column(Float, default=0.0)
+    weight_pct = Column(Float, default=20.0)  # Weights sum to 100%
+    deliverable_files = Column(Text, nullable=True)  # JSON list of evidence/document links
     status = Column(SQLEnum(MilestoneStatus), default=MilestoneStatus.NOT_STARTED)
     due_date = Column(DateTime, nullable=True)
     approved_by_faculty = Column(Boolean, default=False)
@@ -474,3 +484,96 @@ class ImpactMetrics(Base):
     metric_value = Column(Integer, default=0)
     category = Column(String(100), default="General")
     last_updated = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    actor_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    actor_name = Column(String(255), nullable=True)
+    actor_role = Column(String(100), nullable=False, index=True)
+    action = Column(String(100), nullable=False, index=True)  # CHALLENGE_VALIDATED, MILESTONE_APPROVED, etc.
+    entity_name = Column(String(100), nullable=False, index=True)  # Challenge, Project, etc.
+    entity_id = Column(Integer, nullable=False, index=True)
+    old_state = Column(Text, nullable=True)  # JSON or status string
+    new_state = Column(Text, nullable=True)  # JSON or status string
+    ip_address = Column(String(45), nullable=True)
+    reason = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=utc_now, index=True)
+
+    actor = relationship("User")
+
+
+class OrganizationProfile(Base):
+    __tablename__ = "organization_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    legal_name = Column(String(255), nullable=False, index=True)
+    org_type = Column(String(100), nullable=False, index=True)  # UNIVERSITY, INDUSTRY, CSR, NGO, LAB
+    reg_number = Column(String(100), nullable=True, index=True)  # AISHE code / CIN / Registration
+    official_email = Column(String(255), nullable=False)
+    official_domain = Column(String(255), nullable=True)
+    district_name = Column(String(100), nullable=False)
+    address = Column(String(255), nullable=True)
+    contact_person = Column(String(150), nullable=True)
+    phone_number = Column(String(20), nullable=True)
+    website = Column(String(255), nullable=True)
+    verification_status = Column(String(50), default="PENDING", index=True)  # PENDING, UNDER_REVIEW, VERIFIED, REJECTED, SUSPENDED
+    submitted_documents = Column(Text, nullable=True)  # JSON list of uploaded document URLs
+    rejection_reason = Column(Text, nullable=True)
+    verified_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    verified_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    user = relationship("User", foreign_keys=[user_id])
+    verified_by = relationship("User", foreign_keys=[verified_by_user_id])
+
+
+class VerificationRecord(Base):
+    __tablename__ = "verification_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    milestone_id = Column(Integer, ForeignKey("project_milestones.id"), nullable=True)
+    verification_type = Column(String(100), nullable=False)  # EVIDENCE_REVIEW, FIELD_INSPECTION, LAB_REPORT, BENEFICIARY_CONFIRMATION
+    inspector_name = Column(String(255), nullable=False)
+    inspector_role = Column(String(100), nullable=False)
+    verification_status = Column(String(50), default="SUBMITTED", index=True)  # SUBMITTED, VERIFIED, REJECTED
+    evidence_urls = Column(Text, nullable=True)  # JSON array of proof files
+    geotagged_lat = Column(Float, nullable=True)
+    geotagged_lng = Column(Float, nullable=True)
+    inspection_notes = Column(Text, nullable=True)
+    verified_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now)
+
+    project = relationship("Project")
+    milestone = relationship("ProjectMilestone")
+
+
+class CitizenFeedback(Base):
+    __tablename__ = "citizen_feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    challenge_id = Column(Integer, ForeignKey("challenges.id"), nullable=False, index=True)
+    citizen_id = Column(Integer, ForeignKey("citizens.id"), nullable=False, index=True)
+    rating = Column(Integer, nullable=False)  # 1 to 5
+    is_issue_resolved = Column(Boolean, default=True)
+    satisfaction_score = Column(Float, default=5.0)
+    comments = Column(Text, nullable=False)
+    evidence_photo_url = Column(String(500), nullable=True)
+    submitted_at = Column(DateTime, default=utc_now)
+
+    challenge = relationship("Challenge")
+    citizen = relationship("Citizen")
+
+
+class RevokedToken(Base):
+    __tablename__ = "revoked_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    jti = Column(String(64), unique=True, nullable=False, index=True)
+    revoked_at = Column(DateTime, default=utc_now)
+    expires_at = Column(DateTime, nullable=False)

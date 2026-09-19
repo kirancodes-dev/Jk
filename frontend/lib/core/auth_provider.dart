@@ -39,11 +39,30 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> login(String email, String password) async {
+  static String getUniversityDemoEmail(String role, String? universityName) {
+    final name = (universityName ?? '').toLowerCase();
+    if (name.contains('mesra') || name.contains('bit')) {
+      if (role == 'UNIVERSITY') return 'university@bitmesra.ac.in';
+      if (role == 'FACULTY_MENTOR') return 'faculty@bitmesra.ac.in';
+      if (role == 'STUDENT') return 'student@bitmesra.ac.in';
+    }
+    // Default to Sapthagiri NPS University
+    if (role == 'UNIVERSITY') return 'university@sapthagiri.edu.in';
+    if (role == 'FACULTY_MENTOR') return 'faculty@sapthagiri.edu.in';
+    if (role == 'STUDENT') return 'student@sapthagiri.edu.in';
+    return demoEmails[role] ?? 'student@sapthagiri.edu.in';
+  }
+
+  Future<void> login(
+    String email,
+    String password, {
+    String? role,
+    int? universityId,
+  }) async {
     _isLoading = true;
     notifyListeners();
     try {
-      final res = await ApiService.login(email, password);
+      final res = await ApiService.login(email, password, role: role, universityId: universityId);
       _currentUser = User.fromJson(res);
       _currentRole = _currentUser!.role;
       final prefs = await SharedPreferences.getInstance();
@@ -56,10 +75,10 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // Quick Switch for SIH Evaluator / Jury demo flow
-  Future<void> quickSwitchRole(String role) async {
+  Future<void> quickSwitchRole(String role, {int? universityId}) async {
     final email = demoEmails[role];
     if (email != null) {
-      await login(email, 'password123');
+      await login(email, 'password123', role: role, universityId: universityId);
     }
   }
 

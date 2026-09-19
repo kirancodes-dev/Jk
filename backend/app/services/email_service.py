@@ -1,3 +1,5 @@
+import secrets
+import string
 import smtplib
 import random
 from email.mime.text import MIMEText
@@ -6,29 +8,26 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict
 from backend.app.core.config import settings
 
-# In-memory OTP store: {email: {"otp": "123456", "expires_at": datetime}}
+# In-memory OTP store: {email: {"otp": code, "expires_at": datetime, "attempts": int}}
 _otp_cache: Dict[str, Dict] = {}
 
 class EmailService:
     @staticmethod
     def generate_otp(email: str) -> str:
-        """Generate a secure 6-digit OTP valid for 10 minutes."""
-        code = f"{random.randint(100000, 999999)}"
+        """Generate a cryptographically secure 6-digit OTP valid for 10 minutes."""
+        code = "".join(secrets.choice(string.digits) for _ in range(6))
         _otp_cache[email.lower().strip()] = {
             "otp": code,
-            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10)
+            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
+            "attempts": 0
         }
         return code
 
     @staticmethod
     def verify_otp(email: str, entered_otp: str) -> bool:
-        """Verify if entered OTP matches and has not expired."""
+        """Verify if entered OTP matches, has not expired, and has not exceeded maximum attempts."""
         clean_email = email.lower().strip()
         clean_otp = entered_otp.strip()
-
-        # Check demo backdoor for testing
-        if clean_otp == "123456":
-            return True
 
         record = _otp_cache.get(clean_email)
         if not record:
@@ -38,7 +37,13 @@ class EmailService:
             _otp_cache.pop(clean_email, None)
             return False
 
-        if record["otp"] == clean_otp:
+        record["attempts"] = record.get("attempts", 0) + 1
+        if record["attempts"] > 3:
+            # Lock out after 3 attempts
+            _otp_cache.pop(clean_email, None)
+            return False
+
+        if secrets.compare_digest(record["otp"], clean_otp):
             _otp_cache.pop(clean_email, None)  # Single use
             return True
 

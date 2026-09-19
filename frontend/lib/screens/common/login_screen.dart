@@ -5,6 +5,8 @@ import '../../core/theme.dart';
 import '../../widgets/sip_card.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
+import 'university_selection_screen.dart';
+import 'university_role_selection_screen.dart';
 import '../citizen/citizen_dashboard.dart';
 import '../university/university_dashboard.dart';
 import '../student/student_dashboard.dart';
@@ -13,62 +15,99 @@ import '../industry/industry_dashboard.dart';
 import '../admin/admin_dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String? initialAccountType;
+  final Map<String, dynamic>? initialUniversity;
+  final String? initialRole;
+  final String? initialRoleLabel;
+
+  const LoginScreen({
+    super.key,
+    this.initialAccountType,
+    this.initialUniversity,
+    this.initialRole,
+    this.initialRoleLabel,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _emailController = TextEditingController(text: 'citizen@jharkhand.gov.in');
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController(text: 'password123');
   bool _obscurePassword = true;
-  String _selectedRoleKey = 'CITIZEN';
 
-  final List<Map<String, dynamic>> _demoRoles = [
+  // Selected Account Type: CITIZEN, UNIVERSITY, INDUSTRY, GOVERNMENT_ADMIN
+  String _selectedAccountType = 'CITIZEN';
+
+  // University-specific context
+  Map<String, dynamic>? _selectedUniversity;
+  String? _selectedUniversityRole;
+  String? _selectedUniversityRoleLabel;
+
+  final List<Map<String, dynamic>> _accountTypes = [
     {
-      'role': 'CITIZEN',
+      'key': 'CITIZEN',
       'label': 'Citizen',
       'sub': 'Civic Reporter',
       'icon': Icons.person_outline,
       'email': 'citizen@jharkhand.gov.in',
     },
     {
-      'role': 'STUDENT',
-      'label': 'Student',
-      'sub': 'Innovator',
-      'icon': Icons.school_outlined,
-      'email': 'student@bitmesra.ac.in',
-    },
-    {
-      'role': 'UNIVERSITY',
+      'key': 'UNIVERSITY',
       'label': 'University',
-      'sub': 'Academic Nodal',
+      'sub': 'Institutions & Roles',
       'icon': Icons.account_balance_outlined,
-      'email': 'university@bitmesra.ac.in',
+      'email': null,
     },
     {
-      'role': 'FACULTY_MENTOR',
-      'label': 'Faculty',
-      'sub': 'R&D Mentor',
-      'icon': Icons.psychology_outlined,
-      'email': 'faculty@bitmesra.ac.in',
-    },
-    {
-      'role': 'INDUSTRY',
+      'key': 'INDUSTRY',
       'label': 'Industry',
-      'sub': 'CSR Partner',
+      'sub': 'CSR & Innovation',
       'icon': Icons.business_outlined,
       'email': 'industry@tatasteel.com',
     },
     {
-      'role': 'GOVERNMENT_ADMIN',
+      'key': 'GOVERNMENT_ADMIN',
       'label': 'Government',
       'sub': 'Command Center',
       'icon': Icons.shield_outlined,
       'email': 'admin@jharkhand.gov.in',
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialAccountType != null) {
+      _selectedAccountType = widget.initialAccountType!;
+      _selectedUniversity = widget.initialUniversity;
+      _selectedUniversityRole = widget.initialRole;
+      _selectedUniversityRoleLabel = widget.initialRoleLabel;
+
+      if (_selectedAccountType == 'UNIVERSITY' && _selectedUniversityRole != null) {
+        _emailController.text = AuthProvider.getUniversityDemoEmail(
+          _selectedUniversityRole!,
+          _selectedUniversity?['institution_name'],
+        );
+      } else {
+        _emailController.text = _accountTypes.firstWhere(
+              (a) => a['key'] == _selectedAccountType,
+              orElse: () => _accountTypes.first,
+            )['email'] ??
+            '';
+      }
+    } else {
+      _emailController.text = 'citizen@jharkhand.gov.in';
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   void _navigateToDashboard(String role) {
     Widget target;
@@ -96,10 +135,113 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => target), (r) => false);
   }
 
+  Future<void> _openUniversitySelection() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(builder: (_) => const UniversitySelectionScreen()),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _selectedAccountType = 'UNIVERSITY';
+        _selectedUniversity = result['university'] as Map<String, dynamic>?;
+        _selectedUniversityRole = result['role'] as String?;
+        _selectedUniversityRoleLabel = result['roleLabel'] as String?;
+
+        if (_selectedUniversityRole != null) {
+          _emailController.text = AuthProvider.getUniversityDemoEmail(
+            _selectedUniversityRole!,
+            _selectedUniversity?['institution_name'],
+          );
+          _passwordController.text = 'password123';
+        }
+      });
+    }
+  }
+
+  Future<void> _openRoleSelection() async {
+    if (_selectedUniversity == null) {
+      await _openUniversitySelection();
+      return;
+    }
+
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UniversityRoleSelectionScreen(university: _selectedUniversity!),
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _selectedUniversityRole = result['role'] as String?;
+        _selectedUniversityRoleLabel = result['roleLabel'] as String?;
+
+        if (_selectedUniversityRole != null) {
+          _emailController.text = AuthProvider.getUniversityDemoEmail(
+            _selectedUniversityRole!,
+            _selectedUniversity?['institution_name'],
+          );
+          _passwordController.text = 'password123';
+        }
+      });
+    }
+  }
+
+  void _selectAccountType(Map<String, dynamic> acc) {
+    final key = acc['key'] as String;
+    if (key == 'UNIVERSITY') {
+      if (_selectedUniversity == null || _selectedUniversityRole == null) {
+        _openUniversitySelection();
+      } else {
+        setState(() {
+          _selectedAccountType = 'UNIVERSITY';
+          _emailController.text = AuthProvider.getUniversityDemoEmail(
+            _selectedUniversityRole!,
+            _selectedUniversity?['institution_name'],
+          );
+          _passwordController.text = 'password123';
+        });
+      }
+    } else {
+      setState(() {
+        _selectedAccountType = key;
+        _emailController.text = (acc['email'] as String?) ?? '';
+        _passwordController.text = 'password123';
+      });
+    }
+  }
+
   Future<void> _handleLogin() async {
     final auth = context.read<AuthProvider>();
     try {
-      await auth.login(_emailController.text.trim(), _passwordController.text.trim());
+      String? role;
+      int? universityId;
+
+      if (_selectedAccountType == 'UNIVERSITY') {
+        if (_selectedUniversity == null || _selectedUniversityRole == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select your university and role before logging in.'),
+              backgroundColor: AppTheme.warning,
+            ),
+          );
+          _openUniversitySelection();
+          return;
+        }
+        role = _selectedUniversityRole;
+        universityId = _selectedUniversity?['id'] as int?;
+      } else {
+        role = _selectedAccountType;
+      }
+
+      await auth.login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+        role: role,
+        universityId: universityId,
+      );
+
       if (!mounted) return;
       _navigateToDashboard(auth.currentRole);
     } catch (e) {
@@ -111,14 +253,6 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     }
-  }
-
-  void _selectRole(Map<String, dynamic> r) {
-    setState(() {
-      _selectedRoleKey = r['role'] as String;
-      _emailController.text = r['email'] as String;
-      _passwordController.text = 'password123';
-    });
   }
 
   @override
@@ -142,9 +276,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: AppTheme.primaryGreen.withOpacity(0.1),
+                          color: AppTheme.primaryGreen.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.2)),
+                          border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.2)),
                         ),
                         child: const Icon(Icons.account_balance, color: AppTheme.primaryGreen, size: 28),
                       ),
@@ -196,14 +330,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Select your stakeholder role or enter credentials to sign in.',
+                    'Choose your account type or enter registered credentials to sign in.',
                     style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 20),
 
-                  // Role Selection Grid (6 Personas)
+                  // Section: Choose Account Type (4 Top-level Cards)
                   const Text(
-                    'Select Persona / Quick Demo Role',
+                    'Choose Account Type',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -217,54 +351,77 @@ class _LoginScreenState extends State<LoginScreen> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      childAspectRatio: 1.5,
-                      crossAxisSpacing: 8,
-                      mainAxisSpacing: 8,
+                      crossAxisCount: 2,
+                      childAspectRatio: 2.2,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
                     ),
-                    itemCount: _demoRoles.length,
+                    itemCount: _accountTypes.length,
                     itemBuilder: (context, index) {
-                      final r = _demoRoles[index];
-                      final isSelected = _selectedRoleKey == r['role'];
+                      final acc = _accountTypes[index];
+                      final isSelected = _selectedAccountType == acc['key'];
 
                       return InkWell(
-                        onTap: () => _selectRole(r),
-                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => _selectAccountType(acc),
+                        borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.primaryGreen.withOpacity(0.08) : Colors.white,
-                            borderRadius: BorderRadius.circular(10),
+                            color: isSelected ? AppTheme.primaryGreen.withValues(alpha: 0.08) : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isSelected ? AppTheme.primaryGreen : AppTheme.borderLight,
-                              width: isSelected ? 1.8 : 1,
+                              width: isSelected ? 2 : 1,
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          child: Row(
                             children: [
-                              Icon(
-                                r['icon'] as IconData,
-                                size: 20,
-                                color: isSelected ? AppTheme.primaryGreen : AppTheme.textSecondary,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                r['label'] as String,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: isSelected ? AppTheme.primaryGreen : AppTheme.textPrimary,
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppTheme.primaryGreen.withValues(alpha: 0.15)
+                                      : AppTheme.surfaceLight,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                r['sub'] as String,
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  color: isSelected ? AppTheme.primaryGreenDark : AppTheme.textMuted,
+                                child: Icon(
+                                  acc['icon'] as IconData,
+                                  size: 20,
+                                  color: isSelected ? AppTheme.primaryGreen : AppTheme.textSecondary,
                                 ),
-                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      acc['label'] as String,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: isSelected ? AppTheme.primaryGreen : AppTheme.textPrimary,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    Text(
+                                      acc['sub'] as String,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: isSelected ? AppTheme.primaryGreenDark : AppTheme.textMuted,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
@@ -272,7 +429,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       );
                     },
                   ),
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 20),
+
+                  // Active Context Banner for University Flow
+                  if (_selectedAccountType == 'UNIVERSITY' &&
+                      _selectedUniversity != null &&
+                      _selectedUniversityRole != null) ...[
+                    _buildUniversityContextBanner(),
+                    const SizedBox(height: 20),
+                  ],
 
                   // Credentials Form Card
                   SIPCard(
@@ -280,19 +445,42 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Account Credentials',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Account Credentials',
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                            ),
+                            if (_selectedAccountType == 'UNIVERSITY' && _selectedUniversityRoleLabel != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  _selectedUniversityRoleLabel!,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.primaryGreen,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                         const SizedBox(height: 14),
 
                         TextField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Official / Registered Email',
-                            hintText: 'name@jharkhand.gov.in',
-                            prefixIcon: Icon(Icons.email_outlined, size: 20),
+                            hintText: _selectedAccountType == 'UNIVERSITY'
+                                ? 'name@university.edu.in'
+                                : 'name@jharkhand.gov.in',
+                            prefixIcon: const Icon(Icons.email_outlined, size: 20),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -367,6 +555,161 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildUniversityContextBanner() {
+    final univName = _selectedUniversity?['institution_name'] ?? 'University';
+    final city = _selectedUniversity?['city'] ?? _selectedUniversity?['district_name'] ?? 'Jharkhand';
+    final state = _selectedUniversity?['state'] ?? 'Jharkhand';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.35), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryGreen.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'UNIVERSITY ACCOUNT CONTEXT',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primaryGreen,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // University Line
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryGreen.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Center(
+                  child: Text('🏫', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'University',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                    ),
+                    Text(
+                      univName,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                    ),
+                    Text(
+                      '$city, $state',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton(
+                onPressed: _openUniversitySelection,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: Size.zero,
+                  side: BorderSide(color: AppTheme.primaryGreen.withValues(alpha: 0.5)),
+                ),
+                child: const Text(
+                  'Change University',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen),
+                ),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Divider(height: 1, color: AppTheme.borderLight),
+          ),
+
+          // Role Line
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppTheme.accentGold.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _selectedUniversityRole == 'UNIVERSITY'
+                      ? Icons.account_balance_outlined
+                      : _selectedUniversityRole == 'FACULTY_MENTOR'
+                          ? Icons.psychology_outlined
+                          : Icons.school_outlined,
+                  color: AppTheme.accentGold,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Role',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                    ),
+                    Text(
+                      _selectedUniversityRoleLabel ?? 'Student',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton(
+                onPressed: _openRoleSelection,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: Size.zero,
+                  side: BorderSide(color: AppTheme.primaryGreen.withValues(alpha: 0.5)),
+                ),
+                child: const Text(
+                  'Change Role',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

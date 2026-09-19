@@ -1,17 +1,21 @@
 import os
+import uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from backend.app.core.config import settings
-from backend.app.core.database import Base, engine, SessionLocal
-from backend.app.services.seed_data import seed_database
+from backend.app.core.database import Base, engine, SessionLocal, get_db
+from backend.app.services.seed_data import seed_database, ensure_sapthagiri_seeded
 
 # Routers
 from backend.app.routers import (
     auth, challenges, ai, universities, projects,
-    students, faculty, industry, admin, notifications, demo
+    students, faculty, industry, admin, notifications, demo,
+    organizations, verification, impact
 )
 
 @asynccontextmanager
@@ -23,6 +27,7 @@ async def lifespan(app: FastAPI):
     db = SessionLocal()
     try:
         seed_database(db)
+        ensure_sapthagiri_seeded(db)
     finally:
         db.close()
         
@@ -47,6 +52,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def add_security_and_correlation_headers(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    return response
+
 # Mount local uploaded files
 if os.path.exists(settings.UPLOAD_DIR):
     app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
@@ -60,6 +75,9 @@ app.include_router(projects.router, prefix=settings.API_V1_STR)
 app.include_router(students.router, prefix=settings.API_V1_STR)
 app.include_router(faculty.router, prefix=settings.API_V1_STR)
 app.include_router(industry.router, prefix=settings.API_V1_STR)
+app.include_router(organizations.router, prefix=settings.API_V1_STR)
+app.include_router(verification.router, prefix=settings.API_V1_STR)
+app.include_router(impact.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
 app.include_router(notifications.router, prefix=settings.API_V1_STR)
 app.include_router(demo.router, prefix=settings.API_V1_STR)
@@ -69,6 +87,18 @@ from fastapi.responses import FileResponse
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "service": "FastAPI Backend", "database": "Connected"}
+
+@app.get("/live")
+def liveness_check():
+    return {"status": "alive"}
+
+@app.get("/ready")
+def readiness_check(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "ready", "database": "connected"}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail="Database not ready")
 
 @app.get("/api-info")
 def api_info():

@@ -7,10 +7,10 @@ from backend.app.core.database import get_db
 from backend.app.models.models import (
     Challenge, Project, University, IndustryPartner, Student,
     ChallengeLocation, District, ImpactMetrics, ChallengeStatus,
-    ChallengePriority, StatusHistory, User
+    ChallengePriority, StatusHistory, User, AuditLog, UserRole
 )
 from backend.app.schemas.schemas import EscalateChallengeRequest
-from backend.app.routers.deps import get_current_user
+from backend.app.routers.deps import get_current_user, require_roles
 
 router = APIRouter(prefix="/admin", tags=["Government Admin"])
 
@@ -199,3 +199,13 @@ def export_csv_report(db: Session = Depends(get_db)):
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=jharkhand_sih_challenges_report.csv"}
     )
+
+@router.get("/audit-logs")
+def get_audit_logs(
+    limit: int = 50,
+    offset: int = 0,
+    current_user: User = Depends(require_roles([UserRole.GOVERNMENT_ADMIN])),
+    db: Session = Depends(get_db)
+):
+    logs = db.query(AuditLog).order_by(AuditLog.timestamp.desc()).offset(offset).limit(limit).all()
+    return logs

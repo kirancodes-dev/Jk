@@ -634,3 +634,111 @@ def seed_database(db: Session):
 
     db.commit()
     print("[✓] Realistic Jharkhand Demo Dataset seeded successfully!")
+
+
+def ensure_sapthagiri_seeded(db: Session):
+    existing = db.query(University).filter(University.institution_name.ilike("%Sapthagiri%")).first()
+    if existing:
+        return existing
+
+    hashed_pwd = get_password_hash("password123")
+
+    # 1. University Admin User
+    admin_user = db.query(User).filter(User.email == "university@sapthagiri.edu.in").first()
+    if not admin_user:
+        admin_user = User(
+            email="university@sapthagiri.edu.in",
+            hashed_password=hashed_pwd,
+            full_name="Sapthagiri NPS University Admin",
+            phone_number="+91-80-28372800",
+            role=UserRole.UNIVERSITY,
+            is_active=True,
+            is_verified=True
+        )
+        db.add(admin_user)
+        db.commit()
+        db.refresh(admin_user)
+
+    univ = University(
+        user_id=admin_user.id,
+        institution_name="Sapthagiri NPS University",
+        district_name="Bengaluru",
+        address="Hesaraghatta Main Rd, Bengaluru, Karnataka 560057",
+        website="https://www.sapthagiri.edu.in",
+        has_incubation_center=True,
+        has_innovation_center=True,
+        facilities_description="DST & Industry supported Incubation Center, AI & Robotics Center of Excellence, IoT Solutions Lab",
+        nirf_ranking=42
+    )
+    db.add(univ)
+    db.commit()
+    db.refresh(univ)
+
+    dept_cse = Department(university_id=univ.id, name="Computer Science & Engineering", head_of_department="Dr. H. N. Suresh")
+    dept_ece = Department(university_id=univ.id, name="Electronics & Communication Engg", head_of_department="Dr. Ravi Kumar")
+    db.add_all([dept_cse, dept_ece])
+    db.commit()
+
+    db.add_all([
+        UniversityExpertise(university_id=univ.id, domain="Water Management", department="Environmental & IoT", focus_area="Smart Water Telemetry & Leak Detection", score_weight=1.5),
+        UniversityExpertise(university_id=univ.id, domain="Agriculture", department="CSE & Robotics", focus_area="Autonomous Soil Moisture & Crop Health Drones", score_weight=1.4),
+        UniversityExpertise(university_id=univ.id, domain="Energy", department="Electrical & Automation", focus_area="Solar Microgrids & Battery Optimization", score_weight=1.3)
+    ])
+    db.commit()
+
+    # 2. Faculty Mentor User
+    fac_user = db.query(User).filter(User.email == "faculty@sapthagiri.edu.in").first()
+    if not fac_user:
+        fac_user = User(
+            email="faculty@sapthagiri.edu.in",
+            hashed_password=hashed_pwd,
+            full_name="Dr. Ramesh Babu",
+            phone_number="+91-9845012345",
+            role=UserRole.FACULTY_MENTOR,
+            is_active=True,
+            is_verified=True
+        )
+        db.add(fac_user)
+        db.commit()
+        db.refresh(fac_user)
+
+    fac_profile = Faculty(
+        user_id=fac_user.id,
+        university_id=univ.id,
+        department_id=dept_cse.id,
+        designation="Professor & R&D Lead",
+        expertise="Artificial Intelligence, Edge IoT, Distributed Systems",
+        research_interests="Applied AI for rural governance and environmental monitoring.",
+        experience_years=16
+    )
+    db.add(fac_profile)
+
+    # 3. Student User (Kiran Biradar)
+    stu_user = db.query(User).filter(User.email == "student@sapthagiri.edu.in").first()
+    if not stu_user:
+        stu_user = User(
+            email="student@sapthagiri.edu.in",
+            hashed_password=hashed_pwd,
+            full_name="Kiran Biradar",
+            phone_number="+91-9900112233",
+            role=UserRole.STUDENT,
+            is_active=True,
+            is_verified=True
+        )
+        db.add(stu_user)
+        db.commit()
+        db.refresh(stu_user)
+
+    stu_profile = Student(
+        user_id=stu_user.id,
+        university_id=univ.id,
+        department_id=dept_cse.id,
+        roll_number="SNPU/CSE/2024/001",
+        degree="B.Tech Computer Science & Engineering",
+        year_of_study=3,
+        skills="Python, Flutter, Machine Learning, FastAPI, Cloud Architecture"
+    )
+    db.add(stu_profile)
+    db.commit()
+    print("[✓] Sapthagiri NPS University seeded successfully!")
+    return univ
