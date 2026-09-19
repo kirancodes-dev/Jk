@@ -72,3 +72,60 @@ def browse_projects(
             created_at=p.created_at
         ))
     return out
+
+from pydantic import BaseModel
+from backend.app.models.models import AuditLog
+
+class IndustrySponsorRequest(BaseModel):
+    project_id: int
+    amount: Optional[float] = 0.0
+    sponsorship_type: Optional[str] = "GRANT"
+    notes: Optional[str] = None
+    offer_type: Optional[str] = "Funding"
+
+@router.post("/sponsor")
+@router.post("/collaborate")
+def sponsor_or_collaborate(
+    payload: IndustrySponsorRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    project = db.query(Project).filter(Project.id == payload.project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    ind = db.query(IndustryPartner).filter(IndustryPartner.user_id == current_user.id).first()
+    ind_id = ind.id if ind else 1
+
+    offer_type = payload.offer_type or payload.sponsorship_type or "Funding"
+    description = payload.notes or f"CSR Funding / Sponsorship: ₹{payload.amount:,.2f}" if payload.amount else "Industry Partnership"
+
+    collab = IndustryCollaboration(
+        project_id=project.id,
+        industry_id=ind_id,
+        offer_type=offer_type,
+        description=description,
+        status="Offered"
+    )
+    db.add(collab)
+
+    db.add(AuditLog(
+        actor_id=current_user.id,
+        actor_name=current_user.full_name,
+        actor_role=current_user.role.value if hasattr(current_user.role, "value") else str(current_user.role),
+        action="INDUSTRY_OFFER_SPONSORSHIP",
+        entity_name="Project",
+        entity_id=project.id,
+        new_state=f"Offer: {offer_type} by Industry #{ind_id}",
+        reason=description
+    ))
+    db.commit()
+    db.refresh(collab)
+
+    return {
+        "status": "success",
+        "message": f"Collaboration proposal ({offer_type}) registered successfully.",
+        "collaboration_id": collab.id,
+        "project_id": project.id
+    }
+

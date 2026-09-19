@@ -82,12 +82,36 @@ def test_state_machine_transition_and_audit_logging(client):
     admin_token = admin_login.json()["access_token"]
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
 
-    # 2. Get existing challenge
+    # 2. Get challenge eligible for transition to UNDER_REVIEW
     ch_res = client.get("/api/v1/challenges")
     assert ch_res.status_code == 200
     challenges = ch_res.json()
     assert len(challenges) > 0
-    target_ch = challenges[0]
+    target_ch = next((c for c in challenges if c["status"] in ["SUBMITTED", "AI_ANALYSIS"]), None)
+    if not target_ch:
+        # Create a fresh challenge to test state transition
+        citizen_login = client.post("/api/v1/auth/login", json={
+            "email": "citizen@jharkhand.gov.in",
+            "password": "password123"
+        })
+        c_token = citizen_login.json()["access_token"]
+        new_ch = client.post("/api/v1/challenges", json={
+            "title": "Road pothole hazard on NH33",
+            "description": "Critical road damage near Ormanjhi block affecting daily traffic and transport.",
+            "category": "Infrastructure",
+            "urgency": "High",
+            "expected_impact": "Prevent accidents and vehicle damage.",
+            "location": {
+                "district_name": "Ranchi",
+                "block_name": "Ormanjhi",
+                "village_or_city": "Ormanjhi",
+                "location_address": "NH33 Mile 14",
+                "latitude": 23.48,
+                "longitude": 85.45
+            }
+        }, headers={"Authorization": f"Bearer {c_token}"})
+        target_ch = new_ch.json()
+
     ch_id = target_ch["id"]
 
     # 3. Transition challenge status as Admin
