@@ -283,9 +283,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: const Icon(Icons.account_balance, color: AppTheme.primaryGreen, size: 28),
                       ),
                       const SizedBox(width: 12),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                           Text(
                             'GOVERNMENT OF JHARKHAND',
                             style: TextStyle(
@@ -304,15 +305,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: AppTheme.textPrimary,
                             ),
                           ),
-                          Text(
-                            'Societal Innovation Portal (SIP)',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.primaryGreen,
-                              fontWeight: FontWeight.w600,
+                            Text(
+                              'Societal Innovation Portal (SIP)',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryGreen,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -534,8 +536,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   // Register Now Link
                   Center(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         const Text("New stakeholder? ", style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                         TextButton(

@@ -21,6 +21,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   bool _isLoading = true;
   final _commentController = TextEditingController();
   bool _isPostingComment = false;
+  List<Map<String, dynamic>> _feedbacks = [];
+  bool _isSubmittingFeedback = false;
 
   @override
   void initState() {
@@ -40,10 +42,146 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
       final res = await ApiService.getChallengeDetail(widget.challengeId);
       if (!mounted) return;
       setState(() => _detail = res);
+      _loadFeedbacks();
     } catch (_) {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loadFeedbacks() async {
+    try {
+      final list = await ApiService.getChallengeFeedback(widget.challengeId);
+      if (mounted) {
+        setState(() => _feedbacks = list);
+      }
+    } catch (_) {}
+  }
+
+  void _showFeedbackModal() {
+    int rating = 5;
+    bool isResolved = true;
+    final commentsCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.rate_review_outlined, color: AppTheme.primaryGreen),
+              SizedBox(width: 8),
+              Text('Citizen Impact Feedback', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Your ground feedback directly validates university field deployment and ensures public accountability.',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                ),
+                const SizedBox(height: 16),
+                const Text('Has this problem been resolved on the ground?',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Yes, Resolved'),
+                      selected: isResolved,
+                      selectedColor: AppTheme.primaryGreen,
+                      labelStyle: TextStyle(color: isResolved ? Colors.white : AppTheme.textPrimary, fontWeight: FontWeight.bold),
+                      onSelected: (val) => setModalState(() => isResolved = true),
+                    ),
+                    const SizedBox(width: 10),
+                    ChoiceChip(
+                      label: const Text('No, Still Persists'),
+                      selected: !isResolved,
+                      selectedColor: AppTheme.error,
+                      labelStyle: TextStyle(color: !isResolved ? Colors.white : AppTheme.textPrimary, fontWeight: FontWeight.bold),
+                      onSelected: (val) => setModalState(() => isResolved = false),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Text('Solution Quality Rating:',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                const SizedBox(height: 6),
+                Row(
+                  children: List.generate(5, (i) {
+                    final starNum = i + 1;
+                    return IconButton(
+                      icon: Icon(
+                        starNum <= rating ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                        size: 28,
+                      ),
+                      onPressed: () => setModalState(() => rating = starNum),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: commentsCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Comments on ground implementation',
+                    hintText: 'Describe how the university solution helped your village/community...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
+              onPressed: _isSubmittingFeedback
+                  ? null
+                  : () async {
+                      Navigator.pop(ctx);
+                      setState(() => _isSubmittingFeedback = true);
+                      try {
+                        await ApiService.submitCitizenFeedback({
+                          'challenge_id': widget.challengeId,
+                          'rating': rating,
+                          'is_issue_resolved': isResolved,
+                          'satisfaction_score': rating * 20.0,
+                          'comments': commentsCtrl.text.trim(),
+                        });
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('✓ Thank you! Citizen feedback recorded for impact evaluation.'),
+                              backgroundColor: AppTheme.success,
+                            ),
+                          );
+                        }
+                        _loadFeedbacks();
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed: ${e.toString()}'), backgroundColor: AppTheme.error),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => _isSubmittingFeedback = false);
+                      }
+                    },
+              child: const Text('Submit Feedback', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _addComment() async {
@@ -248,6 +386,12 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             ),
             const SizedBox(height: 16),
 
+            // AI Classification & Explainability Card
+            if (d['ai_analysis'] != null) ...[
+              _buildAiExplainabilityCard(d['ai_analysis'] as Map<String, dynamic>),
+              const SizedBox(height: 16),
+            ],
+
             // Assigned University Card
             if (d['assigned_university_name'] != null) ...[
               SIPCard(
@@ -401,6 +545,10 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
               ),
               const SizedBox(height: 20),
             ],
+
+            // Citizen Impact & Verification Feedback
+            _buildCitizenFeedbackSection(status),
+            const SizedBox(height: 20),
 
             // Status Timeline History
             const SectionHeader(title: 'Status Audit Trail'),
@@ -559,6 +707,218 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAiExplainabilityCard(Map<String, dynamic> ai) {
+    final domain = ai['classified_domain']?.toString() ?? 'General Problem';
+    final priority = ai['detected_priority']?.toString() ?? 'MEDIUM';
+    final confidence = ((ai['confidence_score'] as num?)?.toDouble() ?? 0.85) * 100;
+    final rationale = ai['recommended_solution']?.toString() ?? 'Recommended for higher education engineering/scientific capstone intervention.';
+    final expertise = ai['required_expertise']?.toString() ?? 'Domain Engineering & Rural Tech';
+    final keywords = ai['extracted_keywords']?.toString() ?? '';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: Color(0xFF2563EB), size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'AI Domain Classification & Rationale',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDBEAFE),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF93C5FD)),
+                ),
+                child: Text(
+                  '${confidence.toStringAsFixed(1)}% Confidence',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Classified Domain', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                      const SizedBox(height: 2),
+                      Text(domain, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Detected Priority', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                      const SizedBox(height: 2),
+                      Text(priority, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text('Strategic Recommendation:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+          const SizedBox(height: 4),
+          Text(rationale, style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A8A), height: 1.4)),
+          if (expertise.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Required Skillset: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                Expanded(child: Text(expertise, style: const TextStyle(fontSize: 11, color: Color(0xFF1E3A8A)))),
+              ],
+            ),
+          ],
+          if (keywords.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Extracted Terms: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                Expanded(child: Text(keywords, style: const TextStyle(fontSize: 11, color: Color(0xFF1E3A8A)))),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCitizenFeedbackSection(String status) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const SectionHeader(title: 'Citizen Impact & Ground Feedback'),
+            TextButton.icon(
+              icon: const Icon(Icons.rate_review_outlined, size: 16),
+              label: const Text('Add Feedback'),
+              onPressed: _showFeedbackModal,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_feedbacks.isEmpty)
+          SIPCard(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: AppTheme.textSecondary, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    status == 'RESOLVED' || status == 'DEPLOYMENT' || status == 'FIELD_VERIFICATION'
+                        ? 'This challenge has entered deployment/resolution. Citizens can submit ground verification feedback.'
+                        : 'Citizen feedback ensures university prototypes resolve the actual societal issue on the ground.',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                  onPressed: _showFeedbackModal,
+                  child: const Text('Feedback', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          )
+        else
+          ..._feedbacks.map((fb) {
+            final rating = (fb['rating'] as num?)?.toInt() ?? 5;
+            final isResolved = fb['is_issue_resolved'] == true;
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: isResolved ? AppTheme.primaryGreen.withOpacity(0.3) : Colors.amber.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(isResolved ? Icons.check_circle : Icons.warning_amber_rounded,
+                              size: 18, color: isResolved ? AppTheme.success : AppTheme.warning),
+                          const SizedBox(width: 6),
+                          Text(
+                            isResolved ? 'Verified Resolved on Ground' : 'Issue Still Persists',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isResolved ? AppTheme.success : Colors.amber.shade900,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: List.generate(
+                          5,
+                          (starIdx) => Icon(
+                            starIdx < rating ? Icons.star : Icons.star_border,
+                            size: 14,
+                            color: Colors.amber,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (fb['comments'] != null && fb['comments'].toString().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '"${fb['comments']}"',
+                      style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: AppTheme.textPrimary),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          }),
+      ],
     );
   }
 }

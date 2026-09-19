@@ -203,6 +203,20 @@ def get_project_detail(project_id: int, db: Session = Depends(get_db)):
         collaborations=collabs_out
     )
 
+def verify_project_access(project: Project, current_user: User):
+    if current_user.role == UserRole.GOVERNMENT_ADMIN:
+        return True
+    if current_user.role == UserRole.UNIVERSITY and current_user.university_profile and current_user.university_profile.id == project.university_id:
+        return True
+    if current_user.role == UserRole.FACULTY_MENTOR and current_user.faculty_profile and project.faculty_mentor_id == current_user.faculty_profile.id:
+        return True
+    if current_user.role == UserRole.STUDENT and current_user.student_profile and any(m.student_id == current_user.student_profile.id for m in project.members):
+        return True
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="You are not authorized to modify this project. Only assigned university members, faculty mentors, or government admins have access."
+    )
+
 @router.post("/{project_id}/milestones", response_model=MilestoneOut)
 def add_milestone(
     project_id: int,
@@ -213,6 +227,7 @@ def add_milestone(
     p = db.query(Project).filter(Project.id == project_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
+    verify_project_access(p, current_user)
         
     ms = ProjectMilestone(
         project_id=project_id,
@@ -235,6 +250,11 @@ def update_milestone(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    p = db.query(Project).filter(Project.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    verify_project_access(p, current_user)
+
     ms = db.query(ProjectMilestone).filter(
         ProjectMilestone.id == milestone_id,
         ProjectMilestone.project_id == project_id
@@ -279,6 +299,11 @@ def add_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    p = db.query(Project).filter(Project.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    verify_project_access(p, current_user)
+
     task = ProjectTask(
         project_id=project_id,
         title=payload.title,
@@ -305,6 +330,11 @@ def update_task(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    p = db.query(Project).filter(Project.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    verify_project_access(p, current_user)
+
     task = db.query(ProjectTask).filter(ProjectTask.id == task_id, ProjectTask.project_id == project_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -326,6 +356,10 @@ def submit_proposal(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    p = db.query(Project).filter(Project.id == project_id).first()
+    if not p:
+        raise HTTPException(status_code=404, detail="Project not found")
+    verify_project_access(p, current_user)
     proposal = SolutionProposal(
         project_id=project_id,
         proposed_solution=payload.proposed_solution,

@@ -10,7 +10,8 @@ from backend.app.models.models import (
 )
 from backend.app.schemas.schemas import (
     ChallengeCreate, ChallengeOut, ChallengeDetailOut, ChallengeStatusUpdate,
-    AssignUniversityRequest, CommentCreate, CommentOut, ChallengeLocationOut,
+    AssignUniversityRequest, MarkDuplicateRequest, RejectChallengeRequest,
+    CommentCreate, CommentOut, ChallengeLocationOut,
     ChallengeMediaOut, AIAnalysisOut, UniversityMatchOut, SimilarChallengeOut,
     StatusHistoryOut
 )
@@ -454,6 +455,57 @@ def assign_university(
         )
     db.commit()
     return {"status": "success", "message": f"Assigned to {univ.institution_name}"}
+
+@router.post("/{challenge_id}/duplicate")
+def mark_challenge_duplicate(
+    challenge_id: int,
+    payload: MarkDuplicateRequest,
+    current_user: User = Depends(require_roles([UserRole.GOVERNMENT_ADMIN])),
+    db: Session = Depends(get_db)
+):
+    ch = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    canonical = db.query(Challenge).filter(Challenge.id == payload.canonical_challenge_id).first()
+    if not canonical:
+        raise HTTPException(status_code=404, detail="Canonical challenge not found")
+
+    validate_and_apply_challenge_transition(
+        db=db,
+        challenge=ch,
+        to_status=ChallengeStatus.DUPLICATE,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        actor_name=current_user.full_name,
+        remarks=f"Duplicate of #{canonical.id}: {payload.remarks}"
+    )
+    ch.moderation_reason = f"Duplicate of #{canonical.id} ({canonical.title})"
+    db.commit()
+    return {"status": "success", "message": f"Challenge marked as duplicate of #{canonical.id}"}
+
+@router.post("/{challenge_id}/reject")
+def reject_challenge(
+    challenge_id: int,
+    payload: RejectChallengeRequest,
+    current_user: User = Depends(require_roles([UserRole.GOVERNMENT_ADMIN])),
+    db: Session = Depends(get_db)
+):
+    ch = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not ch:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+
+    validate_and_apply_challenge_transition(
+        db=db,
+        challenge=ch,
+        to_status=ChallengeStatus.REJECTED,
+        actor_id=current_user.id,
+        actor_role=current_user.role,
+        actor_name=current_user.full_name,
+        remarks=payload.reason
+    )
+    ch.moderation_reason = payload.reason
+    db.commit()
+    return {"status": "success", "message": "Challenge rejected with provided justification"}
 
 @router.post("/{challenge_id}/comments", response_model=CommentOut)
 def add_comment(

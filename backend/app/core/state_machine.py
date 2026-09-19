@@ -12,11 +12,29 @@ ALLOWED_CHALLENGE_TRANSITIONS: Dict[Tuple[ChallengeStatus, ChallengeStatus], Set
     (ChallengeStatus.SUBMITTED, ChallengeStatus.UNDER_REVIEW): {
         UserRole.GOVERNMENT_ADMIN
     },
+    (ChallengeStatus.SUBMITTED, ChallengeStatus.VALIDATED): {
+        UserRole.GOVERNMENT_ADMIN
+    },
+    (ChallengeStatus.SUBMITTED, ChallengeStatus.REJECTED): {
+        UserRole.GOVERNMENT_ADMIN
+    },
+    (ChallengeStatus.SUBMITTED, ChallengeStatus.DUPLICATE): {
+        UserRole.GOVERNMENT_ADMIN
+    },
+    (ChallengeStatus.SUBMITTED, ChallengeStatus.NEEDS_MORE_INFO): {
+        UserRole.GOVERNMENT_ADMIN
+    },
     (ChallengeStatus.AI_ANALYSIS, ChallengeStatus.UNDER_REVIEW): {
+        UserRole.GOVERNMENT_ADMIN
+    },
+    (ChallengeStatus.AI_ANALYSIS, ChallengeStatus.VALIDATED): {
         UserRole.GOVERNMENT_ADMIN
     },
     # Moderation decisions
     (ChallengeStatus.UNDER_REVIEW, ChallengeStatus.VALIDATED): {
+        UserRole.GOVERNMENT_ADMIN
+    },
+    (ChallengeStatus.UNDER_REVIEW, ChallengeStatus.UNIVERSITY_ASSIGNED): {
         UserRole.GOVERNMENT_ADMIN
     },
     (ChallengeStatus.UNDER_REVIEW, ChallengeStatus.NEEDS_MORE_INFO): {
@@ -42,6 +60,12 @@ ALLOWED_CHALLENGE_TRANSITIONS: Dict[Tuple[ChallengeStatus, ChallengeStatus], Set
     },
     (ChallengeStatus.TEAM_FORMED, ChallengeStatus.SOLUTION_PROPOSED): {
         UserRole.UNIVERSITY, UserRole.FACULTY_MENTOR, UserRole.STUDENT, UserRole.GOVERNMENT_ADMIN
+    },
+    (ChallengeStatus.TEAM_FORMED, ChallengeStatus.IN_PROGRESS): {
+        UserRole.UNIVERSITY, UserRole.FACULTY_MENTOR, UserRole.GOVERNMENT_ADMIN
+    },
+    (ChallengeStatus.TEAM_FORMED, ChallengeStatus.FIELD_VERIFICATION): {
+        UserRole.GOVERNMENT_ADMIN
     },
     (ChallengeStatus.SOLUTION_PROPOSED, ChallengeStatus.APPROVED): {
         UserRole.GOVERNMENT_ADMIN, UserRole.UNIVERSITY

@@ -226,6 +226,13 @@ class EscalateChallengeRequest(BaseModel):
 class AssignUniversityRequest(BaseModel):
     university_id: int
 
+class MarkDuplicateRequest(BaseModel):
+    canonical_challenge_id: int
+    remarks: Optional[str] = "Identified as duplicate of existing registered challenge"
+
+class RejectChallengeRequest(BaseModel):
+    reason: str
+
 # ----------------- PROJECTS & TEAMS -----------------
 
 class ProjectCreate(BaseModel):

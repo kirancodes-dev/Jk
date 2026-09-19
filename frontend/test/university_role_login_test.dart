@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sih_jharkhand_sip/core/auth_provider.dart';
-import 'package:sih_jharkhand_sip/screens/common/login_screen.dart';
-import 'package:sih_jharkhand_sip/screens/common/university_role_selection_screen.dart';
-import 'package:sih_jharkhand_sip/screens/common/university_selection_screen.dart';
+import 'package:frontend/core/auth_provider.dart';
+import 'package:frontend/screens/common/login_screen.dart';
+import 'package:frontend/screens/common/university_role_selection_screen.dart';
+import 'package:frontend/screens/common/university_selection_screen.dart';
 
 void main() {
   setUp(() {

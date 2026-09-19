@@ -21,8 +21,19 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
   List<Map<String, dynamic>> _universities = [];
   bool _isLoading = true;
   String _selectedTier = 'All';
+  String _selectedStatusFilter = 'All';
 
   final List<String> _tierFilters = ['All', 'PANCHAYAT', 'BLOCK', 'DISTRICT', 'STATE'];
+  final List<String> _statusFilters = [
+    'All',
+    'Pending Triage',
+    'Validated',
+    'Assigned',
+    'In Progress',
+    'Field Verification',
+    'Resolved',
+    'Duplicate / Rejected'
+  ];
 
   @override
   void initState() {
@@ -48,13 +59,38 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
     }
   }
 
+  List<Challenge> get _filteredChallenges {
+    return _challenges.where((c) {
+      if (_selectedStatusFilter == 'All') return true;
+      final s = c.status.toUpperCase();
+      switch (_selectedStatusFilter) {
+        case 'Pending Triage':
+          return s == 'SUBMITTED' || s == 'AI_ANALYSIS' || s == 'UNDER_REVIEW';
+        case 'Validated':
+          return s == 'VALIDATED';
+        case 'Assigned':
+          return s == 'UNIVERSITY_ASSIGNED' || s == 'TEAM_FORMED' || s == 'SOLUTION_PROPOSED';
+        case 'In Progress':
+          return s == 'IN_PROGRESS' || s == 'APPROVED' || s == 'PROTOTYPE' || s == 'FIELD_TESTING' || s == 'DEPLOYMENT';
+        case 'Field Verification':
+          return s == 'FIELD_VERIFICATION';
+        case 'Resolved':
+          return s == 'RESOLVED' || s == 'CLOSED';
+        case 'Duplicate / Rejected':
+          return s == 'DUPLICATE' || s == 'REJECTED';
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
   Future<void> _validate(int id) async {
     try {
       await ApiService.validateChallenge(id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Challenge officially validated by Government!'),
+          content: Text('✓ Challenge officially validated by Government with audit log!'),
           backgroundColor: AppTheme.success,
           behavior: SnackBarBehavior.floating,
         ),
@@ -154,6 +190,227 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
               child: const Text('Assign Challenge'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showRejectDialog(Challenge ch) {
+    final reasonCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.cancel_outlined, color: AppTheme.error, size: 22),
+            SizedBox(width: 8),
+            Text('Reject Societal Challenge', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(ch.title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            const Text(
+              'Provide an official administrative justification for rejecting this crowdsourced challenge.',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Official Rejection Reason *',
+                hintText: 'e.g. Out of jurisdiction / Insufficient actionable ground details / Duplicate report',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.error),
+            onPressed: () async {
+              if (reasonCtrl.text.trim().isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                await ApiService.rejectChallenge(ch.id, reasonCtrl.text.trim());
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('✓ Challenge rejected with administrative audit log recorded.'), backgroundColor: AppTheme.warning),
+                );
+                _load();
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed: ${e.toString()}'), backgroundColor: AppTheme.error),
+                );
+              }
+            },
+            child: const Text('Confirm Rejection', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDuplicateDialog(Challenge ch) {
+    final candidates = _challenges.where((c) => c.id != ch.id).toList();
+    int? selectedCanonicalId = candidates.isNotEmpty ? candidates.first.id : null;
+    final remarksCtrl = TextEditingController(text: 'Identified as duplicate of existing registered challenge.');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.copy_rounded, color: Colors.purple, size: 22),
+              SizedBox(width: 8),
+              Text('Mark as Duplicate', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: candidates.isEmpty
+              ? const Text('No other challenges exist to link as canonical duplicate.')
+              : SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Subject: #${ch.id} ${ch.title}',
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                      const SizedBox(height: 14),
+                      const Text('Select Canonical Challenge to Merge With:',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<int>(
+                        value: selectedCanonicalId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(border: OutlineInputBorder()),
+                        items: candidates
+                            .map((c) => DropdownMenuItem<int>(
+                                  value: c.id,
+                                  child: Text('#${c.id} - ${c.title}',
+                                      style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setDlgState(() => selectedCanonicalId = v),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: remarksCtrl,
+                        maxLines: 2,
+                        decoration: const InputDecoration(
+                          labelText: 'Moderation Remarks',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            if (candidates.isNotEmpty)
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
+                onPressed: () async {
+                  if (selectedCanonicalId == null) return;
+                  Navigator.pop(ctx);
+                  try {
+                    await ApiService.markChallengeDuplicate(ch.id, selectedCanonicalId!, remarks: remarksCtrl.text.trim());
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Challenge #${ch.id} marked as duplicate of #${selectedCanonicalId}!'),
+                        backgroundColor: AppTheme.success,
+                      ),
+                    );
+                    _load();
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed: ${e.toString()}'), backgroundColor: AppTheme.error),
+                    );
+                  }
+                },
+                child: const Text('Confirm Duplicate', style: TextStyle(color: Colors.white)),
+              ),
+        ],
+      ),
+    ),
+  );
+}
+
+  void _showAuditLogsDialog() async {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SizedBox(
+          width: 600,
+          height: 500,
+          child: Column(
+            children: [
+              AppBar(
+                title: const Row(
+                  children: [
+                    Icon(Icons.history_edu_rounded, size: 20),
+                    SizedBox(width: 8),
+                    Text('Government Immutable Audit Trail', style: TextStyle(fontSize: 14)),
+                  ],
+                ),
+                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+              ),
+              Expanded(
+                child: FutureBuilder<List<Map<String, dynamic>>>(
+                  future: ApiService.getAuditLogs(limit: 40),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen));
+                    }
+                    final logs = snapshot.data ?? [];
+                    if (logs.isEmpty) {
+                      return const Center(child: Text('No audit logs recorded yet.', style: TextStyle(color: AppTheme.textSecondary)));
+                    }
+                    return ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: logs.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, i) {
+                        final log = logs[i];
+                        final action = log['action'] ?? 'ACTION';
+                        final actor = log['actor_name'] ?? 'System';
+                        final reason = log['reason'] ?? '';
+                        final time = log['timestamp']?.toString().split('.').first.replaceAll('T', ' ') ?? '';
+
+                        return ListTile(
+                          dense: true,
+                          title: Text('$action • $actor', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (reason.isNotEmpty) Text(reason, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                              Text(time, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                            ],
+                          ),
+                          leading: const CircleAvatar(
+                            radius: 14,
+                            backgroundColor: Color(0xFFEFF6FF),
+                            child: Icon(Icons.shield_outlined, size: 14, color: AppTheme.primaryGreen),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -322,11 +579,14 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final displayList = _filteredChallenges;
+
     return Scaffold(
       appBar: SIPAppBar(
         title: 'Multi-Tier Governance & Challenges',
-        subtitle: 'Problem Statement ID 26043 • Module A3',
+        subtitle: 'Government of Jharkhand • SIH 26043 Moderation Desk',
         actions: [
+          IconButton(icon: const Icon(Icons.history_edu_rounded), tooltip: 'System Audit Logs', onPressed: _showAuditLogsDialog),
           IconButton(icon: const Icon(Icons.refresh), tooltip: 'Refresh', onPressed: _load),
         ],
       ),
@@ -334,11 +594,8 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
         children: [
           // Filter Chips by Governance Tier
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.white,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -358,7 +615,7 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
                                         ? 'District (DC)'
                                         : 'State HQ',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           color: isSelected ? Colors.white : AppTheme.textPrimary,
                         ),
@@ -380,6 +637,47 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
             ),
           ),
 
+          // Secondary Filter: Status Tab Bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _statusFilters.map((s) {
+                  final isSelected = _selectedStatusFilter == s;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: FilterChip(
+                      label: Text(
+                        s,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected ? AppTheme.primaryGreen : AppTheme.textSecondary,
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedColor: AppTheme.primaryGreen.withOpacity(0.12),
+                      checkmarkColor: AppTheme.primaryGreen,
+                      backgroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(color: isSelected ? AppTheme.primaryGreen : Colors.grey.shade300),
+                      ),
+                      onSelected: (val) {
+                        setState(() => _selectedStatusFilter = val ? s : 'All');
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+
           // Challenges List
           Expanded(
             child: _isLoading
@@ -393,22 +691,25 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
                       ],
                     ),
                   )
-                : _challenges.isEmpty
+                : displayList.isEmpty
                     ? EmptyStateView(
                         icon: Icons.layers_clear_outlined,
-                        title: 'No Challenges in $_selectedTier Tier',
-                        message: 'No crowdsourced challenges are currently at this level of governance.',
-                        actionLabel: 'View All Tiers',
+                        title: 'No Challenges Match Filters',
+                        message: 'No crowdsourced challenges match "$_selectedTier Tier" and "$_selectedStatusFilter" filter.',
+                        actionLabel: 'Reset Filters',
                         onAction: () {
-                          setState(() => _selectedTier = 'All');
+                          setState(() {
+                            _selectedTier = 'All';
+                            _selectedStatusFilter = 'All';
+                          });
                           _load();
                         },
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        itemCount: _challenges.length,
+                        itemCount: displayList.length,
                         itemBuilder: (context, index) {
-                          final ch = _challenges[index];
+                          final ch = displayList[index];
                           final isValidated = ch.status != 'SUBMITTED' && ch.status != 'AI_ANALYSIS' && ch.status != 'UNDER_REVIEW';
 
                           return Padding(
@@ -437,9 +738,65 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
                                       StatusBadge(status: ch.priority, isPriority: true),
                                       const SizedBox(width: 6),
                                       StatusBadge(status: ch.status),
+                                      const SizedBox(width: 4),
+                                      // Moderation Popup Menu
+                                      PopupMenuButton<String>(
+                                        icon: const Icon(Icons.more_vert, size: 18, color: AppTheme.textSecondary),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        onSelected: (val) {
+                                          if (val == 'reject') _showRejectDialog(ch);
+                                          if (val == 'duplicate') _showDuplicateDialog(ch);
+                                          if (val == 'escalate') _showEscalateDialog(ch);
+                                          if (val == 'assign') _showAssignDialog(ch);
+                                          if (val == 'validate') _validate(ch.id);
+                                        },
+                                        itemBuilder: (ctx) => [
+                                          if (!isValidated)
+                                            const PopupMenuItem(
+                                              value: 'validate',
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.check_circle_outline, size: 16, color: AppTheme.primaryGreen),
+                                                  SizedBox(width: 8),
+                                                  Text('Validate Challenge', style: TextStyle(fontSize: 12)),
+                                                ],
+                                              ),
+                                            ),
+                                          const PopupMenuItem(
+                                            value: 'assign',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.school_outlined, size: 16, color: AppTheme.primaryGreen),
+                                                SizedBox(width: 8),
+                                                Text('Assign Institution', style: TextStyle(fontSize: 12)),
+                                              ],
+                                            ),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'duplicate',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.copy_outlined, size: 16, color: Colors.purple),
+                                                SizedBox(width: 8),
+                                                Text('Mark as Duplicate', style: TextStyle(fontSize: 12)),
+                                              ],
+                                            ),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'reject',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.cancel_outlined, size: 16, color: AppTheme.error),
+                                                SizedBox(width: 8),
+                                                Text('Reject with Reason', style: TextStyle(fontSize: 12, color: AppTheme.error)),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ],
                                   ),
-                                  const SizedBox(height: 12),
+                                  const SizedBox(height: 10),
                                   Text(ch.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimary)),
                                   const SizedBox(height: 4),
                                   Text(
@@ -561,4 +918,3 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
     );
   }
 }
-

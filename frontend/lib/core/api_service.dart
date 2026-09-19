@@ -144,6 +144,39 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> refreshToken(String rToken) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/auth/refresh'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'refresh_token': rToken}),
+    );
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      _token = data['access_token'];
+      return data;
+    }
+    throw Exception('Failed to refresh token');
+  }
+
+  static Future<void> logout([String? rToken]) async {
+    try {
+      await http.post(
+        Uri.parse('$baseUrl/auth/logout'),
+        headers: _headers,
+        body: jsonEncode({if (rToken != null) 'token': rToken}),
+      );
+    } catch (_) {}
+    _token = null;
+  }
+
+  static Future<Map<String, dynamic>> getMe() async {
+    final res = await http.get(Uri.parse('$baseUrl/auth/me'), headers: _headers);
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body);
+    }
+    throw Exception('Failed to fetch user profile');
+  }
+
   // ----------------- CHALLENGES -----------------
 
   static Future<List<Challenge>> getChallenges({String? category, String? district, String? status, String? tier}) async {
@@ -222,6 +255,45 @@ class ApiService {
     }
   }
 
+  static Future<List<Map<String, dynamic>>> getChallengeHistory(int challengeId) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/challenges/$challengeId/history'),
+      headers: _headers,
+    );
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  static Future<void> markChallengeDuplicate(int challengeId, int canonicalChallengeId, {String? remarks}) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/challenges/$challengeId/duplicate'),
+      headers: _headers,
+      body: jsonEncode({
+        'canonical_challenge_id': canonicalChallengeId,
+        'remarks': remarks ?? 'Identified as duplicate of existing registered challenge',
+      }),
+    );
+    if (res.statusCode != 200) {
+      final err = jsonDecode(res.body);
+      throw Exception(err['detail'] ?? 'Failed to mark duplicate');
+    }
+  }
+
+  static Future<void> rejectChallenge(int challengeId, String reason) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/challenges/$challengeId/reject'),
+      headers: _headers,
+      body: jsonEncode({'reason': reason}),
+    );
+    if (res.statusCode != 200) {
+      final err = jsonDecode(res.body);
+      throw Exception(err['detail'] ?? 'Failed to reject challenge');
+    }
+  }
+
   static Future<void> addComment(int challengeId, String content) async {
     final res = await http.post(
       Uri.parse('$baseUrl/challenges/$challengeId/comments'),
@@ -283,7 +355,7 @@ class ApiService {
     if (res.statusCode != 200) throw Exception('Accept failed');
   }
 
-  static Future<void> rejectChallenge(int challengeId) async {
+  static Future<void> universityRejectChallenge(int challengeId) async {
     final res = await http.post(Uri.parse('$baseUrl/universities/reject-challenge/$challengeId'), headers: _headers);
     if (res.statusCode != 200) throw Exception('Reject failed');
   }
@@ -327,6 +399,28 @@ class ApiService {
       }),
     );
     if (res.statusCode != 200) throw Exception('Failed to update milestone');
+  }
+
+  static Future<void> addTask(int projectId, String title, [int? studentId]) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/projects/$projectId/tasks'),
+      headers: _headers,
+      body: jsonEncode({'title': title, 'assigned_to_student_id': studentId}),
+    );
+    if (res.statusCode != 200 && res.statusCode != 201) {
+      throw Exception('Failed to add task');
+    }
+  }
+
+  static Future<void> updateTask(int projectId, int taskId, bool isCompleted) async {
+    final res = await http.patch(
+      Uri.parse('$baseUrl/projects/$projectId/tasks/$taskId'),
+      headers: _headers,
+      body: jsonEncode({'is_completed': isCompleted}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('Failed to update task');
+    }
   }
 
   static Future<void> submitProposal(int projectId, Map<String, dynamic> payload) async {
@@ -454,6 +548,93 @@ class ApiService {
         throw Exception('Escalation failed: ${res.body}');
       }
     }
+  }
+
+  // ----------------- FIELD & DELIVERABLE VERIFICATION -----------------
+
+  static Future<Map<String, dynamic>> submitVerificationRecord(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/verification/records'),
+      headers: _headers,
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return jsonDecode(res.body);
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['detail'] ?? 'Failed to submit verification record');
+  }
+
+  static Future<List<Map<String, dynamic>>> getProjectVerifications(int projectId) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/verification/records/project/$projectId'),
+      headers: _headers,
+    );
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  static Future<Map<String, dynamic>> reviewVerificationRecord(int recordId, String decision, {String? remarks}) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/verification/records/$recordId/review'),
+      headers: _headers,
+      body: jsonEncode({'decision': decision, 'remarks': remarks}),
+    );
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body);
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['detail'] ?? 'Failed to review verification record');
+  }
+
+  // ----------------- IMPACT & CITIZEN FEEDBACK -----------------
+
+  static Future<Map<String, dynamic>> submitCitizenFeedback(Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/impact/feedback'),
+      headers: _headers,
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return jsonDecode(res.body);
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['detail'] ?? 'Failed to submit citizen feedback');
+  }
+
+  static Future<List<Map<String, dynamic>>> getChallengeFeedback(int challengeId) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/impact/feedback/challenge/$challengeId'),
+      headers: _headers,
+    );
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  static Future<Map<String, dynamic>> getDynamicImpactMetrics() async {
+    final res = await http.get(Uri.parse('$baseUrl/impact/metrics'), headers: _headers);
+    if (res.statusCode == 200) return jsonDecode(res.body);
+    return {};
+  }
+
+  // ----------------- AUDIT LOGS -----------------
+
+  static Future<List<Map<String, dynamic>>> getAuditLogs({int limit = 50, int offset = 0}) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/admin/audit-logs?limit=$limit&offset=$offset'),
+      headers: _headers,
+    );
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.cast<Map<String, dynamic>>();
+    }
+    return [];
   }
 
   // ----------------- NOTIFICATIONS -----------------
