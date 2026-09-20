@@ -40,6 +40,7 @@ def get_faculty_dashboard(
         "projects": [
             {
                 "id": p.id,
+                "challenge_id": p.challenge_id,
                 "name": p.name,
                 "challenge_title": p.challenge.title if p.challenge else "Challenge",
                 "progress_percentage": p.progress_percentage,

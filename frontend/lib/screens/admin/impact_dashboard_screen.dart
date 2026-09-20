@@ -15,6 +15,7 @@ class ImpactDashboardScreen extends StatefulWidget {
 
 class _ImpactDashboardScreenState extends State<ImpactDashboardScreen> {
   List<Map<String, dynamic>> _metrics = [];
+  Map<String, dynamic> _dynamicMetrics = {};
   bool _isLoading = true;
 
   @override
@@ -26,12 +27,18 @@ class _ImpactDashboardScreenState extends State<ImpactDashboardScreen> {
   Future<void> _loadMetrics() async {
     setState(() => _isLoading = true);
     try {
-      final list = await ApiService.getImpactMetrics();
+      final results = await Future.wait([
+        ApiService.getImpactMetrics(),
+        ApiService.getDynamicImpactMetrics(),
+      ]);
       if (!mounted) return;
-      setState(() => _metrics = list);
+      setState(() {
+        _metrics = results[0] as List<Map<String, dynamic>>;
+        _dynamicMetrics = results[1] as Map<String, dynamic>;
+      });
     } catch (_) {
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -144,7 +151,85 @@ class _ImpactDashboardScreenState extends State<ImpactDashboardScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
+
+            // Real-Time Dynamic Indicators
+            if (_dynamicMetrics.isNotEmpty) ...[
+              SIPCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryGreen.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.analytics_rounded, size: 18, color: AppTheme.primaryGreen),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Live Database Telemetry',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                        ),
+                        const Spacer(),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.success),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text('Live', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.success)),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTelemetryCell(
+                            '${_dynamicMetrics['citizens_benefited'] ?? 0}+',
+                            'Beneficiaries',
+                            Icons.groups_rounded,
+                            AppTheme.primaryGreen,
+                          ),
+                        ),
+                        Container(width: 1, height: 40, color: Colors.grey.shade200),
+                        Expanded(
+                          child: _buildTelemetryCell(
+                            '${_dynamicMetrics['resolution_rate_pct'] ?? 0}%',
+                            'Resolution Rate',
+                            Icons.check_circle_rounded,
+                            AppTheme.success,
+                          ),
+                        ),
+                        Container(width: 1, height: 40, color: Colors.grey.shade200),
+                        Expanded(
+                          child: _buildTelemetryCell(
+                            '${_dynamicMetrics['active_academic_projects'] ?? 0}',
+                            'HEI Projects',
+                            Icons.school_rounded,
+                            Colors.indigo,
+                          ),
+                        ),
+                        Container(width: 1, height: 40, color: Colors.grey.shade200),
+                        Expanded(
+                          child: _buildTelemetryCell(
+                            '${_dynamicMetrics['average_citizen_satisfaction'] ?? 4.5} ★',
+                            'Satisfaction',
+                            Icons.star_rounded,
+                            AppTheme.accentGold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
 
             const SectionHeader(
               title: 'Audited Impact Indicators',
@@ -257,6 +342,25 @@ class _ImpactDashboardScreenState extends State<ImpactDashboardScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTelemetryCell(String value, String label, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+        ),
+      ],
     );
   }
 }

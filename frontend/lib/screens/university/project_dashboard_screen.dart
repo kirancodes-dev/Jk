@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/api_service.dart';
+import '../../core/auth_provider.dart';
 import '../../core/theme.dart';
 import '../../core/file_picker_helper.dart';
 import '../../widgets/sip_app_bar.dart';
@@ -43,10 +45,24 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
     try {
       final res = await ApiService.getProjectDetail(widget.projectId);
       if (!mounted) return;
-      setState(() => _project = res);
+      setState(() {
+        _project = res;
+        if (res['documents'] != null && res['documents'] is List) {
+          _deliverables.clear();
+          for (final doc in res['documents']) {
+            _deliverables.add({
+              'id': doc['id'],
+              'title': doc['title'] ?? 'Document',
+              'url': doc['file_url'] ?? '',
+              'uploaded_at': doc['created_at'] != null ? doc['created_at'].toString().split('T').first : '',
+              'doc_type': doc['doc_type'],
+            });
+          }
+        }
+      });
     } catch (_) {
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -133,18 +149,19 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
       for (final f in files) {
         if (f.bytes.isNotEmpty) {
           final res = await ApiService.uploadFile(bytes: f.bytes, filename: f.name);
-          setState(() {
-            _deliverables.add({
-              'title': f.name,
-              'url': res['file_url'],
-              'uploaded_at': DateTime.now().toIso8601String().split('T').first,
-            });
-          });
+          final fileUrl = res['file_url'] ?? '';
+          await ApiService.addProjectDocument(
+            widget.projectId,
+            f.name,
+            fileUrl,
+            docType: 'TECHNICAL_ARTIFACT',
+          );
         }
       }
+      await _loadProject();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✓ Deliverable attached to project!'), backgroundColor: AppTheme.success),
+          const SnackBar(content: Text('✓ Deliverable attached and saved to project!'), backgroundColor: AppTheme.success),
         );
       }
     } catch (e) {
@@ -937,21 +954,36 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
                     ],
                     if (!isVerified && !isRejected) ...[
                       const Divider(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          OutlinedButton(
-                            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
-                            onPressed: () => _reviewVerification(v['id'], 'REJECTED'),
-                            child: const Text('Reject', style: TextStyle(fontSize: 11)),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
-                            onPressed: () => _reviewVerification(v['id'], 'VERIFIED'),
-                            child: const Text('Approve & Verify', style: TextStyle(fontSize: 11, color: Colors.white)),
-                          ),
-                        ],
+                      Builder(
+                        builder: (context) {
+                          final userRole = context.watch<AuthProvider>().currentUser?.role?.toUpperCase();
+                          final isGov = userRole == 'GOVERNMENT_ADMIN';
+                          if (isGov) {
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                OutlinedButton(
+                                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
+                                  onPressed: () => _reviewVerification(v['id'], 'REJECTED'),
+                                  child: const Text('Reject', style: TextStyle(fontSize: 11)),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
+                                  onPressed: () => _reviewVerification(v['id'], 'VERIFIED'),
+                                  child: const Text('Approve & Verify', style: TextStyle(fontSize: 11, color: Colors.white)),
+                                ),
+                              ],
+                            );
+                          }
+                          return const Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              'Awaiting Government Admin Review',
+                              style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ],

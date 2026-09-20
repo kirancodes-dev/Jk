@@ -35,4 +35,8 @@ class AppFilePicker {
     if (list.isEmpty) return null;
     return list.first;
   }
+
+  static void downloadFile(List<int> bytes, String filename) {
+    downloadPlatformFile(bytes, filename);
+  }
 }

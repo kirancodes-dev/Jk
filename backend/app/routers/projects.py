@@ -5,14 +5,14 @@ from sqlalchemy.orm import Session
 from backend.app.core.database import get_db
 from backend.app.models.models import (
     Project, ProjectMember, ProjectMilestone, ProjectTask, SolutionProposal,
-    IndustryCollaboration, Challenge, University, Faculty, Student, User,
+    IndustryCollaboration, ProjectDocument, Challenge, University, Faculty, Student, User,
     IndustryPartner, ChallengeStatus, MilestoneStatus, StatusHistory
 )
 from backend.app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectDetailOut, ProjectMemberOut, MilestoneCreate,
     MilestoneUpdate, MilestoneOut, TaskCreate, TaskUpdate, TaskOut,
     SolutionProposalCreate, SolutionProposalOut, IndustryCollaborationCreate,
-    IndustryCollaborationOut
+    IndustryCollaborationOut, ProjectDocumentCreate, ProjectDocumentOut
 )
 from backend.app.services.notification_service import notification_service
 from backend.app.routers.deps import get_current_user, verify_project_membership
@@ -197,6 +197,17 @@ def _build_project_detail_response(project_id: int, db: Session):
             status=c.status
         ) for c in p.collaborations
     ]
+
+    docs_out = [
+        ProjectDocumentOut(
+            id=d.id,
+            project_id=d.project_id,
+            title=d.title,
+            doc_type=d.doc_type,
+            file_url=d.file_url,
+            uploaded_at=d.uploaded_at
+        ) for d in p.documents
+    ]
     
     return ProjectDetailOut(
         id=p.id,
@@ -217,7 +228,8 @@ def _build_project_detail_response(project_id: int, db: Session):
         milestones=milestones_out,
         tasks=tasks_out,
         proposals=proposals_out,
-        collaborations=collabs_out
+        collaborations=collabs_out,
+        documents=docs_out
     )
 
 @router.get("/{project_id}", response_model=ProjectDetailOut)
@@ -229,6 +241,25 @@ def get_project_detail(
     # Enforce Object-Level Authorization (IDOR Mitigation)
     verify_project_membership(project_id=project_id, current_user=current_user, db=db)
     return _build_project_detail_response(project_id, db)
+
+@router.post("/{project_id}/documents", response_model=ProjectDocumentOut)
+def add_project_document(
+    project_id: int,
+    payload: ProjectDocumentCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    verify_project_membership(project_id=project_id, current_user=current_user, db=db)
+    doc = ProjectDocument(
+        project_id=project_id,
+        title=payload.title,
+        file_url=payload.file_url,
+        doc_type=payload.doc_type or "Deliverable"
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    return doc
 
 def verify_project_access(project: Project, current_user: User):
     if current_user.role == UserRole.GOVERNMENT_ADMIN:

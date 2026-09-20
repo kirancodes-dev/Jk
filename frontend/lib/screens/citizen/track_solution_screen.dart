@@ -72,7 +72,31 @@ class _TrackSolutionScreenState extends State<TrackSolutionScreen> {
       );
     }
 
-    final d = _detail ?? {};
+    if (_detail == null) {
+      return Scaffold(
+        backgroundColor: AppTheme.background,
+        appBar: SIPAppBar(title: 'Track Solution #${widget.challengeId}'),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline_rounded, size: 48, color: AppTheme.error),
+              const SizedBox(height: 12),
+              const Text('Failed to load challenge details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
+                onPressed: _loadDetails,
+                icon: const Icon(Icons.refresh, color: Colors.white),
+                label: const Text('Retry', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final d = _detail!;
     final status = d['status'] ?? 'SUBMITTED';
     final currentIdx = _getCurrentStageIndex(status);
     final progressPct = ((currentIdx + 1) / _lifecycleStages.length * 100).toInt();

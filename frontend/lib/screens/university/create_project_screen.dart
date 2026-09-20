@@ -22,21 +22,48 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   final _skillsController = TextEditingController(text: 'Civil Water Filtration, IoT Sensor Integration, Mobile Dashboard, Renewable Energy');
   final _timelineController = TextEditingController(text: '4');
 
-  int? _selectedMentorId = 1;
-  final List<int> _selectedStudents = [1, 2, 3];
+  int? _selectedMentorId;
+  final List<int> _selectedStudents = [];
   bool _isCreating = false;
+  bool _isLoadingRoster = true;
 
-  final List<Map<String, dynamic>> _facultyMentors = [
-    {'id': 1, 'name': 'Dr. Ananya Sharma (Head, Environmental Science & Civil Engg)'},
-    {'id': 2, 'name': 'Dr. Sandip Dutta (Professor, Computer Science & Engineering)'},
-    {'id': 3, 'name': 'Dr. S. K. Ghorai (Head, Electronics & Communication)'},
-  ];
+  List<Map<String, dynamic>> _facultyMentors = [];
+  List<Map<String, dynamic>> _studentsPool = [];
 
-  final List<Map<String, dynamic>> _studentsPool = [
-    {'id': 1, 'name': 'Priya Singh', 'dept': 'B.Tech CSE & IoT', 'role': 'Software & Telemetry Lead'},
-    {'id': 2, 'name': 'Rahul Verma', 'dept': 'B.Tech Civil Engg', 'role': 'Filtration & Hydraulics'},
-    {'id': 3, 'name': 'Amit Kujur', 'dept': 'B.Tech Electronics', 'role': 'Embedded Sensors & Solar'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadRoster();
+  }
+
+  Future<void> _loadRoster() async {
+    try {
+      final roster = await ApiService.getUniversityRoster(1);
+      if (!mounted) return;
+      final fList = (roster['faculty'] as List? ?? []).cast<Map<String, dynamic>>();
+      final sList = (roster['students'] as List? ?? []).cast<Map<String, dynamic>>();
+
+      setState(() {
+        _facultyMentors = fList.isNotEmpty ? fList : [
+          {'id': 1, 'name': 'Dr. Ananya Sharma (Head, Environmental Science & Civil Engg)'},
+          {'id': 2, 'name': 'Dr. Sandip Dutta (Professor, Computer Science & Engineering)'},
+        ];
+        _studentsPool = sList.isNotEmpty ? sList : [
+          {'id': 1, 'name': 'Rahul Verma', 'dept': 'B.Tech Civil Engg', 'role': 'Filtration Lead'},
+        ];
+        if (_facultyMentors.isNotEmpty) {
+          _selectedMentorId = _facultyMentors.first['id'];
+        }
+        _selectedStudents.clear();
+        for (var s in _studentsPool) {
+          if (s['id'] != null) _selectedStudents.add(s['id'] as int);
+        }
+        _isLoadingRoster = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingRoster = false);
+    }
+  }
 
   Future<void> _handleCreate() async {
     if (!_formKey.currentState!.validate()) return;

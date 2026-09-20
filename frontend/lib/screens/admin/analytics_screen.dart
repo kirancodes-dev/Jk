@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
 import '../../core/theme.dart';
+import '../../core/file_picker_helper.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
 import '../../widgets/section_header.dart';
@@ -35,25 +36,43 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
   }
 
-  void _exportReport() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 20),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'CSV State Report generated: jharkhand_sih_challenges_report.csv',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-            ),
-          ],
+  Future<void> _exportReport() async {
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Generating live state CSV export from database...'),
+          duration: Duration(seconds: 1),
         ),
-        backgroundColor: AppTheme.success,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+      );
+      final bytes = await ApiService.exportAdminReportCsvBytes();
+      AppFilePicker.downloadFile(bytes, 'jharkhand_sih_challenges_report.csv');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white, size: 20),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '✓ CSV State Report downloaded: jharkhand_sih_challenges_report.csv',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppTheme.success,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
   }
 
   @override

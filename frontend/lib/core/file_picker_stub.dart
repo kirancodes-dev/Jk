@@ -6,3 +6,5 @@ Future<List<AppPickedFile>> pickPlatformFiles({
 }) async {
   throw UnsupportedError('Unsupported platform for file picking');
 }
+
+void downloadPlatformFile(List<int> bytes, String filename) {}

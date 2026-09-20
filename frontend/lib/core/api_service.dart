@@ -350,6 +350,14 @@ class ApiService {
     return [];
   }
 
+  static Future<Map<String, dynamic>> getUniversityRoster(int universityId) async {
+    final res = await http.get(Uri.parse('$baseUrl/universities/$universityId/roster'), headers: _headers);
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body);
+    }
+    return {'faculty': [], 'students': []};
+  }
+
   static Future<void> acceptChallenge(int challengeId) async {
     final res = await http.post(Uri.parse('$baseUrl/universities/accept-challenge/$challengeId'), headers: _headers);
     if (res.statusCode != 200) throw Exception('Accept failed');
@@ -441,6 +449,22 @@ class ApiService {
     if (res.statusCode != 200) throw Exception('Failed to offer collaboration');
   }
 
+  static Future<Map<String, dynamic>> addProjectDocument(int projectId, String title, String fileUrl, {String? docType}) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/projects/$projectId/documents'),
+      headers: _headers,
+      body: jsonEncode({
+        'title': title,
+        'file_url': fileUrl,
+        'doc_type': docType ?? 'Deliverable',
+      }),
+    );
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return jsonDecode(res.body);
+    }
+    throw Exception('Failed to attach document to project');
+  }
+
   // ----------------- STUDENT & FACULTY -----------------
 
   static Future<Map<String, dynamic>> getStudentDashboard() async {
@@ -493,6 +517,29 @@ class ApiService {
       return list.map((e) => ProjectItem.fromJson(e)).toList();
     }
     return [];
+  }
+
+  static Future<Map<String, dynamic>> sponsorProject({
+    required int projectId,
+    required double amount,
+    String? sponsorshipType,
+    String? notes,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/industry/sponsor'),
+      headers: _headers,
+      body: jsonEncode({
+        'project_id': projectId,
+        'amount': amount,
+        'sponsorship_type': sponsorshipType ?? 'GRANT',
+        'notes': notes,
+      }),
+    );
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return jsonDecode(res.body);
+    }
+    final err = jsonDecode(res.body);
+    throw Exception(err['detail'] ?? 'Sponsorship failed');
   }
 
   static Future<Map<String, dynamic>> getAdminDashboard() async {
@@ -635,6 +682,14 @@ class ApiService {
       return list.cast<Map<String, dynamic>>();
     }
     return [];
+  }
+
+  static Future<Uint8List> exportAdminReportCsvBytes() async {
+    final res = await http.get(Uri.parse('$baseUrl/admin/reports/csv'), headers: _headers);
+    if (res.statusCode == 200) {
+      return res.bodyBytes;
+    }
+    throw Exception('Failed to export CSV report (${res.statusCode})');
   }
 
   // ----------------- NOTIFICATIONS -----------------

@@ -246,25 +246,32 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _statBox(String label, String value, Color color) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ChallengeManagementScreen()),
         ),
-        child: Column(
-          children: [
-            Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
-            ),
-          ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            children: [
+              Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
         ),
       ),
     );

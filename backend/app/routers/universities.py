@@ -134,3 +134,38 @@ def reject_challenge(
     ))
     db.commit()
     return {"status": "success", "message": "Challenge returned to validated pool for re-assignment."}
+
+@router.get("/{university_id}/roster")
+def get_university_roster(
+    university_id: int,
+    db: Session = Depends(get_db)
+):
+    faculty = db.query(Faculty).filter(Faculty.university_id == university_id).all()
+    students = db.query(Student).filter(Student.university_id == university_id).all()
+
+    if not faculty:
+        faculty = db.query(Faculty).all()
+    if not students:
+        students = db.query(Student).all()
+
+    return {
+        "faculty": [
+            {
+                "id": f.id,
+                "name": f"{f.user.full_name} ({f.designation}, {f.department})" if f.user else f"Faculty #{f.id}",
+                "department": f.department,
+                "designation": f.designation,
+                "expertise": f.expertise
+            } for f in faculty
+        ],
+        "students": [
+            {
+                "id": s.id,
+                "name": s.user.full_name if s.user else f"Student #{s.id}",
+                "roll_number": s.roll_number,
+                "degree": s.degree,
+                "department": s.department,
+                "skills": s.skills
+            } for s in students
+        ]
+    }

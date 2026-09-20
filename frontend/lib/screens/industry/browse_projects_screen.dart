@@ -105,6 +105,98 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
     );
   }
 
+  void _showSponsorDialog(ProjectItem p) {
+    final amountCtrl = TextEditingController(text: '100000');
+    String grantType = 'GRANT';
+    final notesCtrl = TextEditingController(text: 'CSR Innovation Grant for pilot deployment and lab testing');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.monetization_on_rounded, color: AppTheme.accentGold, size: 22),
+              SizedBox(width: 8),
+              Text('Pledge CSR Grant', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Project: ${p.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimary)),
+                const SizedBox(height: 2),
+                Text('University: ${p.universityName}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: amountCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Pledged Grant Amount (INR) *',
+                    prefixText: '₹ ',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: grantType,
+                  decoration: const InputDecoration(labelText: 'Sponsorship Category', border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'GRANT', child: Text('Direct Financial Grant')),
+                    DropdownMenuItem(value: 'LAB_EQUIPMENT', child: Text('Lab Equipment & Hardware')),
+                    DropdownMenuItem(value: 'PILOT_DEPLOYMENT', child: Text('Field Pilot Implementation')),
+                    DropdownMenuItem(value: 'MENTORSHIP', child: Text('Industry Mentorship')),
+                  ],
+                  onChanged: (v) => setDlgState(() => grantType = v ?? 'GRANT'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'CSR Commitment Notes',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentGold, foregroundColor: Colors.black87),
+              onPressed: () async {
+                final amt = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+                if (amt <= 0) return;
+                Navigator.pop(ctx);
+                try {
+                  await ApiService.sponsorProject(
+                    projectId: p.id,
+                    amount: amt,
+                    sponsorshipType: grantType,
+                    notes: notesCtrl.text.trim(),
+                  );
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('✓ CSR Grant pledged successfully! Transferred to project funds.'), backgroundColor: AppTheme.success),
+                  );
+                  _load();
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error));
+                }
+              },
+              child: const Text('Confirm CSR Pledge', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -209,14 +301,16 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
                                     style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                                   ),
                                   const SizedBox(height: 14),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    alignment: WrapAlignment.end,
                                     children: [
                                       SizedBox(
                                         height: 36,
                                         child: OutlinedButton(
                                           style: OutlinedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                           ),
                                           onPressed: () {
@@ -230,14 +324,28 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
                                       ),
                                       SizedBox(
                                         height: 36,
-                                        child: ElevatedButton.icon(
-                                          icon: const Icon(Icons.handshake_rounded, size: 16),
-                                          label: const Text('Offer Support', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                          style: ElevatedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                                        child: OutlinedButton.icon(
+                                          icon: const Icon(Icons.handshake_rounded, size: 15, color: AppTheme.primaryGreen),
+                                          label: const Text('Offer Support', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                           ),
                                           onPressed: () => _showOfferSupportDialog(p),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        height: 36,
+                                        child: ElevatedButton.icon(
+                                          icon: const Icon(Icons.monetization_on_rounded, size: 15),
+                                          label: const Text('Sponsor CSR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppTheme.accentGold,
+                                            foregroundColor: Colors.black87,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          onPressed: () => _showSponsorDialog(p),
                                         ),
                                       ),
                                     ],

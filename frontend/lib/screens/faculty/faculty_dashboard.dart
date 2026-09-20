@@ -50,7 +50,7 @@ class _FacultyDashboardState extends State<FacultyDashboard> {
     }
   }
 
-  void _showFeedbackDialog(String projectName) {
+  void _showFeedbackDialog(int? challengeId, String projectName) {
     final fbCtrl = TextEditingController();
     showDialog(
       context: context,
@@ -78,13 +78,27 @@ class _FacultyDashboardState extends State<FacultyDashboard> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
+            onPressed: () async {
+              final text = fbCtrl.text.trim();
+              if (text.isEmpty) return;
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Feedback recorded for student team!'), backgroundColor: AppTheme.success),
-              );
+              try {
+                if (challengeId != null) {
+                  await ApiService.addComment(challengeId, '[Faculty Mentor Review]: $text');
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('✓ Mentor guidance recorded for student team!'), backgroundColor: AppTheme.success),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to submit feedback: $e'), backgroundColor: AppTheme.error));
+                }
+              }
             },
-            child: const Text('Submit Feedback'),
+            child: const Text('Submit Feedback', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -312,7 +326,7 @@ class _FacultyDashboardState extends State<FacultyDashboard> {
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         ),
-                                        onPressed: () => _showFeedbackDialog(p['name'] ?? ''),
+                                        onPressed: () => _showFeedbackDialog(p['challenge_id'], p['name'] ?? ''),
                                         child: const Text('Feedback', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                                       ),
                                     ),

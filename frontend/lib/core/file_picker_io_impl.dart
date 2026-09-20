@@ -23,3 +23,5 @@ Future<List<AppPickedFile>> pickPlatformFiles({
   }
   return result;
 }
+
+void downloadPlatformFile(List<int> bytes, String filename) {}

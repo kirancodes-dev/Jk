@@ -345,6 +345,20 @@ class ProjectOut(BaseModel):
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
+class ProjectDocumentOut(BaseModel):
+    id: int
+    project_id: int
+    title: str
+    doc_type: Optional[str] = "Report"
+    file_url: str
+    uploaded_at: Optional[datetime] = None
+    model_config = ConfigDict(from_attributes=True)
+
+class ProjectDocumentCreate(BaseModel):
+    title: str
+    file_url: str
+    doc_type: Optional[str] = "Report"
+
 class ProjectDetailOut(ProjectOut):
     objectives: Optional[str] = None
     expected_outcome: Optional[str] = None
@@ -354,6 +368,7 @@ class ProjectDetailOut(ProjectOut):
     tasks: List[TaskOut] = []
     proposals: List[SolutionProposalOut] = []
     collaborations: List[IndustryCollaborationOut] = []
+    documents: List[ProjectDocumentOut] = []
 
 # ----------------- ORGANIZATIONS -----------------
 

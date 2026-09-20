@@ -283,9 +283,6 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
     setState(() => _isSubmitting = true);
 
     final mediaUrls = _uploadedMedia.map((m) => m['file_url'] as String).toList();
-    if (mediaUrls.isEmpty) {
-      mediaUrls.add('/uploads/demo/water_shortage_angara.jpg');
-    }
 
     final payload = {
       'title': _titleController.text.trim(),
