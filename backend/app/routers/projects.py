@@ -15,7 +15,7 @@ from backend.app.schemas.schemas import (
     IndustryCollaborationOut
 )
 from backend.app.services.notification_service import notification_service
-from backend.app.routers.deps import get_current_user
+from backend.app.routers.deps import get_current_user, verify_project_membership
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 

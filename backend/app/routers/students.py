@@ -86,6 +86,27 @@ def get_my_projects(
         ))
     return out
 
+@router.get("/my-tasks", response_model=List[TaskOut])
+def get_my_tasks(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    student = db.query(Student).filter(Student.user_id == current_user.id).first()
+    student_id = student.id if student else 1
+    tasks = db.query(ProjectTask).filter(ProjectTask.assigned_to_student_id == student_id).all()
+    out = []
+    for t in tasks:
+        out.append(TaskOut(
+            id=t.id,
+            title=t.title,
+            assigned_to_student_id=t.assigned_to_student_id,
+            assigned_student_name=t.assigned_student.user.full_name if t.assigned_student and t.assigned_student.user else None,
+            is_completed=t.is_completed,
+            submission_notes=t.submission_notes,
+            submission_attachment=t.submission_attachment
+        ))
+    return out
+
 @router.post("/submit-task/{task_id}")
 def submit_task_work(
     task_id: int,

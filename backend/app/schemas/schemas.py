@@ -225,6 +225,7 @@ class EscalateChallengeRequest(BaseModel):
 
 class AssignUniversityRequest(BaseModel):
     university_id: int
+    remarks: Optional[str] = None
 
 class MarkDuplicateRequest(BaseModel):
     canonical_challenge_id: int

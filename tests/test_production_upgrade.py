@@ -246,3 +246,105 @@ def test_async_ai_background_processing(client):
     assert res.status_code == 201
     data = res.json()
     assert data["id"] is not None
+
+def test_secure_file_access_path_traversal_blocked(client):
+    login_res = client.post("/api/v1/auth/login", json={
+        "email": "admin@jharkhand.gov.in",
+        "password": "password123"
+    })
+    token = login_res.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Path traversal with relative dots in path or filename
+    res1 = client.get("/api/v1/files/challenges/..%2F..%2Fetc/passwd", headers=headers)
+    assert res1.status_code in [400, 404]
+
+    res2 = client.get("/api/v1/files/challenges/....//secret.txt", headers=headers)
+    assert res2.status_code in [400, 404]
+
+def test_unauthenticated_file_access_blocked(client):
+    # Calling secure file endpoint without Bearer token must return 401
+    res = client.get("/api/v1/files/challenges/sample.pdf")
+    assert res.status_code == 401
+
+def test_project_detail_idor_protection(client):
+    # Login Rahul (BIT Mesra student)
+    login_rahul = client.post("/api/v1/auth/login", json={
+        "email": "rahul.verma@bitmesra.ac.in",
+        "password": "password123"
+    })
+    assert login_rahul.status_code == 200
+    rahul_token = login_rahul.json()["access_token"]
+    rahul_headers = {"Authorization": f"Bearer {rahul_token}"}
+
+    # Login Sapthagiri student (different institution/project)
+    login_sapth = client.post("/api/v1/auth/login", json={
+        "email": "student@sapthagiri.edu.in",
+        "password": "password123"
+    })
+    assert login_sapth.status_code == 200
+    sapth_token = login_sapth.json()["access_token"]
+    sapth_headers = {"Authorization": f"Bearer {sapth_token}"}
+
+    # Get a project
+    proj_res = client.get("/api/v1/projects")
+    projects = proj_res.json()
+    assert len(projects) > 0
+    project_id = projects[0]["id"]
+
+    # Citizen who is not a member of this project must be blocked (403 IDOR guard)
+    citizen_login = client.post("/api/v1/auth/login", json={
+        "email": "citizen@jharkhand.gov.in",
+        "password": "password123"
+    })
+    citizen_token = citizen_login.json()["access_token"]
+    citizen_headers = {"Authorization": f"Bearer {citizen_token}"}
+
+    res_citizen = client.get(f"/api/v1/projects/{project_id}", headers=citizen_headers)
+    assert res_citizen.status_code == 403
+    assert "Forbidden" in res_citizen.json()["detail"] or "Access forbidden" in res_citizen.json()["detail"]
+
+    # An unauthorized student not enrolled in this project must also be blocked (403 IDOR guard)
+    res_sapth = client.get(f"/api/v1/projects/{project_id}", headers=sapth_headers)
+    assert res_sapth.status_code == 403
+
+def test_concurrent_challenge_assignment_conflict(client):
+    # Admin logs in
+    admin_login = client.post("/api/v1/auth/login", json={
+        "email": "admin@jharkhand.gov.in",
+        "password": "password123"
+    })
+    admin_headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+
+    # Create fresh challenge
+    citizen_login = client.post("/api/v1/auth/login", json={
+        "email": "citizen@jharkhand.gov.in",
+        "password": "password123"
+    })
+    c_token = citizen_login.json()["access_token"]
+    ch_res = client.post("/api/v1/challenges", json={
+        "title": "Solar Power Microgrid in Bundu",
+        "description": "Rural electrification challenge for distributed mini-grid installation.",
+        "category": "Renewable Energy",
+        "urgency": "High",
+        "location": {"district_name": "Ranchi", "block_name": "Bundu"}
+    }, headers={"Authorization": f"Bearer {c_token}"})
+    ch_id = ch_res.json()["id"]
+
+    # Assign to University 1
+    assign1 = client.post(
+        f"/api/v1/challenges/{ch_id}/assign",
+        json={"university_id": 1, "remarks": "Assigned to BIT Mesra"},
+        headers=admin_headers
+    )
+    assert assign1.status_code == 200
+
+    # Re-assigning to a DIFFERENT University (e.g. 2) should trigger 409 Conflict
+    assign2 = client.post(
+        f"/api/v1/challenges/{ch_id}/assign",
+        json={"university_id": 2, "remarks": "Conflicting assignment to NIT Jamshedpur"},
+        headers=admin_headers
+    )
+    assert assign2.status_code == 409
+    assert "Conflict" in assign2.json()["detail"]
+

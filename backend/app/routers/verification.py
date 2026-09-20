@@ -9,9 +9,10 @@ from backend.app.models.models import (
 from backend.app.schemas.schemas import (
     VerificationRecordCreate, VerificationRecordOut, VerificationReviewRequest
 )
-from backend.app.routers.deps import get_current_user, require_roles
+from backend.app.routers.deps import get_current_user, require_roles, verify_project_membership
 
 router = APIRouter(prefix="/verification", tags=["Deliverable & Field Verification"])
+
 
 @router.post("/records", response_model=VerificationRecordOut, status_code=status.HTTP_201_CREATED)
 def submit_verification_record(
@@ -67,8 +68,10 @@ def submit_verification_record(
 @router.get("/records/project/{project_id}", response_model=List[VerificationRecordOut])
 def get_project_verifications(
     project_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    verify_project_membership(project_id, current_user, db)
     return db.query(VerificationRecord).filter(
         VerificationRecord.project_id == project_id
     ).order_by(VerificationRecord.created_at.desc()).all()

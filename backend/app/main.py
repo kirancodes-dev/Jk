@@ -15,19 +15,21 @@ from backend.app.services.seed_data import seed_database, ensure_sapthagiri_seed
 from backend.app.routers import (
     auth, challenges, ai, universities, projects,
     students, faculty, industry, admin, notifications, demo,
-    organizations, verification, impact
+    organizations, verification, impact, files
 )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create DB tables if not present
     Base.metadata.create_all(bind=engine)
     
-    # Auto-seed realistic demo data on initial startup
+    # Auto-seed realistic demo data on initial startup ONLY in demo mode
     db = SessionLocal()
     try:
-        seed_database(db)
-        ensure_sapthagiri_seeded(db)
+        if settings.DEMO_MODE:
+            seed_database(db)
+            ensure_sapthagiri_seeded(db)
     finally:
         db.close()
         
@@ -62,13 +64,15 @@ async def add_security_and_correlation_headers(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     return response
 
-# Mount local uploaded files
-if os.path.exists(settings.UPLOAD_DIR):
+# Mount local uploaded files: in DEMO_MODE, mount for preview convenience;
+# in production (DEMO_MODE=False), access must go through authenticated /api/v1/files/
+if settings.DEMO_MODE and os.path.exists(settings.UPLOAD_DIR):
     app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 # Include Routers
 app.include_router(auth.router, prefix=settings.API_V1_STR)
 app.include_router(challenges.router, prefix=settings.API_V1_STR)
+app.include_router(files.router, prefix=settings.API_V1_STR)
 app.include_router(ai.router, prefix=settings.API_V1_STR)
 app.include_router(universities.router, prefix=settings.API_V1_STR)
 app.include_router(projects.router, prefix=settings.API_V1_STR)
@@ -81,6 +85,7 @@ app.include_router(impact.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
 app.include_router(notifications.router, prefix=settings.API_V1_STR)
 app.include_router(demo.router, prefix=settings.API_V1_STR)
+
 
 from fastapi.responses import FileResponse
 
@@ -125,9 +130,9 @@ if os.path.exists(frontend_web_dir):
 
     @app.get("/{filename:path}")
     async def serve_static_or_spa(filename: str):
-        # Don't intercept docs or openapi
-        if filename in ["docs", "redoc", "openapi.json"]:
-            return None
+        # Don't intercept API endpoints, docs or openapi
+        if filename.startswith("api") or filename in ["docs", "redoc", "openapi.json"]:
+            raise HTTPException(status_code=404, detail="Not Found")
         file_path = os.path.join(frontend_web_dir, filename)
         if os.path.isfile(file_path):
             return FileResponse(file_path)

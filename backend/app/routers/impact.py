@@ -22,9 +22,15 @@ def submit_citizen_feedback(
     if not challenge:
         raise HTTPException(status_code=404, detail="Challenge not found")
 
+    if current_user.role not in [UserRole.CITIZEN, UserRole.GOVERNMENT_ADMIN]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Only citizens or government administrators can submit satisfaction feedback."
+        )
+
     citizen = db.query(Citizen).filter(Citizen.user_id == current_user.id).first()
     if not citizen:
-        # Auto-link citizen profile if needed
+        # Auto-link citizen profile if citizen user
         citizen = Citizen(user_id=current_user.id, district_name="Ranchi")
         db.add(citizen)
         db.commit()

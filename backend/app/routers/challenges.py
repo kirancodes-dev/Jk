@@ -466,6 +466,13 @@ def assign_university(
     ch = db.query(Challenge).filter(Challenge.id == challenge_id).first()
     if not ch:
         raise HTTPException(status_code=404, detail="Challenge not found")
+
+    if ch.assigned_university_id is not None and ch.assigned_university_id != payload.university_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Conflict: Challenge #{ch.id} has already been assigned to another institution (ID: {ch.assigned_university_id})."
+        )
+
     univ = db.query(University).filter(University.id == payload.university_id).first()
     if not univ:
         raise HTTPException(status_code=404, detail="University not found")
@@ -479,7 +486,7 @@ def assign_university(
         from_status=old_status,
         to_status="UNIVERSITY_ASSIGNED",
         updated_by=f"{current_user.full_name} ({current_user.role.value})",
-        remarks=f"Challenge formally assigned to {univ.institution_name}"
+        remarks=payload.remarks or f"Challenge formally assigned to {univ.institution_name}"
     ))
 
     db.add(AuditLog(
