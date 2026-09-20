@@ -128,10 +128,9 @@ def create_project(
         remarks=f"Project '{project.name}' initialized with multidisciplinary team."
     ))
     db.commit()
-    return get_project_detail(project.id, db)
+    return _build_project_detail_response(project.id, db)
 
-@router.get("/{project_id}", response_model=ProjectDetailOut)
-def get_project_detail(project_id: int, db: Session = Depends(get_db)):
+def _build_project_detail_response(project_id: int, db: Session):
     p = db.query(Project).filter(Project.id == project_id).first()
     if not p:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -169,21 +168,23 @@ def get_project_detail(project_id: int, db: Session = Depends(get_db)):
             assigned_to_student_id=t.assigned_to_student_id,
             assigned_student_name=st_name,
             is_completed=t.is_completed,
+            due_date=t.due_date,
             submission_notes=t.submission_notes,
             submission_attachment=t.submission_attachment
         ))
         
     proposals_out = [
         SolutionProposalOut(
-            id=prop.id,
-            proposed_solution=prop.proposed_solution,
-            technical_approach=prop.technical_approach,
-            required_resources=prop.required_resources,
-            expected_impact=prop.expected_impact,
-            estimated_cost=prop.estimated_cost,
-            timeline_weeks=prop.timeline_weeks,
-            is_approved_by_gov=prop.is_approved_by_gov
-        ) for prop in p.proposals
+            id=pr.id,
+            proposed_solution=pr.proposed_solution,
+            technical_approach=pr.technical_approach,
+            required_resources=pr.required_resources,
+            expected_impact=pr.expected_impact,
+            estimated_cost=pr.estimated_cost,
+            timeline_weeks=pr.timeline_weeks,
+            submitted_at=pr.submitted_at,
+            is_approved_by_gov=pr.is_approved_by_gov
+        ) for pr in p.proposals
     ]
     
     collabs_out = [
@@ -218,6 +219,16 @@ def get_project_detail(project_id: int, db: Session = Depends(get_db)):
         proposals=proposals_out,
         collaborations=collabs_out
     )
+
+@router.get("/{project_id}", response_model=ProjectDetailOut)
+def get_project_detail(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Enforce Object-Level Authorization (IDOR Mitigation)
+    verify_project_membership(project_id=project_id, current_user=current_user, db=db)
+    return _build_project_detail_response(project_id, db)
 
 def verify_project_access(project: Project, current_user: User):
     if current_user.role == UserRole.GOVERNMENT_ADMIN:
