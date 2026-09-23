@@ -21,6 +21,7 @@ class UniversityDashboard extends StatefulWidget {
 
 class _UniversityDashboardState extends State<UniversityDashboard> {
   Map<String, dynamic>? _data;
+  List<Map<String, dynamic>> _assignments = [];
   bool _isLoading = true;
 
   @override
@@ -33,12 +34,77 @@ class _UniversityDashboardState extends State<UniversityDashboard> {
     setState(() => _isLoading = true);
     try {
       final res = await ApiService.getUniversityDashboard();
+      final inbox = await ApiService.getAssignmentInbox();
       if (!mounted) return;
-      setState(() => _data = res);
+      setState(() {
+        _data = res;
+        _assignments = inbox.where((a) => a['status'] == 'OFFERED').toList();
+      });
     } catch (_) {
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _respondToAssignment(Map<String, dynamic> allocation, String decision) {
+    final notesCtrl = TextEditingController();
+    bool coi = false;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(decision == 'ACCEPT' ? 'Accept Assignment' : 'Decline Assignment', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (allocation['deadline_at'] != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text('Response deadline: ${allocation['deadline_at'].toString().split('T').first}',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, fontWeight: FontWeight.w600)),
+                ),
+              TextField(
+                controller: notesCtrl,
+                maxLines: 2,
+                decoration: InputDecoration(labelText: decision == 'ACCEPT' ? 'Notes (optional)' : 'Reason for declining *', border: const OutlineInputBorder()),
+              ),
+              if (decision == 'ACCEPT')
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: coi,
+                  title: const Text('I declare no conflict of interest', style: TextStyle(fontSize: 12)),
+                  onChanged: (v) => setDlgState(() => coi = v ?? false),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: decision == 'ACCEPT' ? AppTheme.success : AppTheme.error),
+              onPressed: () async {
+                if (decision == 'DECLINE' && notesCtrl.text.trim().isEmpty) return;
+                if (decision == 'ACCEPT' && !coi) return;
+                Navigator.pop(ctx);
+                try {
+                  await ApiService.respondToAssignment(allocation['id'], decision, notes: notesCtrl.text.trim(), coiDeclared: coi);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(decision == 'ACCEPT' ? 'Assignment accepted!' : 'Assignment declined and returned to pool.'), backgroundColor: AppTheme.success),
+                  );
+                  _loadDashboard();
+                } catch (e) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error));
+                }
+              },
+              child: Text(decision == 'ACCEPT' ? 'Confirm Accept' : 'Confirm Decline', style: const TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _acceptChallenge(int id) async {
@@ -192,6 +258,60 @@ class _UniversityDashboardState extends State<UniversityDashboard> {
                   ),
                 ],
               ),
+              const SizedBox(height: 24),
+
+              // Assignment Inbox (Stage 4 allocation workflow, HEI-facing)
+              SectionHeader(
+                title: 'Assignment Inbox',
+                trailing: Text('${_assignments.length} pending', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ),
+              const SizedBox(height: 10),
+              if (_assignments.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text('No new formal assignments awaiting response.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                )
+              else
+                ..._assignments.map((a) => Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Challenge Allocation #${a['challenge_id']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          if (a['deadline_at'] != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text('Respond by: ${a['deadline_at'].toString().split('T').first}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                            ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
+                                  onPressed: () => _respondToAssignment(a, 'DECLINE'),
+                                  child: const Text('Decline', style: TextStyle(fontSize: 12)),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.success),
+                                  onPressed: () => _respondToAssignment(a, 'ACCEPT'),
+                                  child: const Text('Accept', style: TextStyle(fontSize: 12, color: Colors.white)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    )),
               const SizedBox(height: 24),
 
               // Assigned Challenges

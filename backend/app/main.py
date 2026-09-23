@@ -9,29 +9,36 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.config import settings
 from backend.app.core.database import Base, engine, SessionLocal, get_db
+from backend.app.core.logging_config import configure_logging
+from backend.app.core.security_headers import SecurityHeadersMiddleware, RequestLimitMiddleware
+from backend.app.core.telemetry import PrometheusMetricsMiddleware, get_metrics_response
 from backend.app.services.seed_data import seed_database, ensure_sapthagiri_seeded
 
 # Routers
 from backend.app.routers import (
     auth, challenges, ai, universities, projects,
     students, faculty, industry, admin, notifications, demo,
-    organizations, verification, impact, files
+    organizations, verification, impact, files, privacy
 )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create DB tables if not present
-    Base.metadata.create_all(bind=engine)
+    # Configure structured logging with PII/secret scrubbing
+    configure_logging(settings.ENVIRONMENT)
+
+    # In production, NEVER execute Base.metadata.create_all. Schema is managed solely by Alembic.
+    if settings.ENVIRONMENT != "production" and settings.DATABASE_URL.startswith("sqlite"):
+        Base.metadata.create_all(bind=engine)
     
     # Auto-seed realistic demo data on initial startup ONLY in demo mode
-    db = SessionLocal()
-    try:
-        if settings.DEMO_MODE:
+    if settings.DEMO_MODE:
+        db = SessionLocal()
+        try:
             seed_database(db)
             ensure_sapthagiri_seeded(db)
-    finally:
-        db.close()
+        finally:
+            db.close()
         
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "demo"), exist_ok=True)
@@ -45,10 +52,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# Security & DoS protection middlewares
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLimitMiddleware, max_body_bytes=25 * 1024 * 1024, timeout_seconds=60.0)
+app.add_middleware(PrometheusMetricsMiddleware)
+
+# CORS middleware with strict origin validation
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.ALLOWED_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -60,8 +72,6 @@ async def add_security_and_correlation_headers(request: Request, call_next):
     request.state.request_id = request_id
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
     return response
 
 # Mount local uploaded files: in DEMO_MODE, mount for preview convenience;
@@ -84,26 +94,49 @@ app.include_router(verification.router, prefix=settings.API_V1_STR)
 app.include_router(impact.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
 app.include_router(notifications.router, prefix=settings.API_V1_STR)
+app.include_router(privacy.router, prefix=settings.API_V1_STR)
 app.include_router(demo.router, prefix=settings.API_V1_STR)
 
 
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from backend.app.core.database import check_database_connection
 
-@app.get("/health")
-def health_check():
-    return {"status": "healthy", "service": "FastAPI Backend", "database": "Connected"}
+@app.get("/metrics")
+def prometheus_metrics():
+    """Prometheus exposition format metrics for scraping."""
+    return get_metrics_response()
 
 @app.get("/live")
 def liveness_check():
+    """Liveness probe: returns 200 OK without requiring database connectivity."""
     return {"status": "alive"}
 
 @app.get("/ready")
-def readiness_check(db: Session = Depends(get_db)):
-    try:
-        db.execute(text("SELECT 1"))
-        return {"status": "ready", "database": "connected"}
-    except Exception as e:
-        raise HTTPException(status_code=503, detail="Database not ready")
+def readiness_check():
+    """Readiness probe: verifies database connectivity safely without exposing secrets or tracebacks."""
+    db_ok, _ = check_database_connection()
+    if not db_ok:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "database": "unavailable"}
+        )
+    return {"status": "ready", "database": "connected"}
+
+@app.get("/health")
+def health_check():
+    """Aggregated health probe."""
+    db_ok, _ = check_database_connection()
+    status_str = "healthy" if db_ok else "unhealthy"
+    payload = {
+        "status": status_str,
+        "service": settings.PROJECT_NAME,
+        "database": "connected" if db_ok else "unavailable",
+        "storage": settings.STORAGE_TYPE,
+        "environment": settings.ENVIRONMENT
+    }
+    if not db_ok:
+        return JSONResponse(status_code=503, content=payload)
+    return payload
 
 @app.get("/api-info")
 def api_info():
@@ -137,4 +170,16 @@ if os.path.exists(frontend_web_dir):
         if os.path.isfile(file_path):
             return FileResponse(file_path)
         return FileResponse(os.path.join(frontend_web_dir, "index.html"))
+else:
+    @app.get("/")
+    async def serve_root_api():
+        return {
+            "name": settings.PROJECT_NAME,
+            "status": "online",
+            "documentation": "/docs",
+            "health": "/health",
+            "liveness": "/live",
+            "readiness": "/ready",
+        }
+
 

@@ -8,8 +8,10 @@ from backend.app.models.models import (
     UniversityExpertise, UniversityMatch, Project, ProjectMember,
     ProjectMilestone, ProjectTask, SolutionProposal, IndustryCollaboration,
     ProjectDocument, Comment, Notification, StatusHistory, ImpactMetrics,
-    District, ChallengePriority, ChallengeStatus, MilestoneStatus
+    District, ChallengePriority, ChallengeStatus, MilestoneStatus,
+    AccountStatus, GovernmentScope
 )
+from backend.app.core.config import settings
 
 JHARKHAND_DISTRICTS = [
     {"name": "Ranchi", "lat": 23.3441, "lon": 85.3096, "pop": 2914253, "rural": 56.9},
@@ -54,6 +56,10 @@ CATEGORIES = [
 ]
 
 def seed_database(db: Session):
+    # Strictly disallow seeding in production environments
+    if settings.ENVIRONMENT == "production" or not settings.DEMO_MODE:
+        return
+
     # Check if already seeded
     if db.query(User).first():
         return

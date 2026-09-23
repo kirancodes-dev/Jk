@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth_provider.dart';
+import '../../core/build_config.dart';
 import '../../core/theme.dart';
 import '../../widgets/sip_card.dart';
 import 'register_screen.dart';
@@ -34,7 +35,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController(text: 'password123');
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   // Selected Account Type: CITIZEN, UNIVERSITY, INDUSTRY, GOVERNMENT_ADMIN
@@ -84,7 +85,10 @@ class _LoginScreenState extends State<LoginScreen> {
       _selectedUniversity = widget.initialUniversity;
       _selectedUniversityRole = widget.initialRole;
       _selectedUniversityRoleLabel = widget.initialRoleLabel;
+    }
 
+    if (BuildConfig.isEvaluatorBuild) {
+      _passwordController.text = 'password123';
       if (_selectedAccountType == 'UNIVERSITY' && _selectedUniversityRole != null) {
         _emailController.text = AuthProvider.getUniversityDemoEmail(
           _selectedUniversityRole!,
@@ -95,10 +99,12 @@ class _LoginScreenState extends State<LoginScreen> {
               (a) => a['key'] == _selectedAccountType,
               orElse: () => _accountTypes.first,
             )['email'] ??
-            '';
+            'citizen@jharkhand.gov.in';
       }
     } else {
-      _emailController.text = 'citizen@jharkhand.gov.in';
+      // Production: Start with empty credentials requiring authentic login
+      _emailController.text = '';
+      _passwordController.text = '';
     }
   }
 
@@ -149,11 +155,13 @@ class _LoginScreenState extends State<LoginScreen> {
         _selectedUniversityRoleLabel = result['roleLabel'] as String?;
 
         if (_selectedUniversityRole != null) {
-          _emailController.text = AuthProvider.getUniversityDemoEmail(
-            _selectedUniversityRole!,
-            _selectedUniversity?['institution_name'],
-          );
-          _passwordController.text = 'password123';
+          if (BuildConfig.isEvaluatorBuild) {
+            _emailController.text = AuthProvider.getUniversityDemoEmail(
+              _selectedUniversityRole!,
+              _selectedUniversity?['institution_name'],
+            );
+            _passwordController.text = 'password123';
+          }
         }
       });
     }
@@ -178,11 +186,13 @@ class _LoginScreenState extends State<LoginScreen> {
         _selectedUniversityRoleLabel = result['roleLabel'] as String?;
 
         if (_selectedUniversityRole != null) {
-          _emailController.text = AuthProvider.getUniversityDemoEmail(
-            _selectedUniversityRole!,
-            _selectedUniversity?['institution_name'],
-          );
-          _passwordController.text = 'password123';
+          if (BuildConfig.isEvaluatorBuild) {
+            _emailController.text = AuthProvider.getUniversityDemoEmail(
+              _selectedUniversityRole!,
+              _selectedUniversity?['institution_name'],
+            );
+            _passwordController.text = 'password123';
+          }
         }
       });
     }
@@ -196,18 +206,22 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         setState(() {
           _selectedAccountType = 'UNIVERSITY';
-          _emailController.text = AuthProvider.getUniversityDemoEmail(
-            _selectedUniversityRole!,
-            _selectedUniversity?['institution_name'],
-          );
-          _passwordController.text = 'password123';
+          if (BuildConfig.isEvaluatorBuild) {
+            _emailController.text = AuthProvider.getUniversityDemoEmail(
+              _selectedUniversityRole!,
+              _selectedUniversity?['institution_name'],
+            );
+            _passwordController.text = 'password123';
+          }
         });
       }
     } else {
       setState(() {
         _selectedAccountType = key;
-        _emailController.text = (acc['email'] as String?) ?? '';
-        _passwordController.text = 'password123';
+        if (BuildConfig.isEvaluatorBuild) {
+          _emailController.text = (acc['email'] as String?) ?? '';
+          _passwordController.text = 'password123';
+        }
       });
     }
   }
@@ -319,6 +333,47 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
+
+                  if (BuildConfig.isEvaluatorBuild) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.shade600, width: 1.5),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.science_outlined, color: Colors.amber.shade900, size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'EVALUATOR MODE: SIH Jury & Demo Build',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.amber.shade900,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Pre-configured demo roles and credentials are active for evaluation purposes.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.amber.shade900.withValues(alpha: 0.85),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   // Main Title
                   const Text(

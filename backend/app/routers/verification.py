@@ -1,4 +1,5 @@
-from typing import List, Optional
+import json
+from typing import List, Optional, Union, Dict, Any
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -9,7 +10,12 @@ from backend.app.models.models import (
 from backend.app.schemas.schemas import (
     VerificationRecordCreate, VerificationRecordOut, VerificationReviewRequest
 )
-from backend.app.routers.deps import get_current_user, require_roles, verify_project_membership
+from backend.app.routers.deps import (
+    get_current_user, require_permission, verify_project_membership,
+    verify_challenge_jurisdiction, verify_verification_submission_scope,
+    verify_no_verification_conflict
+)
+from backend.app.services.workflow_service import WorkflowService
 
 router = APIRouter(prefix="/verification", tags=["Deliverable & Field Verification"])
 
@@ -17,12 +23,15 @@ router = APIRouter(prefix="/verification", tags=["Deliverable & Field Verificati
 @router.post("/records", response_model=VerificationRecordOut, status_code=status.HTTP_201_CREATED)
 def submit_verification_record(
     payload: VerificationRecordCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission("verification.submit")),
     db: Session = Depends(get_db)
 ):
     project = db.query(Project).filter(Project.id == payload.project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # Stage 8: Validate verifier scope and jurisdiction (blocks students, industry, citizens, and project team)
+    verify_verification_submission_scope(project, current_user, db)
 
     milestone = None
     if payload.milestone_id:
@@ -32,8 +41,27 @@ def submit_verification_record(
 
     evidence_str = payload.evidence_urls
     if isinstance(evidence_str, list):
-        import json
         evidence_str = json.dumps(evidence_str)
+
+    checklist_str = payload.checklist_responses
+    if isinstance(checklist_str, (dict, list)):
+        checklist_str = json.dumps(checklist_str)
+
+    device_str = payload.device_metadata
+    if isinstance(device_str, (dict, list)):
+        device_str = json.dumps(device_str)
+
+    before_str = payload.before_media_urls
+    if isinstance(before_str, list):
+        before_str = json.dumps(before_str)
+
+    after_str = payload.after_media_urls
+    if isinstance(after_str, list):
+        after_str = json.dumps(after_str)
+
+    lab_str = payload.lab_report_references
+    if isinstance(lab_str, (dict, list)):
+        lab_str = json.dumps(lab_str)
 
     record = VerificationRecord(
         project_id=payload.project_id,
@@ -41,8 +69,19 @@ def submit_verification_record(
         verification_type=payload.verification_type,
         inspector_name=payload.inspector_name or current_user.full_name,
         inspector_role=payload.inspector_role or current_user.role.value,
+        inspector_user_id=current_user.id,
+        inspector_organization_id=payload.inspector_organization_id,
+        assignment_id=payload.assignment_id,
         verification_status="SUBMITTED",
         evidence_urls=evidence_str,
+        checklist_responses=checklist_str,
+        visit_timestamp=payload.visit_timestamp or datetime.now(timezone.utc),
+        device_metadata=device_str,
+        before_media_urls=before_str,
+        after_media_urls=after_str,
+        lab_report_references=lab_str,
+        beneficiary_sample_size=payload.beneficiary_sample_size,
+        beneficiary_feedback_summary=payload.beneficiary_feedback_summary,
         geotagged_lat=payload.geotagged_lat,
         geotagged_lng=payload.geotagged_lng,
         inspection_notes=payload.inspection_notes
@@ -82,12 +121,19 @@ def review_verification_record(
     payload: Optional[VerificationReviewRequest] = None,
     decision: Optional[str] = None,
     remarks: Optional[str] = None,
-    current_user: User = Depends(require_roles([UserRole.GOVERNMENT_ADMIN])),
+    current_user: User = Depends(require_permission("verification.review")),
     db: Session = Depends(get_db)
 ):
     record = db.query(VerificationRecord).filter(VerificationRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Verification record not found")
+
+    # Stage 8: Prevent self-approval, inspector self-review, and project team member conflicts
+    verify_no_verification_conflict(record, current_user, db)
+
+    # Enforce jurisdiction
+    if record.project and record.project.challenge:
+        verify_challenge_jurisdiction(record.project.challenge, current_user, db, action="review_verification")
 
     actual_decision = None
     actual_remarks = None
@@ -108,30 +154,30 @@ def review_verification_record(
     if norm_decision not in ["VERIFIED", "REJECTED"]:
         raise HTTPException(status_code=400, detail="Decision must be 'VERIFIED' or 'REJECTED'")
 
-    old_status = record.verification_status
-    record.verification_status = norm_decision
-    record.verified_at = datetime.now(timezone.utc)
-    if actual_remarks:
-        record.inspection_notes = f"{record.inspection_notes or ''}\n[Gov Review]: {actual_remarks}".strip()
+    record.reviewed_by_user_id = current_user.id
+    record.review_decision = norm_decision
+    record.review_notes = actual_remarks
 
-    # If milestone verified, automatically approve milestone
+    WorkflowService.transition_verification(
+        db=db,
+        verification_record=record,
+        decision=norm_decision,
+        actor=current_user,
+        notes=actual_remarks
+    )
+
+    # If milestone verified, automatically approve milestone through workflow service
     if norm_decision == "VERIFIED" and record.milestone:
-        record.milestone.status = MilestoneStatus.APPROVED
-        record.milestone.completion_percentage = 100.0
-        record.milestone.approved_by_faculty = True
-        record.milestone.approved_at = datetime.now(timezone.utc)
+        WorkflowService.transition_milestone(
+            db=db,
+            milestone=record.milestone,
+            to_status=MilestoneStatus.APPROVED,
+            actor=current_user,
+            remarks=f"Field verification #{record.id} passed: {actual_remarks or 'Verified'}"
+        )
 
-    db.add(AuditLog(
-        actor_id=current_user.id,
-        actor_name=current_user.full_name,
-        actor_role=current_user.role.value,
-        action=f"VERIFICATION_{norm_decision}",
-        entity_name="VerificationRecord",
-        entity_id=record.id,
-        old_state=old_status,
-        new_state=norm_decision,
-        reason=actual_remarks or f"Field audit decision by {current_user.full_name}"
-    ))
     db.commit()
     db.refresh(record)
     return record
+
+

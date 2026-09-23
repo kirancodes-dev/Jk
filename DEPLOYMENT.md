@@ -49,13 +49,16 @@ The production system is deployed on AWS (Mumbai Region `ap-south-1`) with high 
 
 ### 3.1 Create RDS Instance
 ```bash
+# Generate secure password via AWS CLI or KMS
+DB_PASSWORD=$(openssl rand -base64 24)
+
 aws rds create-db-instance \
     --db-instance-identifier sih-jharkhand-pg-prod \
     --db-instance-class db.t3.medium \
     --engine postgres \
     --engine-version 16.2 \
     --master-username sih_admin \
-    --master-user-password "YourSecurePassword123!" \
+    --master-user-password "${DB_PASSWORD}" \
     --allocated-storage 50 \
     --storage-type gp3 \
     --vpc-security-group-ids sg-xxxxxx \
@@ -66,12 +69,12 @@ aws rds create-db-instance \
     --no-publicly-accessible
 ```
 
-### 3.2 Initialize Database Schema
-Execute the DDL script via psql bastion host or migration runner:
+### 3.2 Initialize Database Schema via Alembic
+Database schema migrations must be applied using Alembic. Never use raw DDL scripts or `create_all` in production:
 ```bash
-psql -h sih-jharkhand-pg-prod.xxxxxx.ap-south-1.rds.amazonaws.com \
-     -U sih_admin -d sih_jharkhand \
-     -f database/schema.sql
+# Run migration runner from bastion, CI/CD pipeline, or ECS task:
+export DATABASE_URL="postgresql://sih_admin:${DB_PASSWORD}@sih-jharkhand-pg-prod.xxxxxx.ap-south-1.rds.amazonaws.com:5432/sih_jharkhand"
+alembic upgrade head
 ```
 
 ---
@@ -105,7 +108,7 @@ aws s3api put-public-access-block \
     {
       "AllowedHeaders": ["*"],
       "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
-      "AllowedOrigins": ["https://sih.jharkhand.gov.in", "http://localhost:*"],
+      "AllowedOrigins": ["https://sih.jharkhand.gov.in"],
       "ExposeHeaders": ["ETag"]
     }
   ]
@@ -120,68 +123,38 @@ aws s3api put-bucket-cors --bucket sih-jharkhand-portal-media-prod --cors-config
 
 ## 5. Dockerized Backend Deployment
 
-### 5.1 Dockerfile (`backend/Dockerfile`)
+### 5.1 Dockerfile (`Dockerfile`)
+The backend container runs as an unprivileged non-root user (`appuser`, UID 10001) for container security compliance.
+
 ```dockerfile
-FROM python:3.14-slim
-
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
-
-WORKDIR /app
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY backend/requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
-
-COPY backend/ ./backend/
-COPY database/ ./database/
-
-EXPOSE 8008
-
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:8008/health || exit 1
-
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8008", "--workers", "4"]
+FROM python:3.12-slim AS runtime
+# Installs libpq5 and minimal dependencies
+# Copies application and creates unprivileged appuser (UID 10001)
+# Exposes port 8008 and defines HEALTHCHECK on /live
 ```
 
-### 5.2 Docker Compose (`docker-compose.prod.yml`)
-```yaml
-version: '3.8'
-
-services:
-  backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    restart: always
-    ports:
-      - "8008:8008"
-    environment:
-      - ENVIRONMENT=production
-      - PORT=8008
-      - DATABASE_URL=postgresql://sih_admin:${DB_PASSWORD}@sih-jharkhand-pg-prod.xxxxxx.ap-south-1.rds.amazonaws.com:5432/sih_jharkhand
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - JWT_ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
-      - S3_BUCKET_NAME=sih-jharkhand-portal-media-prod
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_REGION=ap-south-1
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - CORS_ORIGINS=https://sih.jharkhand.gov.in,https://admin.sih.jharkhand.gov.in
-    logging:
-      driver: awslogs
-      options:
-        awslogs-region: ap-south-1
-        awslogs-group: /sih/jharkhand-portal/backend
-        awslogs-stream-prefix: ecs
+Build and push to AWS ECR:
+```bash
+aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com
+docker build -t sih-backend:latest .
+docker tag sih-backend:latest <AWS_ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/sih-backend:latest
+docker push <AWS_ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/sih-backend:latest
 ```
+
+### 5.2 Container Orchestration & Health Probes
+
+The application provides distinct probes:
+- **Liveness Probe**: `GET /live` (HTTP 200 without requiring database connectivity).
+- **Readiness Probe**: `GET /ready` (Verifies database connectivity and storage readiness, returning 503 if unavailable without leaking internal errors).
+- **Aggregated Health Probe**: `GET /health` (Status summary).
+
+Configure ALB target group:
+- **Health Check Path**: `/ready` or `/live`
+- **Port**: `8008`
+- **Healthy Threshold**: `2`
+- **Interval**: `30` seconds
+- **Timeout**: `5` seconds
+
 
 ---
 

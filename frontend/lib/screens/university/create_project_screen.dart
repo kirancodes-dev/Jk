@@ -38,26 +38,19 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
 
   Future<void> _loadRoster() async {
     try {
-      final roster = await ApiService.getUniversityRoster(1);
+      final profile = await ApiService.getMyUniversityProfile();
+      final universityId = profile['id'] as int;
+      final roster = await ApiService.getUniversityRoster(universityId);
       if (!mounted) return;
       final fList = (roster['faculty'] as List? ?? []).cast<Map<String, dynamic>>();
       final sList = (roster['students'] as List? ?? []).cast<Map<String, dynamic>>();
 
       setState(() {
-        _facultyMentors = fList.isNotEmpty ? fList : [
-          {'id': 1, 'name': 'Dr. Ananya Sharma (Head, Environmental Science & Civil Engg)'},
-          {'id': 2, 'name': 'Dr. Sandip Dutta (Professor, Computer Science & Engineering)'},
-        ];
-        _studentsPool = sList.isNotEmpty ? sList : [
-          {'id': 1, 'name': 'Rahul Verma', 'dept': 'B.Tech Civil Engg', 'role': 'Filtration Lead'},
-        ];
-        if (_facultyMentors.isNotEmpty) {
-          _selectedMentorId = _facultyMentors.first['id'];
-        }
+        _facultyMentors = fList;
+        _studentsPool = sList;
+        _selectedMentorId = null;
+        // Invitations require explicit selection — never pre-select a default team.
         _selectedStudents.clear();
-        for (var s in _studentsPool) {
-          if (s['id'] != null) _selectedStudents.add(s['id'] as int);
-        }
         _isLoadingRoster = false;
       });
     } catch (_) {
@@ -85,7 +78,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
       final res = await ApiService.createProject(payload);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Project & Multidisciplinary Team Initialized!'), backgroundColor: AppTheme.success),
+        const SnackBar(content: Text('Project initialized! Team invitations dispatched for acceptance.'), backgroundColor: AppTheme.success),
       );
       Navigator.pushReplacement(
         context,
@@ -165,29 +158,36 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Faculty Mentor (U6)
-              const Text('Assign Faculty Mentor (U6)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              // Faculty Mentor invitation (Stage 6: invitation, not a direct assignment)
+              const Text('Invite a Faculty Mentor', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              const Text('The mentor must accept before appearing as the project lead.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                value: _selectedMentorId,
-                isExpanded: true,
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.psychology_outlined)),
-                items: _facultyMentors
-                    .map((m) => DropdownMenuItem<int>(
-                          value: m['id'],
-                          child: Text(m['name'], style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
-                        ))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedMentorId = v),
-              ),
+              if (_facultyMentors.isEmpty)
+                const Text('No faculty registered in your roster yet.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))
+              else
+                DropdownButtonFormField<int>(
+                  value: _selectedMentorId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(prefixIcon: Icon(Icons.psychology_outlined), hintText: 'Select a faculty mentor to invite (optional)'),
+                  items: _facultyMentors
+                      .map((m) => DropdownMenuItem<int>(
+                            value: m['id'],
+                            child: Text(m['name'] ?? 'Faculty', style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedMentorId = v),
+                ),
               const SizedBox(height: 24),
 
-              // Multidisciplinary Team Members (U5)
-              const Text('Assemble Multidisciplinary Student Team (U5)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              // Multidisciplinary Team Members (invitations)
+              const Text('Invite Multidisciplinary Student Team', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              const Text('Add students across Computer Science, Civil, and Electronics disciplines:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              const Text('Selected students receive an invitation and must accept before joining the team:', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               const SizedBox(height: 10),
 
+              if (_studentsPool.isEmpty)
+                const Text('No students registered in your roster yet.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ..._studentsPool.map((s) {
                 final isSelected = _selectedStudents.contains(s['id']);
                 return Card(
@@ -195,8 +195,8 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                   child: CheckboxListTile(
                     value: isSelected,
                     activeColor: AppTheme.primaryGreen,
-                    title: Text(s['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    subtitle: Text('${s['dept']} • Role: ${s['role']}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    title: Text(s['name'] ?? 'Student', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    subtitle: Text('${s['department'] ?? 'Engineering'} • ${s['degree'] ?? ''}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                     onChanged: (val) {
                       setState(() {
                         if (val == true) {
@@ -218,7 +218,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                   icon: _isCreating
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.group_add),
-                  label: const Text('Initialize Project & Milestones'),
+                  label: const Text('Initialize Project & Send Invitations'),
                   onPressed: _isCreating ? null : _handleCreate,
                 ),
               ),

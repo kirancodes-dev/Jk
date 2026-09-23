@@ -44,14 +44,24 @@ def test_citizen_login(client):
     assert data["role"] == "CITIZEN"
 
 def test_admin_dashboard(client):
-    res = client.get("/api/v1/admin/dashboard")
+    admin_login = client.post("/api/v1/auth/login", json={
+        "email": "admin@jharkhand.gov.in",
+        "password": "password123"
+    })
+    token = admin_login.json()["access_token"]
+    res = client.get("/api/v1/admin/dashboard", headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200
     data = res.json()
     assert data["total_challenges"] >= 10
     assert data["total_universities"] >= 3
 
 def test_jharkhand_map(client):
-    res = client.get("/api/v1/admin/jharkhand-map")
+    admin_login = client.post("/api/v1/auth/login", json={
+        "email": "admin@jharkhand.gov.in",
+        "password": "password123"
+    })
+    token = admin_login.json()["access_token"]
+    res = client.get("/api/v1/admin/jharkhand-map", headers={"Authorization": f"Bearer {token}"})
     assert res.status_code == 200
     districts = res.json()
     assert len(districts) == 24
@@ -84,6 +94,7 @@ def test_citizen_report_challenge_flow(client):
         "category": "Water Management",
         "urgency": "High",
         "expected_impact": "Provide clean drinking water to 400 school students.",
+        "affected_population": 400,
         "location": {
             "district_name": "Dumka",
             "block_name": "Dumka Sadar",

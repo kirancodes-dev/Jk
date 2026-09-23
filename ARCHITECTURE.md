@@ -25,13 +25,13 @@ The platform crowdsources societal challenges directly from citizens across all 
                                           │               │
                      ┌────────────────────┴──────┐        └──────────────────────┐
                      ▼                           ▼                               ▼
-      ┌───────────────────────────┐ ┌───────────────────────────┐ ┌───────────────────────────┐
-      │     AI ANALYSIS ENGINE    │ │   RELATIONAL DATA LAYER   │ │   MEDIA STORAGE ENGINE    │
-      │ • Domain Classification   │ │ • PostgreSQL (Production) │ │ • AWS S3 Bucket           │
-      │ • Priority Evaluation     │ │ • SQLite (Zero-setup dev) │ │ • Local Media Directory   │
-      │ • TF-IDF Duplicate Engine │ │ • 28 Relational Entities  │ │ • Image/Video/Doc Uploads │
-      │ • University Matchmaker   │ │ • Foreign Keys & Indexes  │ └───────────────────────────┘
-      └───────────────────────────┘ └───────────────────────────┘
+       ┌───────────────────────────┐ ┌───────────────────────────┐ ┌───────────────────────────┐
+       │     AI ANALYSIS ENGINE    │ │   RELATIONAL DATA LAYER   │ │   MEDIA STORAGE ENGINE    │
+       │ • Domain Classification   │ │ • PostgreSQL (Production) │ │ • AWS S3 Bucket           │
+       │ • Priority Evaluation     │ │ • SQLite (Local dev only) │ │ • Local Media Directory   │
+       │ • TF-IDF Duplicate Engine │ │ • 33 Relational Entities  │ │ • Image/Video/Doc Uploads │
+       │ • University Matchmaker   │ │ • Alembic Version Control │ └───────────────────────────┘
+       └───────────────────────────┘ └───────────────────────────┘
 ```
 
 ---

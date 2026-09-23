@@ -1,61 +1,44 @@
-from sqlalchemy import text
-from backend.app.core.database import engine, Base
+import logging
+import os
+import sys
+from alembic.config import Config
+from alembic import command
+from backend.app.core.config import settings
 
-def migrate_database_schema():
+logger = logging.getLogger("backend.migrations")
+
+def get_alembic_config() -> Config:
+    """Constructs an Alembic Config pointing to the project alembic.ini."""
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    ini_path = os.path.join(base_dir, "alembic.ini")
+    if not os.path.exists(ini_path):
+        raise FileNotFoundError(f"alembic.ini not found at expected path: {ini_path}")
+    
+    cfg = Config(ini_path)
+    cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+    return cfg
+
+def run_migrations(target_revision: str = "head"):
     """
-    Safely adds missing columns and tables to the active database (PostgreSQL / SQLite).
-    Runs non-destructively using IF NOT EXISTS.
+    Executes database migrations via Alembic.
+    Raises an exception on failure without swallowing errors.
     """
-    # 1. Create any missing tables (audit_logs, organization_profiles, etc.)
-    Base.metadata.create_all(bind=engine)
-
-    # 2. Add missing columns to existing tables
-    is_postgres = "postgres" in str(engine.url)
-
-    alter_statements = [
-        # enum values for postgres
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'IN_PROGRESS';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'FIELD_VERIFICATION';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'CLOSED';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'UNDER_REVIEW';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'NEEDS_MORE_INFO';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'DUPLICATE';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'VALIDATED';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'UNIVERSITY_ASSIGNED';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'TEAM_FORMED';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'SOLUTION_PROPOSED';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'APPROVED';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'PROTOTYPE';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'FIELD_TESTING';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'DEPLOYMENT';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'RESOLVED';",
-        "ALTER TYPE challengestatus ADD VALUE IF NOT EXISTS 'REJECTED';",
-
-        # challenges table
-        "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS affected_population INTEGER DEFAULT 100;",
-        "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS moderation_reason TEXT;",
-        "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS moderated_by VARCHAR(255);",
-        "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS moderated_at TIMESTAMP;",
-        
-        # project_milestones table
-        "ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS weight_pct FLOAT DEFAULT 20.0;",
-        "ALTER TABLE project_milestones ADD COLUMN IF NOT EXISTS deliverable_files TEXT;",
-    ]
-
-    with engine.connect() as conn:
-        for stmt in alter_statements:
-            try:
-                if is_postgres:
-                    conn.execute(text(stmt))
-                else:
-                    # SQLite fallback (no IF NOT EXISTS on ADD COLUMN)
-                    clean_stmt = stmt.replace(" IF NOT EXISTS", "")
-                    conn.execute(text(clean_stmt))
-                conn.commit()
-            except Exception as e:
-                # Column might already exist or dialect specific syntax
-                pass
+    logger.info(f"Applying database migrations to revision: {target_revision} on {settings.ENVIRONMENT} environment...")
+    try:
+        cfg = get_alembic_config()
+        command.upgrade(cfg, target_revision)
+        logger.info(f"Database migrations successfully applied to {target_revision}.")
+    except Exception as e:
+        logger.error(f"Database migration failed: {type(e).__name__}: {str(e)}")
+        raise
 
 if __name__ == "__main__":
-    migrate_database_schema()
-    print("[✓] Database schema migration executed successfully.")
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    target = sys.argv[1] if len(sys.argv) > 1 else "head"
+    try:
+        run_migrations(target)
+        print(f"[✓] Database schema migration to '{target}' completed successfully.")
+    except Exception as ex:
+        print(f"[✗] Migration failed: {ex}", file=sys.stderr)
+        sys.exit(1)
+

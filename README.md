@@ -53,9 +53,10 @@ The platform automates grassroots civic problem ingestion, performs explainable 
                ▼                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                 DATA PERSISTENCE LAYER (PostgreSQL 16)                  │
-│  28 Relational 3NF Tables • Composite Performance Indexes              │
+│  33 Relational 3NF Tables • Composite Performance Indexes              │
 │  Alembic Migration Versioning • ACID Transaction Guarantees             │
 └─────────────────────────────────────────────────────────────────────────┘
+
 ```
 
 ---
@@ -200,34 +201,39 @@ DEVELOPER_DIR=/Library/Developer/CommandLineTools flutter test
 
 ## 🚀 Deployment & DevOps
 
-### 1. Docker Compose (Production Stack)
-Deploy PostgreSQL 16 Alpine and the FastAPI application in a single command:
+### 1. Docker Compose Stacks
+- **Safe Local Development** (zero setup, mock credentials, auto-reload):
+  ```bash
+  docker-compose -f docker-compose.dev.yml up -d --build
+  ```
 
+- **Production Deployment** (variables required, non-root user `appuser`):
+  ```bash
+  # Ensure required production variables are set in environment:
+  export POSTGRES_PASSWORD="<strong-rds-password>"
+  export SECRET_KEY="$(openssl rand -hex 32)"
+  export ALLOWED_CORS_ORIGINS="https://sih.jharkhand.gov.in"
+  
+  docker-compose up -d --build
+  ```
+
+### 2. Database Migrations (Alembic Single Source of Truth)
 ```bash
-# Build and launch services in detached mode:
-docker-compose up -d --build
-
-# View application logs:
-docker-compose logs -f web
-
-# Health check validation:
-curl -f http://localhost:8008/health
-curl -f http://localhost:8008/ready
-```
-
-### 2. Database Migrations (Alembic)
-```bash
-# Apply migrations to the current database:
+# Apply migrations to head:
 alembic upgrade head
 
-# Generate a new migration revision:
-alembic revision --autogenerate -m "describe_schema_change"
+# Rollback migration if needed:
+alembic downgrade -1
+
+# Programmatic Python runner (fails loudly on errors):
+python -m backend.app.core.db_migrate head
 ```
 
 ### 3. Monitoring & Health Probes
-- **`/health`**: Basic service health and database connectivity status.
-- **`/live`**: Kubernetes liveness probe asserting application responsiveness.
-- **`/ready`**: Kubernetes readiness probe executing an active database ping (`SELECT 1`).
+- **`/live`**: Kubernetes / ALB liveness probe (HTTP 200 without requiring database connectivity).
+- **`/ready`**: Kubernetes / ALB readiness probe (verifies database connectivity and storage readiness, returns 503 safely on failure).
+- **`/health`**: Aggregated service health summary.
+
 
 ---
 

@@ -10,10 +10,11 @@ services:
     ports:
       - "8008:8008"
     environment:
-      - DATABASE_URL=postgresql://sih_user:sih_secure_password_2026@db:5432/sih_jharkhand
-      - SECRET_KEY=jharkhand-sih-2026-production-super-secret-key-64chars-minimum
-      - DEMO_MODE=false
-      - ENVIRONMENT=production
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-sih_user}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-sih_jharkhand}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY is required}
+      - ALLOWED_CORS_ORIGINS=${ALLOWED_CORS_ORIGINS:-http://localhost:3000,http://localhost:8008}
+      - DEMO_MODE=${DEMO_MODE:-false}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
@@ -25,15 +26,15 @@ services:
     container_name: jharkhand_sih_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: sih_user
-      POSTGRES_PASSWORD: sih_secure_password_2026
-      POSTGRES_DB: sih_jharkhand
+      POSTGRES_USER: ${POSTGRES_USER:-sih_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-sih_jharkhand}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sih_user -d sih_jharkhand"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-sih_user} -d $${POSTGRES_DB:-sih_jharkhand}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -41,3 +42,4 @@ services:
 volumes:
   pgdata:
   uploads_data:
+

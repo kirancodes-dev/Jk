@@ -4,6 +4,7 @@ import '../../core/theme.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
 import '../../widgets/section_header.dart';
+import '../../widgets/state_views.dart';
 import 'jharkhand_map_screen.dart';
 import 'challenge_management_screen.dart';
 import 'impact_dashboard_screen.dart';
@@ -21,6 +22,8 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   Map<String, dynamic>? _stats;
   bool _isLoading = true;
+  String? _errorMessage;
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -29,15 +32,214 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   Future<void> _loadStats() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
       final res = await ApiService.getAdminDashboard();
       if (!mounted) return;
       setState(() => _stats = res);
-    } catch (_) {
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = e.toString());
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _triggerExport() async {
+    setState(() => _isExporting = true);
+    try {
+      final job = await ApiService.createExportJob(exportType: 'CHALLENGES', exportFormat: 'CSV');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Export job completed (Job #${job['id']}). Extracted ${job['row_count'] ?? 0} bounded rows.'),
+          backgroundColor: AppTheme.primaryGreen,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Export failed: $e'), backgroundColor: AppTheme.error),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  void _showWhyThisNumber(Map<String, dynamic> kpi) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.65,
+        minChildSize: 0.4,
+        maxChildSize: 0.9,
+        builder: (_, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: ListView(
+            controller: scrollCtrl,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      kpi['display_title'] ?? kpi['name'] ?? 'KPI Provenance',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      kpi['verification_level'] ?? 'VERIFIED',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    _metaRow('Current Value', '${kpi['value']} ${kpi['unit'] ?? ''}'),
+                    const Divider(height: 16),
+                    if (kpi['numerator'] != null) ...[
+                      _metaRow('Numerator (Compliant / Count)', '${kpi['numerator']}'),
+                      const Divider(height: 16),
+                    ],
+                    if (kpi['denominator'] != null) ...[
+                      _metaRow('Denominator (Total Scope)', '${kpi['denominator']}'),
+                      const Divider(height: 16),
+                    ],
+                    _metaRow('Time Window', kpi['time_window'] ?? 'ALL_TIME'),
+                    const Divider(height: 16),
+                    _metaRow('Data Freshness', kpi['freshness'] ?? 'Live Transactional'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('Statutory Inclusion & Calculation Rules', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 6),
+              Text(
+                kpi['inclusion_rules'] ?? 'Calculated from verified transactional records without estimation.',
+                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _openContributingRecords(kpi['reconciliation_metric_key'] ?? kpi['name'] ?? 'submissions');
+                },
+                icon: const Icon(Icons.source_rounded, size: 18),
+                label: const Text('Audit Contributing Source Records'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _metaRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+      ],
+    );
+  }
+
+  Future<void> _openContributingRecords(String metricKey) async {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogCtx) => FutureBuilder<Map<String, dynamic>>(
+        future: ApiService.getKpiDrillDown(metric: metricKey, limit: 15),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const AlertDialog(
+              content: SizedBox(
+                height: 100,
+                child: Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+              ),
+            );
+          }
+          if (snapshot.hasError) {
+            return AlertDialog(
+              title: const Text('Drill-Down Error'),
+              content: Text('Failed to load records: ${snapshot.error}'),
+              actions: [TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Close'))],
+            );
+          }
+          final data = snapshot.data ?? {};
+          final List records = data['records'] ?? [];
+
+          return AlertDialog(
+            title: Text('Source Audit: $metricKey', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: double.maxFinite,
+              height: 380,
+              child: records.isEmpty
+                  ? const Center(child: Text('No source records found for this scope.'))
+                  : ListView.separated(
+                      itemCount: records.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, idx) {
+                        final r = records[idx];
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(r['title'] ?? 'Record #${r['record_id']}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                          subtitle: Text(
+                            '${r['district_name'] ?? 'Jharkhand'} • ${r['status'] ?? ''} • ${r['verification_level'] ?? 'VERIFIED'}',
+                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                          ),
+                          trailing: r['contributing_value'] != null
+                              ? Text('${r['contributing_value']}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen))
+                              : null,
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Close')),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -50,7 +252,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
       );
     }
 
+    if (_errorMessage != null && _stats == null) {
+      return Scaffold(
+        backgroundColor: AppTheme.background,
+        appBar: const SIPAppBar(title: 'State Command Center'),
+        body: ErrorStateView(message: _errorMessage!, onRetry: _loadStats),
+      );
+    }
+
     final s = _stats ?? {};
+    final Map<String, dynamic> kpis = s['kpis'] is Map ? Map<String, dynamic>.from(s['kpis']) : {};
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -122,9 +333,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, height: 1.25),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Statewide Citizen Monitoring & University Innovation Oversight',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    Text(
+                      'Jurisdiction: ${(s['jurisdiction'] ?? {})['tier'] ?? 'STATE'} • ${(s['jurisdiction'] ?? {})['district'] ?? 'Statewide'}',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12),
                     ),
                   ],
                 ),
@@ -154,6 +365,36 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 ],
               ),
               const SizedBox(height: 22),
+
+              // STAGE 10: Verifiable Auditable KPIs
+              if (kpis.isNotEmpty) ...[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Verifiable Strategic KPIs', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                    Text(
+                      'Audit & Provenance Tracked',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (kpis['review_sla_compliance'] != null)
+                  _kpiCard(kpis['review_sla_compliance']),
+                const SizedBox(height: 8),
+                if (kpis['avg_review_turnaround_days'] != null)
+                  _kpiCard(kpis['avg_review_turnaround_days']),
+                const SizedBox(height: 8),
+                if (kpis['active_verified_universities'] != null)
+                  _kpiCard(kpis['active_verified_universities']),
+                const SizedBox(height: 8),
+                if (kpis['faculty_mentorship_coverage'] != null)
+                  _kpiCard(kpis['faculty_mentorship_coverage']),
+                const SizedBox(height: 8),
+                if (kpis['csr_funding_disbursed'] != null)
+                  _kpiCard(kpis['csr_funding_disbursed']),
+                const SizedBox(height: 22),
+              ],
 
               // Multi-Tier Decentralized Administrative Governance
               SectionHeader(
@@ -191,10 +432,53 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   const SizedBox(width: 8),
                   _ecoBox('PSU / CSR', '${s['total_industry_partners'] ?? 0}', Icons.business_rounded),
                   const SizedBox(width: 8),
-                  _ecoBox('Student Teams', '${s['total_student_teams'] ?? 0}', Icons.groups_rounded),
+                  _ecoBox('Student Teams', '${s['total_students'] ?? 0}', Icons.groups_rounded),
                   const SizedBox(width: 8),
                   _ecoBox('Active R&D', '${s['total_active_projects'] ?? 0}', Icons.rocket_launch_rounded),
                 ],
+              ),
+              const SizedBox(height: 24),
+
+              // Bounded Report Export Action Banner
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: AppTheme.primaryGreen.withOpacity(0.12),
+                      child: const Icon(Icons.file_download_rounded, color: AppTheme.primaryGreen),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Bounded Governance Export', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          SizedBox(height: 2),
+                          Text('Privacy-preserving CSV with coarse GPS', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: _isExporting ? null : _triggerExport,
+                      child: _isExporting
+                          ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text('Export CSV', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 
@@ -240,6 +524,67 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _kpiCard(Map<String, dynamic> kpi) {
+    return SIPCard(
+      padding: const EdgeInsets.all(12),
+      onTap: () => _showWhyThisNumber(kpi),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      kpi['display_title'] ?? kpi['name'] ?? '',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Text(
+                        kpi['verification_level'] ?? 'VERIFIED',
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  kpi['inclusion_rules'] ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${kpi['value']} ${kpi['unit'] ?? ''}',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'Why this number?',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.accentGold),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -369,4 +714,3 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 }
-

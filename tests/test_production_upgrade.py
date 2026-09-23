@@ -101,6 +101,7 @@ def test_state_machine_transition_and_audit_logging(client):
             "category": "Infrastructure",
             "urgency": "High",
             "expected_impact": "Prevent accidents and vehicle damage.",
+            "affected_population": 250,
             "location": {
                 "district_name": "Ranchi",
                 "block_name": "Ormanjhi",
@@ -237,6 +238,7 @@ def test_async_ai_background_processing(client):
         "description": "Deep borehole handpump handle snapped off, leaving 120 villagers without water.",
         "category": "Water Management",
         "urgency": "High",
+        "affected_population": 120,
         "location": {
             "district_name": "Ranchi",
             "block_name": "Tamar",
@@ -327,6 +329,7 @@ def test_concurrent_challenge_assignment_conflict(client):
         "description": "Rural electrification challenge for distributed mini-grid installation.",
         "category": "Renewable Energy",
         "urgency": "High",
+        "affected_population": 500,
         "location": {"district_name": "Ranchi", "block_name": "Bundu"}
     }, headers={"Authorization": f"Bearer {c_token}"})
     ch_id = ch_res.json()["id"]

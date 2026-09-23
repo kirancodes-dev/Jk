@@ -78,6 +78,7 @@ class AppTheme {
           backgroundColor: primaryGreen,
           foregroundColor: Colors.white,
           elevation: 0,
+          minimumSize: const Size(48, 48),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
@@ -92,6 +93,7 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: primaryGreen,
+          minimumSize: const Size(48, 48),
           side: const BorderSide(color: borderLight, width: 1.2),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(

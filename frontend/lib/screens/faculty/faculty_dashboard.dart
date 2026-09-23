@@ -18,6 +18,7 @@ class FacultyDashboard extends StatefulWidget {
 
 class _FacultyDashboardState extends State<FacultyDashboard> {
   Map<String, dynamic>? _data;
+  List<Map<String, dynamic>> _invitations = [];
   bool _isLoading = true;
 
   @override
@@ -30,19 +31,53 @@ class _FacultyDashboardState extends State<FacultyDashboard> {
     setState(() => _isLoading = true);
     try {
       final res = await ApiService.getFacultyDashboard();
+      final invites = await ApiService.getMyTeamInvitations(isStudent: false);
       if (!mounted) return;
-      setState(() => _data = res);
+      setState(() {
+        _data = res;
+        _invitations = invites.where((i) => i['status'] == 'PENDING').toList();
+      });
     } catch (_) {
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _approveMilestone(int milestoneId, String title) async {
+  Future<void> _respondInvitation(int invitationId, String decision) async {
     try {
-      await ApiService.approveMilestone(milestoneId);
+      await ApiService.respondToInvitation(invitationId, decision);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Milestone "$title" formally approved!'), backgroundColor: AppTheme.success),
+        SnackBar(content: Text(decision == 'ACCEPT' ? 'Mentorship invitation accepted!' : 'Invitation declined.'), backgroundColor: AppTheme.success),
+      );
+      _loadDashboard();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error));
+    }
+  }
+
+  Future<void> _reviewMilestone(int projectId, int milestoneId, String title, String decision) async {
+    final notesCtrl = TextEditingController(text: decision == 'APPROVE' ? 'Deliverable evidence reviewed and approved.' : '');
+    if (decision != 'APPROVE') {
+      final result = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Request Revision', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          content: TextField(controller: notesCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Revision comment *', border: OutlineInputBorder())),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, notesCtrl.text.trim()), child: const Text('Submit', style: TextStyle(color: Colors.white))),
+          ],
+        ),
+      );
+      if (result == null || result.isEmpty) return;
+      notesCtrl.text = result;
+    }
+    try {
+      await ApiService.reviewMilestone(projectId, milestoneId, decision, notesCtrl.text.trim());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Milestone "$title" review recorded.'), backgroundColor: AppTheme.success),
       );
       _loadDashboard();
     } catch (e) {
@@ -229,6 +264,43 @@ class _FacultyDashboardState extends State<FacultyDashboard> {
               ),
               const SizedBox(height: 24),
 
+              // Pending Mentorship Invitations
+              SectionHeader(
+                title: 'Mentorship Invitations',
+                trailing: Text('${_invitations.length} pending', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ),
+              const SizedBox(height: 10),
+              if (_invitations.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text('No pending project invitations.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                )
+              else
+                ..._invitations.map((inv) => Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.shade100)),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text('Project #${inv['project_id']} — invited as ${inv['role_in_team']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          ),
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
+                            onPressed: () => _respondInvitation(inv['id'], 'DECLINE'),
+                            child: const Text('Decline', style: TextStyle(fontSize: 11)),
+                          ),
+                          const SizedBox(width: 6),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.success, minimumSize: const Size(0, 32)),
+                            onPressed: () => _respondInvitation(inv['id'], 'ACCEPT'),
+                            child: const Text('Accept', style: TextStyle(fontSize: 11, color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    )),
+              const SizedBox(height: 24),
+
               // Pending Milestones Requiring Approval
               SectionHeader(
                 title: 'Milestones Pending Approval',
@@ -254,10 +326,21 @@ class _FacultyDashboardState extends State<FacultyDashboard> {
                             Row(
                               children: [
                                 Text(
-                                  'Completion: ${ms['completion_percentage']}%',
+                                  'Weight: ${ms['weight_pct']}% • Evidence submitted for review',
                                   style: const TextStyle(fontSize: 12, color: AppTheme.accentGold, fontWeight: FontWeight.bold),
                                 ),
-                                const Spacer(),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                OutlinedButton(
+                                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
+                                  onPressed: () => _reviewMilestone(ms['project_id'], ms['id'], ms['title'] ?? '', 'REVISION_REQUESTED'),
+                                  child: const Text('Request Revision', style: TextStyle(fontSize: 11)),
+                                ),
+                                const SizedBox(width: 8),
                                 SizedBox(
                                   height: 34,
                                   child: ElevatedButton.icon(
@@ -267,7 +350,7 @@ class _FacultyDashboardState extends State<FacultyDashboard> {
                                       backgroundColor: AppTheme.success,
                                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                                     ),
-                                    onPressed: () => _approveMilestone(ms['id'], ms['title'] ?? ''),
+                                    onPressed: () => _reviewMilestone(ms['project_id'], ms['id'], ms['title'] ?? '', 'APPROVE'),
                                   ),
                                 ),
                               ],

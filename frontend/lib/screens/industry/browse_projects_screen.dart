@@ -5,7 +5,6 @@ import '../../models/models.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
 import '../../widgets/empty_state_view.dart';
-import '../university/project_dashboard_screen.dart';
 
 class BrowseProjectsScreen extends StatefulWidget {
   const BrowseProjectsScreen({super.key});
@@ -44,7 +43,7 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
   }
 
   void _showOfferSupportDialog(ProjectItem p) {
-    String selectedSupport = 'Prototype Support';
+    String selectedSupport = 'PROTOTYPING';
     final descCtrl = TextEditingController(text: 'Providing hardware grants, CAD simulation access, and testing facility.');
 
     showDialog(
@@ -66,11 +65,15 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
                 value: selectedSupport,
                 decoration: const InputDecoration(labelText: 'Collaboration Type *'),
                 items: const [
-                  DropdownMenuItem(value: 'Mentorship', child: Text('Mentorship & Guidance')),
-                  DropdownMenuItem(value: 'Technical Support', child: Text('Technical & Lab Support')),
-                  DropdownMenuItem(value: 'Prototype Support', child: Text('Prototype Grant / Hardware')),
-                  DropdownMenuItem(value: 'Funding', child: Text('CSR Grant Funding')),
-                  DropdownMenuItem(value: 'Pilot Implementation', child: Text('Field Pilot Implementation')),
+                  DropdownMenuItem(value: 'MENTORSHIP', child: Text('Mentorship & Guidance')),
+                  DropdownMenuItem(value: 'TECHNICAL_SUPPORT', child: Text('Technical & Lab Support')),
+                  DropdownMenuItem(value: 'EQUIPMENT', child: Text('Equipment Loan')),
+                  DropdownMenuItem(value: 'PROTOTYPING', child: Text('Prototype Grant / Hardware')),
+                  DropdownMenuItem(value: 'FUNDING', child: Text('CSR Grant Funding')),
+                  DropdownMenuItem(value: 'TESTING', child: Text('Lab Testing Support')),
+                  DropdownMenuItem(value: 'DEPLOYMENT', child: Text('Field Pilot Deployment')),
+                  DropdownMenuItem(value: 'RESEARCH_LAB_ACCESS', child: Text('Research Lab Access')),
+                  DropdownMenuItem(value: 'TECHNOLOGY_TRANSFER', child: Text('Technology Transfer')),
                 ],
                 onChanged: (v) => setDlgState(() => selectedSupport = v!),
               ),
@@ -79,7 +82,7 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
               TextField(
                 controller: descCtrl,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Offer Description & Terms', alignLabelWithHint: true),
+                decoration: const InputDecoration(labelText: 'Scope & Terms of Support *', alignLabelWithHint: true),
               ),
             ],
           ),
@@ -87,13 +90,20 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
+                if (descCtrl.text.trim().length < 5) return;
                 Navigator.pop(ctx);
                 try {
-                  await ApiService.offerCollaboration(p.id, selectedSupport, descCtrl.text.trim());
+                  await ApiService.offerCollaboration(p.id, {
+                    'offer_type': selectedSupport,
+                    'scope': descCtrl.text.trim(),
+                    'description': descCtrl.text.trim(),
+                  });
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Collaboration offer sent to University!'), backgroundColor: AppTheme.success),
+                    const SnackBar(content: Text('Collaboration offer sent — pending university/government review.'), backgroundColor: AppTheme.success),
                   );
                 } catch (e) {
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error));
                 }
               },
@@ -181,7 +191,7 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
                   );
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('✓ CSR Grant pledged successfully! Transferred to project funds.'), backgroundColor: AppTheme.success),
+                    const SnackBar(content: Text('✓ CSR grant offer registered — pending university/government review and formal agreement before any funds move.'), backgroundColor: AppTheme.success),
                   );
                   _load();
                 } catch (e) {
@@ -301,27 +311,16 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
                                     style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                                   ),
                                   const SizedBox(height: 14),
+                                  Text(
+                                    'Full project details unlock once your collaboration offer is accepted.',
+                                    style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic, color: AppTheme.textSecondary),
+                                  ),
+                                  const SizedBox(height: 8),
                                   Wrap(
                                     spacing: 8,
                                     runSpacing: 8,
                                     alignment: WrapAlignment.end,
                                     children: [
-                                      SizedBox(
-                                        height: 36,
-                                        child: OutlinedButton(
-                                          style: OutlinedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          ),
-                                          onPressed: () {
-                                            Navigator.push(
-                                              context,
-                                              MaterialPageRoute(builder: (_) => ProjectDashboardScreen(projectId: p.id)),
-                                            );
-                                          },
-                                          child: const Text('View Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                        ),
-                                      ),
                                       SizedBox(
                                         height: 36,
                                         child: OutlinedButton.icon(

@@ -336,6 +336,10 @@ class NotificationItem {
   final String message;
   final String notificationType;
   final int? referenceId;
+  final String category;
+  final String? deepLink;
+  final int retentionDays;
+  final bool isArchived;
   final bool isRead;
   final String createdAt;
 
@@ -345,6 +349,10 @@ class NotificationItem {
     required this.message,
     required this.notificationType,
     this.referenceId,
+    this.category = 'GENERAL',
+    this.deepLink,
+    this.retentionDays = 90,
+    this.isArchived = false,
     required this.isRead,
     required this.createdAt,
   });
@@ -356,8 +364,53 @@ class NotificationItem {
       message: json['message'] ?? '',
       notificationType: json['notification_type'] ?? 'INFO',
       referenceId: json['reference_id'],
+      category: json['category'] ?? 'GENERAL',
+      deepLink: json['deep_link'],
+      retentionDays: json['retention_days'] ?? 90,
+      isArchived: json['is_archived'] ?? false,
       isRead: json['is_read'] ?? false,
       createdAt: json['created_at'] ?? '',
+    );
+  }
+}
+
+class UserNotificationPreferenceModel {
+  final int userId;
+  final bool emailEnabled;
+  final bool smsEnabled;
+  final bool pushEnabled;
+  final bool whatsappEnabled;
+  final String preferredLocale;
+  final Map<String, dynamic> categories;
+  final bool consentGiven;
+  final String consentTimestamp;
+  final String consentVersion;
+
+  UserNotificationPreferenceModel({
+    required this.userId,
+    required this.emailEnabled,
+    required this.smsEnabled,
+    required this.pushEnabled,
+    required this.whatsappEnabled,
+    required this.preferredLocale,
+    required this.categories,
+    required this.consentGiven,
+    required this.consentTimestamp,
+    required this.consentVersion,
+  });
+
+  factory UserNotificationPreferenceModel.fromJson(Map<String, dynamic> json) {
+    return UserNotificationPreferenceModel(
+      userId: json['user_id'] ?? 0,
+      emailEnabled: json['email_enabled'] ?? true,
+      smsEnabled: json['sms_enabled'] ?? false,
+      pushEnabled: json['push_enabled'] ?? true,
+      whatsappEnabled: json['whatsapp_enabled'] ?? false,
+      preferredLocale: json['preferred_locale'] ?? 'en',
+      categories: Map<String, dynamic>.from(json['categories'] ?? {}),
+      consentGiven: json['consent_given'] ?? true,
+      consentTimestamp: json['consent_timestamp'] ?? '',
+      consentVersion: json['consent_version'] ?? 'v1.0',
     );
   }
 }

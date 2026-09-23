@@ -19,6 +19,7 @@ class StudentDashboard extends StatefulWidget {
 
 class _StudentDashboardState extends State<StudentDashboard> {
   Map<String, dynamic>? _data;
+  List<Map<String, dynamic>> _invitations = [];
   bool _isLoading = true;
 
   @override
@@ -31,18 +32,35 @@ class _StudentDashboardState extends State<StudentDashboard> {
     setState(() => _isLoading = true);
     try {
       final res = await ApiService.getStudentDashboard();
+      final invites = await ApiService.getMyTeamInvitations(isStudent: true);
       if (!mounted) return;
-      setState(() => _data = res);
+      setState(() {
+        _data = res;
+        _invitations = invites.where((i) => i['status'] == 'PENDING').toList();
+      });
     } catch (_) {
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  void _showSubmitWorkDialog(int taskId, String title) {
+  Future<void> _respondInvitation(int invitationId, String decision) async {
+    try {
+      await ApiService.respondToInvitation(invitationId, decision);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(decision == 'ACCEPT' ? 'Invitation accepted — welcome to the team!' : 'Invitation declined.'), backgroundColor: AppTheme.success),
+      );
+      _loadDashboard();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error));
+    }
+  }
+
+  void _showSubmitWorkDialog(int projectId, int taskId, String title) {
     final notesCtrl = TextEditingController();
-    String? attachedUrl;
     String? attachedFileName;
+    List<int>? attachedBytes;
     bool isUploading = false;
 
     showDialog(
@@ -66,20 +84,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text('Evidence & Deliverable Attachment', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              const Text('Typed Evidence Attachment (required)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
               const SizedBox(height: 8),
-              if (isUploading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8.0),
-                  child: Row(
-                    children: [
-                      SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryGreen)),
-                      SizedBox(width: 10),
-                      Text('Uploading deliverable to server...', style: TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                )
-              else if (attachedUrl != null)
+              if (attachedFileName != null)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
@@ -92,20 +99,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       const Icon(Icons.check_circle_rounded, color: AppTheme.primaryGreen, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          attachedFileName ?? 'Uploaded file',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        child: Text(attachedFileName!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen), overflow: TextOverflow.ellipsis),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded, size: 16, color: AppTheme.textSecondary),
-                        onPressed: () {
-                          setDialogState(() {
-                            attachedUrl = null;
-                            attachedFileName = null;
-                          });
-                        },
+                        onPressed: () => setDialogState(() {
+                          attachedFileName = null;
+                          attachedBytes = null;
+                        }),
                       ),
                     ],
                   ),
@@ -117,59 +118,50 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: () async {
-                    try {
-                      final picked = await AppFilePicker.pickSingleFile(
-                        allowedExtensions: ['pdf', 'zip', 'py', 'dart', 'c', 'cpp', 'bin', 'jpg', 'png', 'docx', 'txt'],
-                      );
-                      if (picked == null || picked.bytes.isEmpty) return;
-                      setDialogState(() => isUploading = true);
-                      final res = await ApiService.uploadFile(
-                        bytes: picked.bytes,
-                        filename: picked.name,
-                      );
-                      setDialogState(() {
-                        isUploading = false;
-                        attachedUrl = res['file_url'];
-                        attachedFileName = res['file_name'] ?? picked.name;
-                      });
-                    } catch (e) {
-                      setDialogState(() => isUploading = false);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Upload failed: $e'), backgroundColor: AppTheme.error),
-                      );
-                    }
+                    final picked = await AppFilePicker.pickSingleFile(
+                      allowedExtensions: ['pdf', 'jpg', 'png', 'docx', 'txt'],
+                    );
+                    if (picked == null || picked.bytes.isEmpty) return;
+                    setDialogState(() {
+                      attachedFileName = picked.name;
+                      attachedBytes = picked.bytes;
+                    });
                   },
                   icon: const Icon(Icons.attach_file_rounded, size: 16, color: AppTheme.primaryGreen),
-                  label: const Text('Attach File / Code / Report', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  label: const Text('Attach File / Report / Photo', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
             ],
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(
-              onPressed: () async {
-                if (notesCtrl.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter progress notes')),
-                  );
-                  return;
-                }
-                Navigator.pop(ctx);
-                try {
-                  await ApiService.submitTaskWork(
-                    taskId,
-                    notesCtrl.text.trim(),
-                    attachmentUrl: attachedUrl,
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Task work and evidence submitted to Faculty Mentor!'), backgroundColor: AppTheme.success),
-                  );
-                  _loadDashboard();
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error));
-                }
-              },
-              child: const Text('Submit Work'),
+              onPressed: isUploading
+                  ? null
+                  : () async {
+                      if (notesCtrl.text.trim().isEmpty || attachedBytes == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Progress notes and a typed evidence file are both required.')),
+                        );
+                        return;
+                      }
+                      setDialogState(() => isUploading = true);
+                      try {
+                        await ApiService.uploadTaskEvidence(projectId, taskId, attachedBytes!, attachedFileName!);
+                        await ApiService.submitTaskWork(taskId, notesCtrl.text.trim());
+                        if (!mounted) return;
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Task work and evidence submitted to Faculty Mentor!'), backgroundColor: AppTheme.success),
+                        );
+                        _loadDashboard();
+                      } catch (e) {
+                        setDialogState(() => isUploading = false);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error));
+                      }
+                    },
+              child: isUploading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Submit Work'),
             ),
           ],
         ),
@@ -300,6 +292,43 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   _statItem('Completed', '${d['completed_tasks_count'] ?? 0}', AppTheme.success),
                 ],
               ),
+              const SizedBox(height: 24),
+
+              // Pending Team Invitations
+              SectionHeader(
+                title: 'Team Invitations',
+                trailing: Text('${_invitations.length} pending', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              ),
+              const SizedBox(height: 10),
+              if (_invitations.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text('No pending project invitations.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                )
+              else
+                ..._invitations.map((inv) => Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.blue.shade100)),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text('Project #${inv['project_id']} — invited as ${inv['role_in_team']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          ),
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error),
+                            onPressed: () => _respondInvitation(inv['id'], 'DECLINE'),
+                            child: const Text('Decline', style: TextStyle(fontSize: 11)),
+                          ),
+                          const SizedBox(width: 6),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.success, minimumSize: const Size(0, 32)),
+                            onPressed: () => _respondInvitation(inv['id'], 'ACCEPT'),
+                            child: const Text('Accept', style: TextStyle(fontSize: 11, color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    )),
               const SizedBox(height: 24),
 
               // My Projects
@@ -443,7 +472,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                                   isDone ? 'Update Work' : 'Submit Deliverable',
                                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                                 ),
-                                onPressed: () => _showSubmitWorkDialog(t['id'] ?? 1, t['title'] ?? ''),
+                                onPressed: () => _showSubmitWorkDialog(t['project_id'], t['id'], t['title'] ?? ''),
                               ),
                             ),
                           ),

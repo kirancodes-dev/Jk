@@ -19,6 +19,14 @@ class AIAnalysisScreen extends StatelessWidget {
 
     final domain = ai['classified_domain'] ?? challengeDetail['category'] ?? 'General';
     final priority = ai['detected_priority'] ?? challengeDetail['priority'] ?? 'MEDIUM';
+    final isFallback = ai['is_fallback'] ?? true;
+    final modelName = ai['model_name'] ?? 'JHARKHAND_GOV_AI_SUITE';
+    final modelVer = ai['model_version'] ?? '2.2.0';
+    final execTime = ai['execution_time_ms'] ?? 12;
+    final lang = ai['detected_language'] ?? 'en';
+    final langConf = ((ai['language_confidence'] as num? ?? 0.95) * 100).toInt();
+    final explanation = ai['explanation'] ?? 'Transparent rule-based keyword & multi-factor triage.';
+
     final keywords = (ai['extracted_keywords'] as String? ?? 'Water, Village, Groundwater')
         .split(',')
         .map((e) => e.trim())
@@ -35,7 +43,7 @@ class AIAnalysisScreen extends StatelessWidget {
       backgroundColor: AppTheme.background,
       appBar: const SIPAppBar(
         title: 'AI Diagnostic Assessment',
-        subtitle: 'Jharkhand State Innovation AI Engine',
+        subtitle: 'State Decision-Support & Governance Pipeline',
         showEmblem: true,
       ),
       body: SingleChildScrollView(
@@ -43,7 +51,7 @@ class AIAnalysisScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // AI Header Banner
+            // AI Header Banner with Provenance Badge
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
@@ -61,41 +69,80 @@ class AIAnalysisScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentGold.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.accentGold.withOpacity(0.4), width: 1.5),
-                    ),
-                    child: const Icon(Icons.auto_awesome, color: AppTheme.accentGold, size: 28),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentGold.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppTheme.accentGold.withOpacity(0.4), width: 1.5),
+                        ),
+                        child: const Icon(Icons.auto_awesome, color: AppTheme.accentGold, size: 28),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'AI Analysis Complete',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                letterSpacing: -0.2,
-                              ),
+                            Row(
+                              children: [
+                                const Text(
+                                  'AI Decision-Support Triage',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    letterSpacing: -0.2,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Icon(Icons.verified_user, color: Colors.blue.shade200, size: 16),
+                              ],
                             ),
-                            SizedBox(width: 8),
-                            Icon(Icons.verified, color: AppTheme.accentGold, size: 16),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Model: $modelName v$modelVer ($execTime ms)',
+                              style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
                           ],
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Classified domain urgency, mapped multidisciplinary expertise, and matched 5 leading state institutes.',
-                          style: TextStyle(color: Colors.white70, fontSize: 12, height: 1.3),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  // Fallback & Governance Disclosure Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isFallback ? Colors.amber.shade900.withOpacity(0.3) : Colors.teal.shade900.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: isFallback ? Colors.amber.shade400.withOpacity(0.5) : Colors.teal.shade400.withOpacity(0.5),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isFallback ? Icons.info_outline : Icons.psychology,
+                          color: isFallback ? Colors.amber.shade300 : Colors.teal.shade300,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isFallback
+                                ? 'Deterministic Rule-Based Fallback (Calibrated Baseline)'
+                                : 'Validated Machine Learning Inference Pipeline',
+                            style: TextStyle(
+                              color: isFallback ? Colors.amber.shade200 : Colors.teal.shade200,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -111,14 +158,30 @@ class AIAnalysisScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'AUTOMATED CLASSIFICATION',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.textSecondary,
-                      letterSpacing: 0.8,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'AUTOMATED CLASSIFICATION & TRIAGE',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.textSecondary,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Lang: ${lang.toUpperCase()} ($langConf%)',
+                          style: TextStyle(fontSize: 11, color: Colors.blue.shade800, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 14),
                   Row(
@@ -167,6 +230,21 @@ class AIAnalysisScreen extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 14),
+                  // Audit Explanation
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Text(
+                      explanation,
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, height: 1.4),
+                    ),
                   ),
                 ],
               ),
@@ -265,7 +343,7 @@ class AIAnalysisScreen extends StatelessWidget {
             if (similar.isNotEmpty) ...[
               SectionHeader(
                 title: 'Duplicate & Ground Correlation',
-                trailing: Text('${similar.length} related', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                trailing: Text('${similar.length} related candidates', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
               const SizedBox(height: 10),
               ...similar.map((s) => Padding(
@@ -326,8 +404,8 @@ class AIAnalysisScreen extends StatelessWidget {
 
             // Recommended Universities
             const SectionHeader(
-              title: 'Recommended Higher Education Institutions',
-              trailing: Text('Ranked by capability', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              title: 'Recommended Verified Academic Institutions',
+              trailing: Text('Advisory ranking', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ),
             const SizedBox(height: 10),
             if (univMatches.isNotEmpty)
@@ -355,9 +433,17 @@ class AIAnalysisScreen extends StatelessWidget {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    u['institution_name'] ?? 'University',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary),
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          u['institution_name'] ?? 'University',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Icon(Icons.verified, size: 14, color: Colors.blue),
+                                    ],
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
@@ -374,7 +460,7 @@ class AIAnalysisScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                '$matchPct% Match',
+                                '$matchPct% Fit',
                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                               ),
                             ),
@@ -400,7 +486,30 @@ class AIAnalysisScreen extends StatelessWidget {
                 padding: EdgeInsets.all(16),
                 child: Text('Matching universities initialized.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
               ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
+
+            // Governance Notice
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.gavel, size: 16, color: AppTheme.textSecondary),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Human-in-the-Loop Policy: AI assessments are advisory decision-support. Formal domain validation and institutional assignment require administrative review.',
+                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
 
             // Confirm & Continue Button
             SizedBox(
@@ -429,4 +538,3 @@ class AIAnalysisScreen extends StatelessWidget {
     );
   }
 }
-

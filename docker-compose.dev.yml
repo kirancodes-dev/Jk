@@ -1,0 +1,49 @@
+# ==============================================================================
+# LOCAL DEVELOPMENT DOCKER COMPOSE CONFIGURATION
+# ⚠️ WARNING: FOR LOCAL DEVELOPMENT ONLY. DO NOT DEPLOY TO PRODUCTION!
+# ==============================================================================
+version: "3.8"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jharkhand_sih_web_dev
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://dev_user:dev_insecure_password_local@db:5432/sih_dev_db
+      - SECRET_KEY=dev-local-insecure-secret-key-32chars-min-length
+      - ALLOWED_CORS_ORIGINS=http://localhost:3000,http://localhost:8008,http://127.0.0.1:3000,http://127.0.0.1:8008
+      - DEMO_MODE=true
+    volumes:
+      - ./backend:/app/backend
+      - uploads_dev_data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: jharkhand_sih_db_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dev_user
+      POSTGRES_PASSWORD: dev_insecure_password_local
+      POSTGRES_DB: sih_dev_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev_user -d sih_dev_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata_dev:
+  uploads_dev_data:

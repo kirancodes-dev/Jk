@@ -28,12 +28,14 @@ target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
-    url = settings.DATABASE_URL
+    custom_url = config.get_main_option("sqlalchemy.url")
+    url = custom_url if (custom_url and custom_url != "driver://user:pass@localhost/dbname") else settings.DATABASE_URL
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
     )
 
     with context.begin_transaction():
@@ -42,16 +44,24 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    from backend.app.core.database import engine
-    connectable = engine
+    custom_url = config.get_main_option("sqlalchemy.url")
+    if custom_url and custom_url != "driver://user:pass@localhost/dbname":
+        from sqlalchemy import create_engine
+        connectable = create_engine(custom_url)
+    else:
+        from backend.app.core.database import engine
+        connectable = engine
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
         )
 
         with context.begin_transaction():
             context.run_migrations()
+
 
 
 if context.is_offline_mode():

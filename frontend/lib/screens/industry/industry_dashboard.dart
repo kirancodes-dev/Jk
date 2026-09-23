@@ -137,6 +137,25 @@ class _IndustryDashboardState extends State<IndustryDashboard> {
                         style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Icon(
+                          d['is_verified_active'] == true ? Icons.verified_rounded : Icons.pending_outlined,
+                          size: 16,
+                          color: d['is_verified_active'] == true ? AppTheme.accentGold : Colors.white70,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            d['is_verified_active'] == true
+                                ? 'Government-verified partner'
+                                : 'Verification ${d['verification_status'] ?? 'PENDING'} — offers restricted until verified',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -148,6 +167,8 @@ class _IndustryDashboardState extends State<IndustryDashboard> {
                   _statItem('Available Projects', '${d['available_projects_count'] ?? 0}', AppTheme.primaryGreen),
                   const SizedBox(width: 12),
                   _statItem('Active Partnerships', '${d['active_collaborations_count'] ?? 0}', AppTheme.accentGold),
+                  const SizedBox(width: 12),
+                  _statItem('Pending IP Consents', '${d['pending_ip_consents_count'] ?? 0}', const Color(0xFF7C3AED)),
                 ],
               ),
               const SizedBox(height: 20),

@@ -35,3 +35,8 @@ frontend/.flutter-plugins-dependencies
 # Keep frontend/build/web so hosting platforms don't need Flutter SDK to serve the web app
 frontend/build/app/
 frontend/build/ios/
+
+# Uploads & Backups (Local storage only)
+uploads/
+backups/
+

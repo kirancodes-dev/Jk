@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import 'api_service.dart';
+import 'build_config.dart';
 
 class AuthProvider extends ChangeNotifier {
   User? _currentUser;
@@ -74,8 +75,11 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Quick Switch for SIH Evaluator / Jury demo flow
+  // Quick Switch for SIH Evaluator / Jury demo flow (Evaluator mode only)
   Future<void> quickSwitchRole(String role, {int? universityId}) async {
+    if (!BuildConfig.isEvaluatorBuild) {
+      throw UnsupportedError('Demo quick role switching is strictly disabled in production builds.');
+    }
     final email = demoEmails[role];
     if (email != null) {
       await login(email, 'password123', role: role, universityId: universityId);

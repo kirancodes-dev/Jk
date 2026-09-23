@@ -8,10 +8,10 @@ router = APIRouter(prefix="/demo", tags=["Demo & Seeding"])
 
 @router.post("/reset")
 def reset_demo_data(db: Session = Depends(get_db)):
-    if not settings.DEMO_MODE:
+    if not settings.DEMO_MODE or settings.ENVIRONMENT == "production":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden: Database reset is disabled in production (DEMO_MODE=false)."
+            detail="Forbidden: Database reset is strictly prohibited in production environments."
         )
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
@@ -23,10 +23,10 @@ def reset_demo_data(db: Session = Depends(get_db)):
 
 @router.get("/accounts")
 def get_demo_accounts():
-    if not settings.DEMO_MODE:
+    if not settings.DEMO_MODE or settings.ENVIRONMENT == "production":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden: Demo account discovery is disabled in production (DEMO_MODE=false)."
+            detail="Forbidden: Demo account discovery is disabled in production environments."
         )
     return {
         "password_for_all": "password123",

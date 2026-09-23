@@ -199,6 +199,15 @@ class _ImpactDashboardScreenState extends State<ImpactDashboardScreen> {
                         Container(width: 1, height: 40, color: Colors.grey.shade200),
                         Expanded(
                           child: _buildTelemetryCell(
+                            '${_dynamicMetrics['districts_covered'] ?? 0}',
+                            'Districts',
+                            Icons.map_rounded,
+                            Colors.teal,
+                          ),
+                        ),
+                        Container(width: 1, height: 40, color: Colors.grey.shade200),
+                        Expanded(
+                          child: _buildTelemetryCell(
                             '${_dynamicMetrics['resolution_rate_pct'] ?? 0}%',
                             'Resolution Rate',
                             Icons.check_circle_rounded,
@@ -208,16 +217,7 @@ class _ImpactDashboardScreenState extends State<ImpactDashboardScreen> {
                         Container(width: 1, height: 40, color: Colors.grey.shade200),
                         Expanded(
                           child: _buildTelemetryCell(
-                            '${_dynamicMetrics['active_academic_projects'] ?? 0}',
-                            'HEI Projects',
-                            Icons.school_rounded,
-                            Colors.indigo,
-                          ),
-                        ),
-                        Container(width: 1, height: 40, color: Colors.grey.shade200),
-                        Expanded(
-                          child: _buildTelemetryCell(
-                            '${_dynamicMetrics['average_citizen_satisfaction'] ?? 4.5} ★',
+                            '${_dynamicMetrics['average_citizen_satisfaction'] ?? 0.0} ★',
                             'Satisfaction',
                             Icons.star_rounded,
                             AppTheme.accentGold,
@@ -225,10 +225,81 @@ class _ImpactDashboardScreenState extends State<ImpactDashboardScreen> {
                         ),
                       ],
                     ),
+                    if ((_dynamicMetrics['unresolved_citizen_reports'] ?? 0) > 0) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded, size: 16, color: Colors.amber.shade800),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${_dynamicMetrics['unresolved_citizen_reports']} citizen validation report(s) flagged unresolved issues.',
+                              style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
+
+              // Outcome Metric Verification Tiers (Stage 8)
+              if (_dynamicMetrics['outcome_metrics_breakdown'] != null) ...[
+                const SectionHeader(
+                  title: 'Evidence-Based Outcome Tiers',
+                  subtitle: 'Distinguishing self-reported vs. independently verified metrics',
+                  actionLabel: 'Stage 8',
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildTierCard(
+                        'Reported',
+                        '${(_dynamicMetrics['outcome_metrics_breakdown'] as Map)['reported'] ?? 0}',
+                        Colors.blueGrey,
+                        Icons.edit_note_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildTierCard(
+                        'Estimated',
+                        '${(_dynamicMetrics['outcome_metrics_breakdown'] as Map)['estimated'] ?? 0}',
+                        Colors.amber.shade800,
+                        Icons.query_stats_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildTierCard(
+                        'Measured',
+                        '${(_dynamicMetrics['outcome_metrics_breakdown'] as Map)['measured'] ?? 0}',
+                        Colors.indigo,
+                        Icons.speed_rounded,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildTierCard(
+                        'Verified',
+                        '${(_dynamicMetrics['outcome_metrics_breakdown'] as Map)['independently_verified'] ?? 0}',
+                        AppTheme.success,
+                        Icons.verified_rounded,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+              ],
             ],
 
             const SectionHeader(
@@ -361,6 +432,34 @@ class _ImpactDashboardScreenState extends State<ImpactDashboardScreen> {
           style: const TextStyle(fontSize: 10, color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
         ),
       ],
+    );
+  }
+
+  Widget _buildTierCard(String label, String count, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(height: 4),
+          Text(
+            count,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color.withOpacity(0.9)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }

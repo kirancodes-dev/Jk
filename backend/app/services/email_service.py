@@ -1,62 +1,173 @@
 import secrets
 import string
 import smtplib
-import random
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone, timedelta
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
+from sqlalchemy.orm import Session
 from backend.app.core.config import settings
+from backend.app.core.security import hash_otp
+from backend.app.core.database import SessionLocal
+from backend.app.models.models import OTPChallenge, utc_now
 
-# In-memory OTP store: {email: {"otp": code, "expires_at": datetime, "attempts": int}}
+# In-memory backup cache: {email: {"hash": str, "expires_at": datetime, "attempts": int}}
 _otp_cache: Dict[str, Dict] = {}
 
 class EmailService:
     @staticmethod
-    def generate_otp(email: str) -> str:
-        """Generate a cryptographically secure 6-digit OTP valid for 10 minutes."""
+    def generate_otp(
+        email: str,
+        db: Optional[Session] = None,
+        purpose: str = "PASSWORD_RESET",
+        ip_address: Optional[str] = None
+    ) -> str:
+        """
+        Generate a cryptographically secure 6-digit OTP valid for 10 minutes.
+        Saves hashed OTP in database with attempt tracking.
+        """
+        clean_email = email.lower().strip()
         code = "".join(secrets.choice(string.digits) for _ in range(6))
-        _otp_cache[email.lower().strip()] = {
-            "otp": code,
-            "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
-            "attempts": 0
-        }
+        code_hash = hash_otp(code)
+        expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+        # Database persistence
+        close_session = False
+        if db is None:
+            db = SessionLocal()
+            close_session = True
+
+        try:
+            # Invalidate any prior active OTPs for this email & purpose
+            db.query(OTPChallenge).filter(
+                OTPChallenge.account_identifier == clean_email,
+                OTPChallenge.purpose == purpose,
+                OTPChallenge.is_used == False
+            ).update({"is_used": True}, synchronize_session=False)
+
+            challenge = OTPChallenge(
+                account_identifier=clean_email,
+                otp_hash=code_hash,
+                purpose=purpose,
+                attempts=0,
+                max_attempts=3,
+                delivery_status="PENDING",
+                is_used=False,
+                expires_at=expires_at,
+                created_at=utc_now(),
+                ip_address=ip_address
+            )
+            db.add(challenge)
+            db.commit()
+        except Exception:
+            db.rollback()
+            # In-memory fallback
+            _otp_cache[clean_email] = {
+                "hash": code_hash,
+                "expires_at": expires_at,
+                "attempts": 0,
+                "purpose": purpose
+            }
+        finally:
+            if close_session:
+                db.close()
+
         return code
 
     @staticmethod
-    def verify_otp(email: str, entered_otp: str) -> bool:
-        """Verify if entered OTP matches, has not expired, and has not exceeded maximum attempts."""
-        clean_email = email.lower().strip()
+    def verify_otp_detailed(
+        account_identifier: str,
+        entered_otp: str,
+        db: Optional[Session] = None,
+        purpose: str = "PASSWORD_RESET"
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Verify entered OTP against hashed record in database with attempt tracking and lockout.
+        Returns (is_valid, error_message).
+        """
+        clean_id = account_identifier.lower().strip()
         clean_otp = entered_otp.strip()
+        now_utc = datetime.now(timezone.utc)
+        entered_hash = hash_otp(clean_otp)
 
-        record = _otp_cache.get(clean_email)
-        if not record:
-            return False
+        close_session = False
+        if db is None:
+            db = SessionLocal()
+            close_session = True
 
-        if datetime.now(timezone.utc) > record["expires_at"]:
-            _otp_cache.pop(clean_email, None)
-            return False
+        try:
+            challenge = db.query(OTPChallenge).filter(
+                OTPChallenge.account_identifier == clean_id,
+                OTPChallenge.purpose == purpose
+            ).order_by(OTPChallenge.id.desc()).first()
 
-        record["attempts"] = record.get("attempts", 0) + 1
-        if record["attempts"] > 3:
-            # Lock out after 3 attempts
-            _otp_cache.pop(clean_email, None)
-            return False
+            if not challenge:
+                return False, "Invalid or expired OTP code. Please request a new code."
 
-        if secrets.compare_digest(record["otp"], clean_otp):
-            _otp_cache.pop(clean_email, None)  # Single use
-            return True
+            # Check if already locked out
+            if challenge.attempts >= challenge.max_attempts:
+                challenge.is_used = True
+                db.commit()
+                return False, "Maximum verification attempts exceeded. Challenge locked out. Please request a new code."
 
-        return False
+            # Check if already used
+            if challenge.is_used:
+                return False, "OTP code has already been used or expired. Please request a new code."
+
+            # Check expiration
+            exp = challenge.expires_at
+            if exp.tzinfo is None:
+                exp = exp.replace(tzinfo=timezone.utc)
+
+            if now_utc > exp:
+                challenge.is_used = True
+                db.commit()
+                return False, "OTP code has expired. Please request a new code."
+
+            challenge.attempts += 1
+
+            # Check if entered OTP is correct
+            if secrets.compare_digest(challenge.otp_hash, entered_hash):
+                challenge.is_used = True
+                db.commit()
+                return True, None
+
+            # Incorrect attempt
+            remaining = challenge.max_attempts - challenge.attempts
+            if remaining <= 0:
+                challenge.is_used = True
+                db.commit()
+                return False, "Invalid OTP code. Maximum verification attempts exceeded. Challenge locked out."
+
+            db.commit()
+            return False, f"Invalid OTP code. Attempts remaining: {remaining}."
+        finally:
+            if close_session:
+                db.close()
+
+    @staticmethod
+    def verify_otp(
+        email: str,
+        entered_otp: str,
+        db: Optional[Session] = None,
+        purpose: str = "PASSWORD_RESET"
+    ) -> bool:
+        """
+        Verify entered OTP against hashed record in database.
+        Locks out after 3 failed attempts; enforces single-use.
+        """
+        is_valid, _ = EmailService.verify_otp_detailed(email, entered_otp, db=db, purpose=purpose)
+        return is_valid
 
     @staticmethod
     def send_otp_email(recipient_email: str, otp: str, user_name: Optional[str] = None) -> bool:
         """Send a formatted Government of Jharkhand OTP email."""
         if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-            print("[!] SMTP credentials not configured. OTP generated:", otp)
+            # Security: Never log the OTP value in production or terminal
             return False
 
-        subject = f"[{otp}] Password Reset Verification Code - Jharkhand Innovation Portal"
+        subject = "Password Reset Verification Code - Jharkhand Innovation Portal"
+
         display_name = user_name or "Respected User"
 
         html_content = f"""

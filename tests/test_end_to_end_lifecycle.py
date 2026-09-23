@@ -52,6 +52,7 @@ def test_complete_citizen_to_impact_lifecycle(client):
         "category": "Water & Sanitation",
         "urgency": "High",
         "expected_impact": "Clean drinking water for 3500 residents.",
+        "affected_population": 3500,
         "location": {
             "district_name": "Ranchi",
             "block_name": "Angara",

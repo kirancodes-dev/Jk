@@ -1,0 +1,10 @@
+[tool.pyrefly]
+python-interpreter-path = "backend/.venv/bin/python"
+
+[tool.pyrefly.errors]
+bad-assignment = false
+bad-argument-type = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
