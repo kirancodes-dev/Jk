@@ -34,9 +34,9 @@ HEALTH_SAFETY_SIGNALS = [
 # session was passed in). When a Session is available, District.is_aspirational
 # is authoritative; see AIPriorityService._is_aspirational_district below.
 JHARKHAND_ASPIRATIONAL_DISTRICTS = {
-    "khunti", "dumka", "pakur", "sahebganj", "simdega", "west singhbhum", "latehar",
-    "hazaribagh", "palamu", "garhwa", "godda", "gumla", "lohardaga",
-    "chatra", "deoghar", "giridih", "jamtara", "koderma", "saraikela kharsawan",
+    "bokaro", "chatra", "dumka", "garhwa", "giridih", "godda", "gumla",
+    "hazaribagh", "khunti", "latehar", "lohardaga", "pakur", "palamu",
+    "west singhbhum", "east singhbhum", "ramgarh", "ranchi", "sahebganj", "simdega",
 }
 
 class AIPriorityService(BasePriorityEngine):

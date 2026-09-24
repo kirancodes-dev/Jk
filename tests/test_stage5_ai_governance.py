@@ -204,14 +204,19 @@ def test_custom_priority_weights_override(db_session: Session):
 
 def test_aspirational_district_vulnerability_matches_niti_aayog_list(db_session: Session):
     """
-    Jharkhand has 19 (of 24) NITI Aayog Aspirational Districts. Previously only 13
-    were recognised and "Sahebganj" was misspelled "sahibganj" (never matching the
-    seeded district name). District.is_aspirational is now authoritative when a DB
-    session is available; newly-added districts like Chatra, Deoghar, Giridih,
-    Jamtara, Koderma, and Saraikela Kharsawan must now score as aspirational, and
-    non-aspirational districts like Ranchi must not.
+    Jharkhand has 19 (of 24) NITI Aayog Aspirational Districts: Bokaro, Chatra,
+    Dumka, Garhwa, Giridih, Godda, Gumla, Hazaribagh, Khunti, Latehar, Lohardaga,
+    Pakur, Palamu, West Singhbhum, East Singhbhum, Ramgarh, Ranchi, Sahebganj,
+    and Simdega. District.is_aspirational is authoritative when a DB session is
+    available (see migration f7b3d2a91c6e, which corrected an earlier inaccurate
+    list). Ranchi, Bokaro, East Singhbhum, and Ramgarh must score as aspirational;
+    a district genuinely outside the 19 (e.g. Dhanbad) must not.
     """
-    for district_name in ["Chatra", "Deoghar", "Giridih", "Jamtara", "Koderma", "Saraikela Kharsawan", "Sahebganj"]:
+    for district_name in [
+        "Bokaro", "Chatra", "Dumka", "Garhwa", "Giridih", "Godda", "Gumla",
+        "Hazaribagh", "Khunti", "Latehar", "Lohardaga", "Pakur", "Palamu",
+        "West Singhbhum", "East Singhbhum", "Ramgarh", "Ranchi", "Sahebganj", "Simdega",
+    ]:
         result = priority_service.calculate_priority(
             title="Localized infrastructure delay report",
             description="Routine maintenance backlog reported by field officer.",
@@ -227,7 +232,7 @@ def test_aspirational_district_vulnerability_matches_niti_aayog_list(db_session:
         description="Routine maintenance backlog reported by field officer.",
         urgency="Medium",
         affected_population=200,
-        district_name="Ranchi",
+        district_name="Dhanbad",
         db=db_session
     )
     assert result_non_aspirational.output["breakdown"]["scores"]["vulnerability_score"] == 50.0
