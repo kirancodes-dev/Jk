@@ -39,6 +39,12 @@ dependencies:
   shared_preferences: ^2.5.5
   intl: ^0.20.3
   file_picker: ^12.3.0
+  geolocator: ^13.0.2
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  record: ^5.2.0
+  audioplayers: ^6.1.0
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

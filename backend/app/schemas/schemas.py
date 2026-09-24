@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Any, Dict, Union
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from backend.app.models.models import (
     UserRole, ChallengePriority, ChallengeStatus, MilestoneStatus,
     TeamInvitationStatus, ProposalStatus, EvidenceReviewStatus, FacilityType, CapabilityEvidenceType,
@@ -64,6 +64,12 @@ class UserCreate(BaseModel):
     company_name: Optional[str] = None
     skills: Optional[str] = None
     expertise: Optional[str] = None
+    university_id: Optional[int] = None
+    # Community Organisation / PRI (Gram Panchayat) / ULB / Research Lab / Innovation Hub
+    organisation_name: Optional[str] = None
+    registration_number: Optional[str] = None  # LGD code, CIN, or other official registration ID
+    block_name: Optional[str] = None
+    panchayat_name: Optional[str] = None
 
 class UserOut(BaseModel):
     id: int
@@ -165,7 +171,7 @@ class ChallengeCreate(BaseModel):
     expected_impact: Optional[str] = None
     affected_population: int = Field(..., ge=1, description="Estimated number of citizens directly impacted")
     location: ChallengeLocationCreate
-    source_type: Optional[str] = "CITIZEN_MOBILE"
+    source_type: Optional[str] = "WEB_PORTAL"
     contact_preference: Optional[str] = "SMS"
     consent_version: Optional[str] = "v1.0"
     consent_given: bool = True
@@ -176,6 +182,23 @@ class ChallengeCreate(BaseModel):
     idempotency_key: Optional[str] = None
     attachment_ids: Optional[List[str]] = []
     media_urls: Optional[List[str]] = []
+
+    @field_validator("source_type")
+    @classmethod
+    def validate_source_type(cls, v: Optional[str]) -> str:
+        """
+        source_type is the submission CHANNEL only (see ChallengeSourceType). It is
+        NOT a submitter-identity field — who submitted is derived server-side from
+        the authenticated user's role, never from client input, so a client cannot
+        spoof e.g. "PRI_PORTAL" to look like an official submission.
+        """
+        from backend.app.models.models import ChallengeSourceType
+        if v is None:
+            return "WEB_PORTAL"
+        valid_values = {e.value for e in ChallengeSourceType}
+        if v not in valid_values:
+            raise ValueError(f"source_type must be one of {sorted(valid_values)}")
+        return v
 
 class ChallengeDraftCreate(BaseModel):
     draft_id: Optional[str] = None
@@ -222,6 +245,7 @@ class AIAnalysisOut(BaseModel):
     priority_breakdown_json: Optional[str] = None
     translated_title: Optional[str] = None
     translated_description: Optional[str] = None
+    requires_human_review: bool = False
     model_config = ConfigDict(from_attributes=True)
 
 class UniversityMatchOut(BaseModel):
@@ -350,7 +374,7 @@ class ChallengeOut(BaseModel):
     moderation_reason: Optional[str] = None
     submitted_by_name: Optional[str] = None
     submitter_role: Optional[str] = None
-    source_type: Optional[str] = "CITIZEN_MOBILE"
+    source_type: Optional[str] = "WEB_PORTAL"
     consent_version: Optional[str] = "v1.0"
     data_sharing_choice: Optional[str] = "PUBLIC"
     submission_language: Optional[str] = "en"
@@ -752,6 +776,42 @@ class ReviewCommentOut(BaseModel):
     author_name: Optional[str] = None
     author_role: Optional[str] = None
     content: str
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class OutcomeReportCreate(BaseModel):
+    test_type: str  # LAB, FIELD, USER_TRIAL
+    outcome: str  # PASS, FAIL, PARTIAL
+    summary: str = Field(..., min_length=10)
+    tested_at: Optional[datetime] = None
+
+    @field_validator("test_type")
+    @classmethod
+    def validate_test_type(cls, v: str) -> str:
+        from backend.app.models.models import OutcomeReportType
+        valid = {e.value for e in OutcomeReportType}
+        if v not in valid:
+            raise ValueError(f"test_type must be one of {sorted(valid)}")
+        return v
+
+    @field_validator("outcome")
+    @classmethod
+    def validate_outcome(cls, v: str) -> str:
+        from backend.app.models.models import ReportedOutcome
+        valid = {e.value for e in ReportedOutcome}
+        if v not in valid:
+            raise ValueError(f"outcome must be one of {sorted(valid)}")
+        return v
+
+class OutcomeReportOut(BaseModel):
+    id: int
+    project_id: int
+    reported_by_user_id: int
+    reported_by_name: Optional[str] = None
+    test_type: str
+    outcome: str
+    summary: str
+    tested_at: datetime
     created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
@@ -1451,4 +1511,5 @@ class VerifiableAdminDashboardOut(BaseModel):
     jurisdiction: dict
     tiers: dict
     kpis: Dict[str, KPIMetadata]
+    innovation_breakdown: Optional[Dict[str, Dict[str, Dict[str, int]]]] = None
 

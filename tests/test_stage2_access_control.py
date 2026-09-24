@@ -1,4 +1,5 @@
 import pytest
+import uuid
 from datetime import datetime, timezone, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -8,7 +9,8 @@ from backend.app.core.config import settings
 from backend.app.models.models import (
     User, UserRole, AccountStatus, GovernmentScope, Challenge, ChallengeLocation,
     ChallengeStatus, District, University, Project, ProjectMember, Student,
-    Faculty, OrganizationProfile, OrganizationVerificationStatus, UserSession, OTPChallenge
+    Faculty, OrganizationProfile, OrganizationVerificationStatus, UserSession, OTPChallenge,
+    IndustryPartner, PartnerType
 )
 from backend.app.core.security import get_password_hash, hash_otp, create_access_token, create_refresh_token
 from backend.app.services.session_service import session_service
@@ -49,15 +51,24 @@ def test_password_strength_and_government_email_enforcement(client):
     })
     assert res.status_code == 422
 
-    # 3. Government officer registering with non-government domain (e.g. gmail.com)
+    # 3. Government officer/admin accounts can never self-register, regardless of email
+    # domain — they are provisioned by a department administrator only.
     res = client.post("/api/v1/auth/register", json={
         "email": "officer@gmail.com",
         "password": "StrongGovPass!2026",
         "full_name": "Fake Officer",
         "role": "GOVERNMENT_OFFICER"
     })
-    assert res.status_code == 422
-    assert "official government email" in res.json()["detail"].lower()
+    assert res.status_code == 403
+    assert "provisioned by a department administrator" in res.json()["detail"].lower()
+
+    res2 = client.post("/api/v1/auth/register", json={
+        "email": "officer@jharkhand.gov.in",
+        "password": "StrongGovPass!2026",
+        "full_name": "Real-Looking Officer",
+        "role": "GOVERNMENT_ADMIN"
+    })
+    assert res2.status_code == 403
 
 
 def test_server_side_jurisdiction_scoping_and_isolation(client, db):
@@ -390,3 +401,66 @@ def test_hei_and_project_isolation_idor_mitigation(client, db):
     res = client.get(f"/api/v1/projects/{proj.id}", headers=sap_headers)
     assert res.status_code == 403
     assert "forbidden" in res.json()["detail"].lower()
+
+
+def test_community_org_pri_ulb_registration_creates_pending_org_profile(client, db):
+    """PS-required submitter roles (Community Org, PRI, ULB) register with organisation
+    details and start PENDING_VERIFICATION — never auto-verified like a citizen."""
+    suffix = uuid.uuid4().hex[:8]
+    for role, email in [
+        ("COMMUNITY_ORG", f"test_comm_org_{suffix}@example.org"),
+        ("PRI", f"test_pri_panchayat_{suffix}@example.org"),
+        ("ULB", f"test_ulb_municipal_{suffix}@example.org"),
+    ]:
+        res = client.post("/api/v1/auth/register", json={
+            "email": email,
+            "password": "StrongOrgPass!2026",
+            "full_name": "Authorized Representative",
+            "role": role,
+            "organisation_name": f"Test {role} Organisation",
+            "registration_number": f"LGD-{role}-00123",
+            "district_name": "Pakur",
+            "block_name": "Littipara",
+            "panchayat_name": "Test Panchayat"
+        })
+        assert res.status_code == 201, res.text
+        user_id = res.json()["user_id"]
+
+        user = db.query(User).filter(User.id == user_id).first()
+        assert user.is_verified is False
+        assert user.account_status == AccountStatus.PENDING_VERIFICATION
+        assert user.block_name == "Littipara"
+        assert user.panchayat_name == "Test Panchayat"
+
+        org = db.query(OrganizationProfile).filter(OrganizationProfile.user_id == user_id).first()
+        assert org is not None
+        assert org.org_type == role
+        assert org.legal_name == f"Test {role} Organisation"
+        assert org.reg_number == f"LGD-{role}-00123"
+        assert org.verification_status == "PENDING"
+
+
+def test_research_lab_and_innovation_hub_registration(client, db):
+    """Research Lab / Innovation Hub register into the industry/partner identity model."""
+    suffix = uuid.uuid4().hex[:8]
+    for role, partner_type, email in [
+        ("RESEARCH_LAB", PartnerType.RESEARCH_LAB, f"test_research_lab_{suffix}@example.org"),
+        ("INNOVATION_HUB", PartnerType.INNOVATION_HUB, f"test_innovation_hub_{suffix}@example.org"),
+    ]:
+        res = client.post("/api/v1/auth/register", json={
+            "email": email,
+            "password": "StrongOrgPass!2026",
+            "full_name": "Lab Director",
+            "role": role,
+            "organisation_name": f"Test {role} Facility"
+        })
+        assert res.status_code == 201, res.text
+        user_id = res.json()["user_id"]
+
+        user = db.query(User).filter(User.id == user_id).first()
+        assert user.is_verified is False
+
+        partner = db.query(IndustryPartner).filter(IndustryPartner.user_id == user_id).first()
+        assert partner is not None
+        assert partner.partner_type == partner_type
+        assert partner.company_name == f"Test {role} Facility"

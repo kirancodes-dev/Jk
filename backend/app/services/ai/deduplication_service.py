@@ -20,6 +20,7 @@ from backend.app.services.ai.base import (
 )
 from backend.app.services.ai.classification_service import clean_text
 from backend.app.services.ai.multilingual_service import multilingual_service
+from backend.app.services.ai.embedding_service import embedding_service
 
 def tokenize(text: str) -> List[str]:
     stop_words = {
@@ -100,8 +101,16 @@ class AIDeduplicationService(BaseDeduplicator):
 
         for cand in candidates:
             cand_text = f"{cand.title} {cand.description}"
-            # 1. Text Similarity (Cosine)
+            # 1. Text Similarity — deterministic bag-of-words cosine similarity is
+            # always computed first as the safe fallback; a real multilingual
+            # embedding similarity (optional, off by default) only overrides it
+            # when AI_EMBEDDINGS_ENABLED=true and the model loads/runs successfully.
             text_sim = compute_cosine_similarity(target_text, cand_text)
+            similarity_method = "BAG_OF_WORDS_RULE_BASED"
+            semantic_sim = embedding_service.semantic_similarity(target_text, cand_text)
+            if semantic_sim is not None:
+                text_sim = semantic_sim
+                similarity_method = "MULTILINGUAL_EMBEDDING"
 
             # 2. Geographic Similarity
             geo_sim = 0.0
@@ -143,6 +152,7 @@ class AIDeduplicationService(BaseDeduplicator):
                     "similar_challenge_id": cand.id,
                     "similarity_score": round(total_score, 3),
                     "text_similarity": round(text_sim, 3),
+                    "text_similarity_method": similarity_method,
                     "geographic_similarity": round(geo_sim, 3),
                     "temporal_similarity": round(temporal_sim, 3),
                     "category_similarity": round(cat_sim, 3),

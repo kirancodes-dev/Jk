@@ -1,8 +1,15 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../core/file_picker_helper.dart';
 import '../../core/api_service.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/offline_draft_service.dart';
 import '../../core/theme.dart';
+import '../../core/voice_note_helper.dart';
 import '../../widgets/app_components.dart';
 import '../../widgets/state_views.dart';
 import 'ai_analysis_screen.dart';
@@ -31,16 +38,23 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
   final _populationController = TextEditingController(text: '450');
   final _accessibilityNeedsController = TextEditingController();
 
-  // Location & Bounding Box
-  double _latitude = 23.3980;
-  double _longitude = 85.5520;
+  // Location & Bounding Box — never pre-filled; requires real GPS or manual entry.
+  double? _latitude;
+  double? _longitude;
+  double? _gpsAccuracyMeters;
+  bool _isFetchingLocation = false;
+  bool _useManualEntry = false;
+  final _manualLatController = TextEditingController();
+  final _manualLngController = TextEditingController();
 
   // Controlled Taxonomy & Urgency
   String _selectedCategory = 'Water Resources';
   String _selectedUrgency = 'High';
 
   // Submitter Profile & Privacy Settings
-  String _sourceType = 'DIRECT_CITIZEN';
+  // Auto-detected submission channel (see ChallengeSourceType on the backend) —
+  // not user-editable; who submitted is derived server-side from the account role.
+  String _sourceType = kIsWeb ? 'WEB_PORTAL' : 'MOBILE_APP';
   String _contactPreference = 'IN_APP';
   String _dataSharingChoice = 'PUBLIC_AGGREGATED';
   bool _isAnonymousPublic = false;
@@ -53,6 +67,15 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
   bool _isSubmitting = false;
   bool _isUploadingMedia = false;
   double _uploadProgress = 0.0;
+
+  // Voice-note recording. Native (Android/iOS/desktop) only — records a real
+  // AAC/M4A file via the device microphone; on web, citizens attach a
+  // pre-recorded audio file through the regular evidence picker instead,
+  // since browser-blob recording would need untested platform-specific code.
+  final AudioRecorder _voiceRecorder = AudioRecorder();
+  bool _isRecordingVoiceNote = false;
+  Duration _voiceNoteDuration = Duration.zero;
+  Timer? _voiceNoteTimer;
 
   // Uploaded Evidence Attachments
   final List<Map<String, dynamic>> _uploadedAttachments = [];
@@ -82,14 +105,6 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
   ];
 
   final List<String> _urgencies = ['Low', 'Medium', 'High', 'Critical'];
-
-  final List<String> _sourceTypes = [
-    'DIRECT_CITIZEN',
-    'COMMUNITY_GROUP',
-    'PRI',
-    'ULB',
-    'GOVERNMENT_AGENCY'
-  ];
 
   final List<String> _contactPreferences = [
     'IN_APP',
@@ -129,6 +144,10 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
     _beneficiariesController.dispose();
     _populationController.dispose();
     _accessibilityNeedsController.dispose();
+    _manualLatController.dispose();
+    _manualLngController.dispose();
+    _voiceNoteTimer?.cancel();
+    _voiceRecorder.dispose();
     super.dispose();
   }
 
@@ -148,11 +167,12 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
   Future<void> _checkAndRestoreDraft() async {
     final draft = await OfflineDraftService.getDraft();
     if (draft != null && mounted) {
+      final loc = AppLocalizations.current;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Restored unsaved draft from local storage'),
+          content: Text(loc.restoredDraftMessage),
           action: SnackBarAction(
-            label: 'Discard',
+            label: loc.discardLabel,
             onPressed: () async {
               await OfflineDraftService.clearDraft();
               _clearFields();
@@ -172,7 +192,9 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
         _locationController.text = draft['location_address'] ?? '';
         _impactController.text = draft['expected_impact'] ?? '';
         _populationController.text = (draft['affected_population'] ?? '450').toString();
-        _sourceType = draft['source_type'] ?? 'DIRECT_CITIZEN';
+        // _sourceType is intentionally not restored from the draft: it reflects the
+        // channel of the current session, not whatever device/platform the draft
+        // was originally saved from.
         _contactPreference = draft['contact_preference'] ?? 'IN_APP';
         _dataSharingChoice = draft['data_sharing_choice'] ?? 'PUBLIC_AGGREGATED';
         _isAnonymousPublic = draft['is_anonymous_public'] ?? false;
@@ -248,24 +270,77 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
     );
   }
 
-  void _useCurrentLocation() {
+  /// Captures a real device/browser GPS fix via `geolocator`. Works on Android, iOS,
+  /// desktop and Flutter web (the plugin delegates to the browser Geolocation API on
+  /// web). Never fabricates coordinates — on any failure the user is told exactly why
+  /// and pointed at manual entry instead.
+  Future<void> _useCurrentLocation() async {
+    setState(() => _isFetchingLocation = true);
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showError('Location services are turned off on this device/browser. Please enable GPS, or enter coordinates manually below.');
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          _showError('Location permission was denied. Please allow location access, or enter coordinates manually below.');
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        _showError('Location permission is permanently denied. Enable it in device/browser settings, or enter coordinates manually below.');
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+        _gpsAccuracyMeters = position.accuracy;
+        _useManualEntry = false;
+        _manualLatController.text = position.latitude.toStringAsFixed(6);
+        _manualLngController.text = position.longitude.toStringAsFixed(6);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('GPS location captured (±${position.accuracy.toStringAsFixed(0)} m accuracy).'),
+          backgroundColor: AppTheme.info,
+        ),
+      );
+    } on TimeoutException {
+      _showError('Location request timed out. Please try again, or enter coordinates manually below.');
+    } catch (e) {
+      _showError('Could not determine your location: $e. Please enter coordinates manually below.');
+    } finally {
+      if (mounted) setState(() => _isFetchingLocation = false);
+    }
+  }
+
+  void _applyManualCoordinate({double? lat, double? lng}) {
     setState(() {
-      _latitude = 23.3441 + (DateTime.now().millisecond % 50) / 1000.0;
-      _longitude = 85.3096 + (DateTime.now().millisecond % 50) / 1000.0;
+      if (lat != null) _latitude = lat;
+      if (lng != null) _longitude = lng;
+      _gpsAccuracyMeters = null; // manual entry has no device accuracy figure
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('GPS Auto-detected: Lat ${_latitude.toStringAsFixed(4)}° N, Lon ${_longitude.toStringAsFixed(4)}° E'),
-        backgroundColor: AppTheme.info,
-      ),
-    );
   }
 
   Future<void> _pickAndUploadFiles() async {
     try {
       final files = await AppFilePicker.pickFiles(
         allowMultiple: true,
-        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx', 'mp4', 'txt'],
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx', 'mp4', 'txt', 'm4a', 'wav', 'mp3', 'webm'],
       );
 
       if (files.isEmpty) return;
@@ -325,6 +400,68 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
     }
   }
 
+  Future<void> _startVoiceNoteRecording() async {
+    final loc = AppLocalizations.current;
+    try {
+      if (!await _voiceRecorder.hasPermission()) {
+        _showError(loc.microphonePermissionDenied);
+        return;
+      }
+      final tempDir = await getTemporaryDirectory();
+      final path = '${tempDir.path}/voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await _voiceRecorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+      setState(() {
+        _isRecordingVoiceNote = true;
+        _voiceNoteDuration = Duration.zero;
+      });
+      _voiceNoteTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() => _voiceNoteDuration += const Duration(seconds: 1));
+      });
+    } catch (e) {
+      _showError('${loc.voiceRecordingFailed}: ${e.toString()}');
+    }
+  }
+
+  Future<void> _stopAndUploadVoiceNote() async {
+    final loc = AppLocalizations.current;
+    _voiceNoteTimer?.cancel();
+    try {
+      final path = await _voiceRecorder.stop();
+      setState(() => _isRecordingVoiceNote = false);
+      if (path == null) return;
+
+      final bytes = await readVoiceNoteFile(path);
+      if (bytes.isEmpty) return;
+
+      setState(() => _isUploadingMedia = true);
+      final res = await ApiService.uploadAttachment(
+        bytes: bytes,
+        filename: 'voice_note_${DateTime.now().millisecondsSinceEpoch}.m4a',
+      );
+      setState(() {
+        _uploadedAttachments.add({
+          'attachment_id': res['attachment_id'],
+          'original_filename': res['original_filename'] ?? 'voice_note.m4a',
+          'detected_mime': res['detected_mime'] ?? 'audio/mp4',
+          'size_bytes': res['size_bytes'] ?? bytes.length,
+          'scan_status': res['scan_status'] ?? 'CLEAN',
+          'sha256_checksum': res['sha256_checksum'] ?? '',
+        });
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.voiceNoteAttached), backgroundColor: AppTheme.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) _showError('${loc.voiceRecordingFailed}: ${e.toString()}');
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingMedia = false);
+      }
+    }
+  }
+
   bool _validateStep(int step) {
     if (step == 0) {
       if (_titleController.text.trim().length < 5) {
@@ -344,7 +481,11 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
         _showError('Please enter Village or Ward name');
         return false;
       }
-      if (_latitude < 21.8 || _latitude > 25.5 || _longitude < 83.2 || _longitude > 88.0) {
+      if (_latitude == null || _longitude == null) {
+        _showError('Please capture your GPS location or enter coordinates manually before continuing.');
+        return false;
+      }
+      if (_latitude! < 21.8 || _latitude! > 25.5 || _longitude! < 83.2 || _longitude! > 88.0) {
         _showError('Coordinates are outside Jharkhand state boundaries (21.8°-25.5°N, 83.2°-88.0°E)');
         return false;
       }
@@ -446,10 +587,11 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
     return Scaffold(
       backgroundColor: AppTheme.surfaceLight,
       appBar: AppBar(
-        title: const Text('Report Societal Challenge'),
+        title: Text(loc.reportChallengeTitle),
         actions: [
           IconButton(
             icon: _isSavingDraft
@@ -577,6 +719,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
 
   // STEP 1: Problem Details
   Widget _buildStep1Problem() {
+    final loc = AppLocalizations.current;
     final subdomains = _taxonomyList.isNotEmpty
         ? (_taxonomyList.firstWhere(
             (t) => (t['name'] ?? '').toString().toLowerCase() == _selectedCategory.toLowerCase(),
@@ -596,29 +739,29 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
             children: [
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Challenge Title *',
+                decoration: InputDecoration(
+                  labelText: loc.challengeTitleLabel,
                   hintText: 'e.g. Severe drinking water fluoride contamination in village borewells',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: _descController,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Detailed Ground Description *',
-                  hintText: 'Explain the ground reality: who is affected, for how long, and visible community symptoms.',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: loc.groundDescriptionLabel,
+                  hintText: loc.groundDescriptionHint,
+                  border: const OutlineInputBorder(),
                   alignLabelWithHint: true,
                 ),
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 value: _categories.contains(_selectedCategory) ? _selectedCategory : _categories.first,
-                decoration: const InputDecoration(
-                  labelText: 'Canonical Problem Domain *',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: loc.canonicalDomainLabel,
+                  border: const OutlineInputBorder(),
                 ),
                 items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
                 onChanged: (v) {
@@ -632,9 +775,9 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
               const SizedBox(height: 14),
               if (subdomains.isNotEmpty) ...[
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Suggested Sub-Domain',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: loc.suggestedSubDomainLabel,
+                    border: const OutlineInputBorder(),
                   ),
                   items: subdomains.map((s) => DropdownMenuItem(value: s.toString(), child: Text(s.toString()))).toList(),
                   onChanged: (v) {
@@ -647,14 +790,14 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
               ],
               TextFormField(
                 controller: _subCategoryController,
-                decoration: const InputDecoration(
-                  labelText: 'Sub-Category / Technical Tags (Optional)',
+                decoration: InputDecoration(
+                  labelText: loc.subCategoryTagsLabel,
                   hintText: 'e.g. Piped Drinking Water Supply, filtration membrane',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Ground Urgency *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+              Text(loc.groundUrgencyLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
               const SizedBox(height: 8),
               Row(
                 children: _urgencies.map((u) {
@@ -686,6 +829,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
 
   // STEP 2: Location
   Widget _buildStep2Location() {
+    final loc = AppLocalizations.current;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -698,9 +842,9 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
             children: [
               DropdownButtonFormField<String>(
                 value: _districts.contains(_districtController.text) ? _districtController.text : _districts.first,
-                decoration: const InputDecoration(
-                  labelText: 'District (Jharkhand) *',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: loc.districtLabel,
+                  border: const OutlineInputBorder(),
                 ),
                 items: _districts.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
                 onChanged: (v) => setState(() => _districtController.text = v!),
@@ -711,9 +855,9 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                   Expanded(
                     child: TextFormField(
                       controller: _blockController,
-                      decoration: const InputDecoration(
-                        labelText: 'Block / Tehsil *',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: loc.blockTehsilLabel,
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                   ),
@@ -721,9 +865,9 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                   Expanded(
                     child: TextFormField(
                       controller: _villageController,
-                      decoration: const InputDecoration(
-                        labelText: 'Village / Ward *',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: loc.villageWardLabel,
+                        border: const OutlineInputBorder(),
                       ),
                     ),
                   ),
@@ -732,10 +876,10 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
               const SizedBox(height: 14),
               TextFormField(
                 controller: _locationController,
-                decoration: const InputDecoration(
-                  labelText: 'Specific Landmark / Habitation Address',
+                decoration: InputDecoration(
+                  labelText: loc.landmarkAddressLabel,
                   hintText: 'e.g. Near Anganwadi Center 3, Nawagarh Toli',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 14),
@@ -747,27 +891,72 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.2)),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.my_location, size: 20, color: AppTheme.primaryGreen),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
+                      children: [
+                        const Icon(Icons.my_location, size: 20, color: AppTheme.primaryGreen),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(loc.geoCoordinatesLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                              if (_latitude != null && _longitude != null) ...[
+                                Text('${_latitude!.toStringAsFixed(5)}° N, ${_longitude!.toStringAsFixed(5)}° E',
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryGreen)),
+                                Text(
+                                  _gpsAccuracyMeters != null
+                                      ? '✓ Captured via device GPS (±${_gpsAccuracyMeters!.toStringAsFixed(0)} m accuracy)'
+                                      : '✓ Entered manually',
+                                  style: const TextStyle(fontSize: 10, color: AppTheme.success),
+                                ),
+                              ] else
+                                Text(loc.locationNotCaptured,
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.error)),
+                            ],
+                          ),
+                        ),
+                        TextButton.icon(
+                          icon: _isFetchingLocation
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.gps_fixed, size: 16),
+                          label: Text(_isFetchingLocation ? loc.locatingEllipsis : loc.useGps),
+                          onPressed: _isFetchingLocation ? null : _useCurrentLocation,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    TextButton(
+                      onPressed: () => setState(() => _useManualEntry = !_useManualEntry),
+                      child: Text(_useManualEntry ? loc.hideManualEntry : loc.enterCoordinatesManuallyInstead,
+                          style: const TextStyle(fontSize: 11)),
+                    ),
+                    if (_useManualEntry) ...[
+                      const SizedBox(height: 8),
+                      Row(
                         children: [
-                          const Text('Jharkhand Geo-Coordinates (WGS84)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
-                          Text('${_latitude.toStringAsFixed(5)}° N, ${_longitude.toStringAsFixed(5)}° E',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryGreen)),
-                          const Text('✓ Within state boundary (21.8°-25.5°N, 83.2°-88.0°E)',
-                              style: TextStyle(fontSize: 10, color: AppTheme.success)),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _manualLatController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                              decoration: InputDecoration(labelText: loc.latitudeLabel, hintText: '23.34410', isDense: true, border: const OutlineInputBorder()),
+                              onChanged: (v) => _applyManualCoordinate(lat: double.tryParse(v)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _manualLngController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                              decoration: InputDecoration(labelText: loc.longitudeLabel, hintText: '85.30960', isDense: true, border: const OutlineInputBorder()),
+                              onChanged: (v) => _applyManualCoordinate(lng: double.tryParse(v)),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                    TextButton.icon(
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('Refresh GPS'),
-                      onPressed: _useCurrentLocation,
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -780,6 +969,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
 
   // STEP 3: Evidence & Media
   Widget _buildStep3Evidence() {
+    final loc = AppLocalizations.current;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -819,19 +1009,58 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                       ] else ...[
                         const Icon(Icons.cloud_upload_outlined, size: 40, color: AppTheme.primaryGreen),
                         const SizedBox(height: 10),
-                        const Text('Click to Attach Ground Evidence (Images / Reports)',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
+                        Text(loc.attachEvidenceLabel,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
                         const SizedBox(height: 4),
-                        const Text('Supports JPG, PNG, WEBP, PDF, DOCX, MP4 (Max 25MB, Magic Byte Verified)',
-                            style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                        Text(loc.attachEvidenceHint,
+                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                       ],
                     ],
                   ),
                 ),
               ),
+              if (!kIsWeb) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _isRecordingVoiceNote ? AppTheme.error.withOpacity(0.06) : AppTheme.textSecondary.withOpacity(0.04),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _isRecordingVoiceNote ? AppTheme.error.withOpacity(0.3) : AppTheme.borderLight),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isRecordingVoiceNote ? Icons.fiber_manual_record : Icons.mic_none_outlined,
+                        color: _isRecordingVoiceNote ? AppTheme.error : AppTheme.primaryGreen,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _isRecordingVoiceNote
+                              ? loc.recordingInProgressText(_voiceNoteDuration.inSeconds)
+                              : loc.recordVoiceNoteLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _isRecordingVoiceNote ? AppTheme.error : AppTheme.textPrimary,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _isUploadingMedia
+                            ? null
+                            : (_isRecordingVoiceNote ? _stopAndUploadVoiceNote : _startVoiceNoteRecording),
+                        child: Text(_isRecordingVoiceNote ? loc.stopAndAttachLabel : loc.startRecordingLabel),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (_uploadedAttachments.isNotEmpty) ...[
                 const SizedBox(height: 16),
-                Text('Attached Files (${_uploadedAttachments.length}):',
+                Text('${loc.attachedFilesLabel} (${_uploadedAttachments.length}):',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                 const SizedBox(height: 8),
                 ..._uploadedAttachments.asMap().entries.map((entry) {
@@ -842,6 +1071,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                   final sizeBytes = item['size_bytes'] as int? ?? 0;
                   final sizeKb = (sizeBytes / 1024).toStringAsFixed(1);
                   final isImg = mime.startsWith('image/');
+                  final isAudio = mime.startsWith('audio/');
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 8),
@@ -857,7 +1087,9 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                           borderRadius: BorderRadius.circular(6),
                           child: isImg
                               ? const Icon(Icons.image, size: 28, color: AppTheme.primaryGreen)
-                              : const Icon(Icons.insert_drive_file, color: AppTheme.primaryGreen, size: 28),
+                              : (isAudio
+                                  ? const Icon(Icons.mic, size: 28, color: AppTheme.primaryGreen)
+                                  : const Icon(Icons.insert_drive_file, color: AppTheme.primaryGreen, size: 28)),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -889,6 +1121,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
 
   // STEP 4: Impact & Beneficiaries + Submitter Metadata
   Widget _buildStep4Impact() {
+    final loc = AppLocalizations.current;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -902,11 +1135,11 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
               TextFormField(
                 controller: _populationController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Affected Population (Citizens) *',
+                decoration: InputDecoration(
+                  labelText: loc.affectedPopulationLabel,
                   hintText: 'e.g. 450 (must be >= 1)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.people_alt_outlined),
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.people_alt_outlined),
                 ),
               ),
               const SizedBox(height: 14),
@@ -921,18 +1154,30 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Submitter Classification & Source', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+              Text(loc.submissionChannel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
               const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                value: _sourceType,
-                decoration: const InputDecoration(
-                  labelText: 'Submission Source Type',
-                  border: OutlineInputBorder(),
+              // Who is submitting (citizen / community org / PRI / ULB / govt dept) is
+              // derived server-side from the logged-in account's role — it is never a
+              // self-declared field here, since a free-text/dropdown "I am a PRI" claim
+              // would be trivially spoofable. This field only records HOW the report
+              // arrived (channel), detected automatically rather than asked.
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.textSecondary.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.textSecondary.withOpacity(0.2)),
                 ),
-                items: _sourceTypes.map((s) => DropdownMenuItem(value: s, child: Text(s.replaceAll('_', ' ')))).toList(),
-                onChanged: (v) {
-                  if (v != null) setState(() => _sourceType = v);
-                },
+                child: Row(
+                  children: [
+                    const Icon(Icons.podcasts_outlined, size: 18, color: AppTheme.textSecondary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Detected channel: ${_sourceType.replaceAll('_', ' ')}',
+                      style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 14),
               Row(
@@ -940,9 +1185,9 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: _contactPreference,
-                      decoration: const InputDecoration(
-                        labelText: 'Contact Channel',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: loc.contactChannelLabel,
+                        border: const OutlineInputBorder(),
                       ),
                       items: _contactPreferences.map((p) => DropdownMenuItem(value: p, child: Text(p.replaceAll('_', ' ')))).toList(),
                       onChanged: (v) {
@@ -954,9 +1199,9 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: _dataSharingChoice,
-                      decoration: const InputDecoration(
-                        labelText: 'Data Sharing Consent',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: loc.dataSharingConsentLabel,
+                        border: const OutlineInputBorder(),
                       ),
                       items: _dataSharingChoices.map((d) => DropdownMenuItem(value: d, child: Text(d.replaceAll('_', ' ')))).toList(),
                       onChanged: (v) {
@@ -969,17 +1214,17 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
               const SizedBox(height: 14),
               TextFormField(
                 controller: _accessibilityNeedsController,
-                decoration: const InputDecoration(
-                  labelText: 'Accessibility Needs (Optional)',
+                decoration: InputDecoration(
+                  labelText: loc.accessibilityNeedsLabel,
                   hintText: 'e.g. Audio explanation required, screen reader compatible',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               SwitchListTile(
-                title: const Text('Submit Anonymously on Public Portal', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                subtitle: const Text('Your name will be hidden from the public feed ("Anonymous Citizen") while remaining accessible to district verification officers.',
-                    style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                title: Text(loc.submitAnonymouslyLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                subtitle: Text(loc.submitAnonymouslySubtitle,
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                 value: _isAnonymousPublic,
                 activeColor: AppTheme.primaryGreen,
                 contentPadding: EdgeInsets.zero,
@@ -994,6 +1239,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
 
   // STEP 5: Review & Submit
   Widget _buildStep5Review() {
+    final loc = AppLocalizations.current;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1023,15 +1269,17 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                 ],
               ),
               const Divider(height: 20),
-              _buildReviewRow('Ground Description', _descController.text),
-              _buildReviewRow('Urgency Level', _selectedUrgency),
-              _buildReviewRow('Location', '${_villageController.text}, ${_blockController.text}, ${_districtController.text}'),
-              _buildReviewRow('GPS Coordinates', '${_latitude.toStringAsFixed(4)}° N, ${_longitude.toStringAsFixed(4)}° E'),
-              _buildReviewRow('Affected Citizens', '${_populationController.text} residents'),
-              _buildReviewRow('Source & Role', _sourceType.replaceAll('_', ' ')),
-              _buildReviewRow('Public Identity', _isAnonymousPublic ? 'Anonymous Citizen' : 'Public Submitter Name'),
-              _buildReviewRow('Evidence Files', '${_uploadedAttachments.length} verified attachment(s)'),
-              _buildReviewRow('Idempotency Key', _idempotencyKey.substring(0, 13) + '...'),
+              _buildReviewRow(loc.reviewGroundDescription, _descController.text),
+              _buildReviewRow(loc.reviewUrgencyLevel, _selectedUrgency),
+              _buildReviewRow(loc.reviewLocation, '${_villageController.text}, ${_blockController.text}, ${_districtController.text}'),
+              _buildReviewRow(loc.reviewGpsCoordinates, _latitude != null && _longitude != null
+                  ? '${_latitude!.toStringAsFixed(4)}° N, ${_longitude!.toStringAsFixed(4)}° E'
+                  : loc.reviewNotCaptured),
+              _buildReviewRow(loc.reviewAffectedCitizens, '${_populationController.text} residents'),
+              _buildReviewRow(loc.submissionChannel, _sourceType.replaceAll('_', ' ')),
+              _buildReviewRow(loc.reviewPublicIdentity, _isAnonymousPublic ? loc.reviewAnonymousCitizen : loc.reviewPublicSubmitterName),
+              _buildReviewRow(loc.reviewEvidenceFiles, '${_uploadedAttachments.length} verified attachment(s)'),
+              _buildReviewRow(loc.reviewIdempotencyKey, _idempotencyKey.substring(0, 13) + '...'),
               const SizedBox(height: 12),
               // Citizen Declaration & Consent
               Container(
@@ -1048,10 +1296,10 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                       activeColor: AppTheme.primaryGreen,
                       onChanged: (val) => setState(() => _declarationAccepted = val ?? false),
                     ),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'I declare that this societal challenge is reported in good faith for community welfare, and I consent (v1.0) to government verification and research university routing.',
-                        style: TextStyle(fontSize: 11, color: AppTheme.textPrimary, height: 1.3),
+                        loc.declarationText,
+                        style: const TextStyle(fontSize: 11, color: AppTheme.textPrimary, height: 1.3),
                       ),
                     ),
                   ],
@@ -1109,6 +1357,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
   }
 
   Widget _buildBottomNav() {
+    final loc = AppLocalizations.current;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
@@ -1121,7 +1370,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
             Expanded(
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.arrow_back, size: 16),
-                label: const Text('Back'),
+                label: Text(loc.back),
                 onPressed: _prevStep,
               ),
             ),
@@ -1133,7 +1382,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                   ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                   : Icon(_currentStep == _totalSteps - 1 ? Icons.send : Icons.arrow_forward, size: 16),
               label: Text(
-                _currentStep == _totalSteps - 1 ? 'Submit to Government Pipeline' : 'Next Step',
+                _currentStep == _totalSteps - 1 ? loc.submitToGovernmentPipeline : loc.nextStep,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               onPressed: _isSubmitting ? null : _nextStep,

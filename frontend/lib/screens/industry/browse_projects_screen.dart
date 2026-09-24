@@ -20,7 +20,7 @@ class _BrowseProjectsScreenState extends State<BrowseProjectsScreen> {
   String _selectedDomain = 'All';
 
   final List<String> _domains = [
-    'All', 'Water Management', 'Agriculture', 'Healthcare',
+    'All', 'Water Resources', 'Agriculture', 'Healthcare',
     'Education', 'Sanitation', 'Environment', 'Energy'
   ];
 

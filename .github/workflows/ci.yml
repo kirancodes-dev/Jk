@@ -10,6 +10,21 @@ permissions:
   contents: read
 
 jobs:
+  traceability-check:
+    name: Requirements Traceability Matrix Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify TRACEABILITY_MATRIX.md citations resolve to real files/tests
+        run: python scripts/verify_traceability.py
+
   backend-tests:
     name: Backend Test Suite & Security Validation
     runs-on: ubuntu-latest
@@ -107,3 +122,35 @@ jobs:
         run: |
           cd frontend
           flutter test --no-pub
+
+  frontend-web-build:
+    name: Flutter Web Release Build
+    runs-on: ubuntu-latest
+    needs: frontend-tests
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter Dependencies
+        run: |
+          cd frontend
+          flutter pub get
+
+      - name: Build Flutter Web Release Bundle
+        run: |
+          cd frontend
+          flutter build web --release
+
+      - name: Upload Web Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-web-build
+          path: frontend/build/web
+          retention-days: 14

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -91,6 +92,72 @@ void main() {
 
         // Must NOT display evaluator build banner
         expect(find.textContaining('EVALUATOR MODE'), findsNothing);
+      }
+    });
+
+    test('Every English translation key has a Hindi counterpart (and vice versa)', () {
+      final translations = AppLocalizations.allTranslationsForVerification;
+      final enKeys = translations['en']!.keys.toSet();
+      final hiKeys = translations['hi']!.keys.toSet();
+
+      final missingInHindi = enKeys.difference(hiKeys);
+      final missingInEnglish = hiKeys.difference(enKeys);
+
+      expect(missingInHindi, isEmpty,
+          reason: 'These keys exist in the English dictionary but have no Hindi translation: $missingInHindi');
+      expect(missingInEnglish, isEmpty,
+          reason: 'These keys exist in the Hindi dictionary but have no English source: $missingInEnglish');
+    });
+
+    test('No translation value is empty for a supported key', () {
+      final translations = AppLocalizations.allTranslationsForVerification;
+      for (final lang in ['en', 'hi']) {
+        translations[lang]!.forEach((key, value) {
+          expect(value.trim(), isNotEmpty, reason: '$lang.$key has an empty translation value');
+        });
+      }
+    });
+
+    group('Hardcoded-English-string regression guard', () {
+      // Screens fully migrated to AppLocalizations in the citizen/submitter flow.
+      // Any hardcoded, human-readable English Text() literal reappearing in these
+      // files is a localization regression — new UI copy in these files must go
+      // through AppLocalizations instead of a raw string literal.
+      const migratedScreens = [
+        'lib/screens/common/splash_screen.dart',
+        'lib/screens/common/login_screen.dart',
+        'lib/screens/common/register_screen.dart',
+        'lib/screens/common/otp_screen.dart',
+        'lib/screens/common/onboarding_screen.dart',
+        'lib/screens/common/forgot_password_screen.dart',
+        'lib/screens/common/profile_screen.dart',
+        'lib/screens/common/notifications_screen.dart',
+        'lib/screens/common/notification_preferences_screen.dart',
+        'lib/screens/citizen/citizen_dashboard.dart',
+        'lib/screens/citizen/report_challenge_screen.dart',
+        'lib/screens/citizen/my_challenges_screen.dart',
+        'lib/screens/citizen/nearby_challenges_screen.dart',
+        'lib/screens/citizen/track_solution_screen.dart',
+        'lib/screens/citizen/challenge_submitted_screen.dart',
+        'lib/screens/citizen/ai_analysis_screen.dart',
+        'lib/screens/citizen/challenge_details_screen.dart',
+        'lib/screens/citizen/privacy_data_screen.dart',
+      ];
+
+      // A raw, capitalized, multi-letter string literal directly inside Text(...).
+      // Deliberately conservative (few false negatives, some tolerated false
+      // positives) since this is a regression guard, not a full i18n linter.
+      final hardcodedTextPattern = RegExp(r'''Text\(\s*['"]([A-Z][a-zA-Z ,.!?&'’\-]{3,})['"]''');
+
+      for (final relativePath in migratedScreens) {
+        test('$relativePath has no hardcoded English Text() literals', () {
+          final file = File(relativePath);
+          expect(file.existsSync(), isTrue, reason: '$relativePath not found relative to frontend/');
+          final content = file.readAsStringSync();
+          final matches = hardcodedTextPattern.allMatches(content).map((m) => m.group(1)).toList();
+          expect(matches, isEmpty,
+              reason: 'Found hardcoded English string(s) in $relativePath that should use AppLocalizations: $matches');
+        });
       }
     });
   });

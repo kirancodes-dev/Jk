@@ -12,8 +12,23 @@ from backend.app.models.models import (
     User, UserRole, Challenge, ChallengeLocation, ChallengeStatus,
     ChallengePriority, Project, ProjectMilestone, University,
     IndustryPartner, Student, ProjectMember, IndustryCollaboration,
-    ImpactMetrics, District, ExportJob, DomainAuditEvent, utc_now
+    ImpactMetrics, District, ExportJob, DomainAuditEvent, utc_now,
+    IPRecord, IPRecordType, CollaborationOfferType, AgreementStatus
 )
+
+# Challenge statuses that can only be reached after a working prototype exists,
+# respectively after field deployment has begun. Used to derive live "prototypes
+# developed" / "pilots deployed" counts instead of hardcoded demo constants.
+PROTOTYPE_OR_LATER_STATUSES = [
+    ChallengeStatus.PROTOTYPE, ChallengeStatus.FIELD_TESTING, ChallengeStatus.DEPLOYMENT,
+    ChallengeStatus.IN_PROGRESS, ChallengeStatus.FIELD_VERIFICATION, ChallengeStatus.RESOLVED,
+    ChallengeStatus.IMPACT_AUDITED, ChallengeStatus.CLOSED,
+]
+DEPLOYMENT_OR_LATER_STATUSES = [
+    ChallengeStatus.DEPLOYMENT, ChallengeStatus.IN_PROGRESS, ChallengeStatus.FIELD_VERIFICATION,
+    ChallengeStatus.RESOLVED, ChallengeStatus.IMPACT_AUDITED, ChallengeStatus.CLOSED,
+]
+IP_RECORD_LIVE_STATUSES_EXCLUDED = ("DRAFT", "REJECTED", "ARCHIVED")
 from backend.app.schemas.schemas import (
     KPIMetadata, KPIDrillDownRecordOut, KPIDrillDownResponseOut,
     DistrictDrillDownOut, BlockDrillDownOut, VerifiableAdminDashboardOut,
@@ -180,6 +195,29 @@ class AnalyticsService:
             ImpactMetrics.category.ilike("%Beneficiar%")
         ).scalar() or 0
 
+        # --- Live innovation outcomes (never hardcoded demo constants) ---
+        ip_query = db.query(IPRecord).filter(~IPRecord.status.in_(IP_RECORD_LIVE_STATUSES_EXCLUDED))
+        patent_records = ip_query.filter(IPRecord.record_type == IPRecordType.PATENT).all()
+        patents_filed = len(patent_records)
+
+        startup_records = db.query(IPRecord).filter(
+            IPRecord.status != "REJECTED",
+            IPRecord.startup_spinoff_name.isnot(None),
+            IPRecord.startup_spinoff_name != ""
+        ).all()
+        startups_created = len({r.startup_spinoff_name.strip().lower() for r in startup_records if r.startup_spinoff_name and r.startup_spinoff_name.strip()})
+
+        tech_transfer_records = db.query(IndustryCollaboration).filter(
+            IndustryCollaboration.offer_type == CollaborationOfferType.TECHNOLOGY_TRANSFER.value,
+            IndustryCollaboration.agreement_status == AgreementStatus.COMPLETED
+        ).all()
+        technology_transfers = len(tech_transfer_records)
+
+        prototype_challenge_ids = {c[0] for c in scoped_ch_query.filter(Challenge.status.in_(PROTOTYPE_OR_LATER_STATUSES)).with_entities(Challenge.id).all()}
+        prototypes_developed = len(prototype_challenge_ids)
+        pilot_challenge_ids = {c[0] for c in scoped_ch_query.filter(Challenge.status.in_(DEPLOYMENT_OR_LATER_STATUSES)).with_entities(Challenge.id).all()}
+        pilots_deployed = len(pilot_challenge_ids)
+
         freshness_iso = now.isoformat()
 
         kpis: Dict[str, Dict[str, Any]] = {
@@ -299,8 +337,110 @@ class AnalyticsService:
                 "freshness": freshness_iso,
                 "verification_level": "VERIFIED",
                 "reconciliation_metric_key": "beneficiaries"
+            },
+            "patents_filed": {
+                "name": "patents_filed",
+                "display_title": "Patents Filed",
+                "value": patents_filed,
+                "unit": "patents",
+                "numerator": float(patents_filed),
+                "denominator": None,
+                "time_window": "ALL_TIME",
+                "inclusion_rules": "IP records of type PATENT recorded against a project, excluding drafts, rejected or archived records",
+                "freshness": freshness_iso,
+                "verification_level": "VERIFIED",
+                "reconciliation_metric_key": "patents_filed"
+            },
+            "startups_incubated": {
+                "name": "startups_incubated",
+                "display_title": "Startups Incubated",
+                "value": startups_created,
+                "unit": "startups",
+                "numerator": float(startups_created),
+                "denominator": None,
+                "time_window": "ALL_TIME",
+                "inclusion_rules": "Distinct named startup/spin-off entities recorded on a non-rejected IP record",
+                "freshness": freshness_iso,
+                "verification_level": "VERIFIED",
+                "reconciliation_metric_key": "startups_incubated"
+            },
+            "technology_transfers_completed": {
+                "name": "technology_transfers_completed",
+                "display_title": "Technology Transfers Completed",
+                "value": technology_transfers,
+                "unit": "transfers",
+                "numerator": float(technology_transfers),
+                "denominator": None,
+                "time_window": "ALL_TIME",
+                "inclusion_rules": "Industry collaborations of offer type TECHNOLOGY_TRANSFER whose agreement reached COMPLETED status",
+                "freshness": freshness_iso,
+                "verification_level": "VERIFIED",
+                "reconciliation_metric_key": "technology_transfers_completed"
+            },
+            "prototypes_developed": {
+                "name": "prototypes_developed",
+                "display_title": "Prototypes Developed",
+                "value": prototypes_developed,
+                "unit": "prototypes",
+                "numerator": float(prototypes_developed),
+                "denominator": float(total_challenges) if total_challenges > 0 else None,
+                "time_window": "ALL_TIME",
+                "inclusion_rules": "Challenges whose lifecycle status has reached PROTOTYPE or a later stage",
+                "freshness": freshness_iso,
+                "verification_level": "VERIFIED",
+                "reconciliation_metric_key": "prototypes_developed"
+            },
+            "pilots_deployed": {
+                "name": "pilots_deployed",
+                "display_title": "Solutions Field-Deployed / Piloted",
+                "value": pilots_deployed,
+                "unit": "pilots",
+                "numerator": float(pilots_deployed),
+                "denominator": float(total_challenges) if total_challenges > 0 else None,
+                "time_window": "ALL_TIME",
+                "inclusion_rules": "Challenges whose lifecycle status has reached DEPLOYMENT or a later stage",
+                "freshness": freshness_iso,
+                "verification_level": "VERIFIED",
+                "reconciliation_metric_key": "pilots_deployed"
             }
         }
+
+        # District-wise and domain-wise breakdown of the live innovation outcomes above.
+        # Small dataset assumption (SIH demo scale): joined in Python for clarity/auditability
+        # rather than a dense multi-join SQL aggregate.
+        def _challenge_geo(ch: Optional[Challenge]):
+            district = str(ch.location.district_name) if ch and ch.location and ch.location.district_name else "Unknown"
+            domain = str(ch.category) if ch and ch.category else "Unknown"
+            return district, domain
+
+        def _bump(bucket: Dict[str, Dict[str, int]], key: str, metric: str):
+            bucket.setdefault(key, {}).setdefault(metric, 0)
+            bucket[key][metric] += 1
+
+        by_district: Dict[str, Dict[str, int]] = {}
+        by_domain: Dict[str, Dict[str, int]] = {}
+
+        for r in patent_records:
+            district, domain = _challenge_geo(r.project.challenge if r.project else None)
+            _bump(by_district, district, "patents_filed")
+            _bump(by_domain, domain, "patents_filed")
+
+        seen_startups = set()
+        for r in startup_records:
+            key = (r.startup_spinoff_name or "").strip().lower()
+            if not key or key in seen_startups:
+                continue
+            seen_startups.add(key)
+            district, domain = _challenge_geo(r.project.challenge if r.project else None)
+            _bump(by_district, district, "startups_incubated")
+            _bump(by_domain, domain, "startups_incubated")
+
+        for c in tech_transfer_records:
+            district, domain = _challenge_geo(c.project.challenge if c.project else None)
+            _bump(by_district, district, "technology_transfers_completed")
+            _bump(by_domain, domain, "technology_transfers_completed")
+
+        innovation_breakdown = {"by_district": by_district, "by_domain": by_domain}
 
         return {
             "total_challenges": total_challenges,
@@ -325,7 +465,8 @@ class AnalyticsService:
                 "district": tier_district,
                 "state": tier_state
             },
-            "kpis": kpis
+            "kpis": kpis,
+            "innovation_breakdown": innovation_breakdown
         }
 
     @classmethod
@@ -699,22 +840,90 @@ class AnalyticsService:
         elif norm_key in ["hei_participating", "active_verified_universities"]:
             u_query = db.query(University).filter(University.is_active == True)
             total_records = u_query.count()
-            raw_unis = u_query.order_by(University.name.asc()).offset(offset).limit(limit).all()
+            # Note: fixed a pre-existing bug here — University has no `.name`/`.university_type`/
+            # `.district`/`.created_at` attributes (they are `.institution_name`/`.district_name`);
+            # the previous hasattr()-guarded fallbacks silently masked the crash on `.name`.
+            raw_unis = u_query.order_by(University.institution_name.asc()).offset(offset).limit(limit).all()
 
             for u in raw_unis:
                 records.append(KPIDrillDownRecordOut(
                     record_id=u.id,
                     entity_type="University",
-                    title=u.name,
-                    category=u.university_type if hasattr(u, "university_type") else "University",
-                    status="ACTIVE" if u.is_active else "PENDING",
-                    district_name=u.district if hasattr(u, "district") else "Jharkhand",
+                    title=u.institution_name,
+                    category="University",
+                    status="VERIFIED" if u.is_verified_active else "PENDING",
+                    district_name=u.district_name or "Jharkhand",
                     block_name=None,
                     verification_level="VERIFIED",
                     contributing_value="Verified HEI Portal",
-                    timestamp=u.created_at if hasattr(u, "created_at") and u.created_at else now,
+                    timestamp=now,
                     audit_event_id=u.id,
                     redacted=False
+                ))
+
+        elif norm_key in ["patents_filed"]:
+            q = db.query(IPRecord).filter(~IPRecord.status.in_(IP_RECORD_LIVE_STATUSES_EXCLUDED), IPRecord.record_type == IPRecordType.PATENT)
+            total_records = q.count()
+            raw_records = q.order_by(IPRecord.created_at.desc()).offset(offset).limit(limit).all()
+            for r in raw_records:
+                ch = r.project.challenge if r.project else None
+                dist = ch.location.district_name if ch and ch.location else None
+                records.append(KPIDrillDownRecordOut(
+                    record_id=r.id, entity_type="IPRecord", title=r.title,
+                    category=ch.category if ch else "Innovation", status=r.status,
+                    district_name=dist, block_name=None, verification_level="VERIFIED",
+                    contributing_value=r.patent_reference or "Patent filed", timestamp=r.created_at,
+                    audit_event_id=r.id, redacted=False
+                ))
+
+        elif norm_key in ["startups_incubated"]:
+            q = db.query(IPRecord).filter(
+                IPRecord.status != "REJECTED", IPRecord.startup_spinoff_name.isnot(None), IPRecord.startup_spinoff_name != ""
+            )
+            total_records = q.count()
+            raw_records = q.order_by(IPRecord.created_at.desc()).offset(offset).limit(limit).all()
+            for r in raw_records:
+                ch = r.project.challenge if r.project else None
+                dist = ch.location.district_name if ch and ch.location else None
+                records.append(KPIDrillDownRecordOut(
+                    record_id=r.id, entity_type="IPRecord", title=r.startup_spinoff_name or r.title,
+                    category=ch.category if ch else "Entrepreneurship", status=r.status,
+                    district_name=dist, block_name=None, verification_level="VERIFIED",
+                    contributing_value="Startup / spin-off", timestamp=r.created_at,
+                    audit_event_id=r.id, redacted=False
+                ))
+
+        elif norm_key in ["technology_transfers_completed"]:
+            q = db.query(IndustryCollaboration).filter(
+                IndustryCollaboration.offer_type == CollaborationOfferType.TECHNOLOGY_TRANSFER.value,
+                IndustryCollaboration.agreement_status == AgreementStatus.COMPLETED
+            )
+            total_records = q.count()
+            raw_records = q.order_by(IndustryCollaboration.updated_at.desc()).offset(offset).limit(limit).all()
+            for c in raw_records:
+                ch = c.project.challenge if c.project else None
+                dist = ch.location.district_name if ch and ch.location else None
+                records.append(KPIDrillDownRecordOut(
+                    record_id=c.id, entity_type="IndustryCollaboration", title=f"Technology transfer #{c.id}",
+                    category=ch.category if ch else "Technology Transfer", status=c.agreement_status.value,
+                    district_name=dist, block_name=None, verification_level="VERIFIED",
+                    contributing_value=c.description or "Completed technology transfer", timestamp=c.updated_at or c.created_at,
+                    audit_event_id=c.id, redacted=False
+                ))
+
+        elif norm_key in ["prototypes_developed", "pilots_deployed"]:
+            statuses = PROTOTYPE_OR_LATER_STATUSES if norm_key == "prototypes_developed" else DEPLOYMENT_OR_LATER_STATUSES
+            q = db.query(Challenge).filter(Challenge.status.in_(statuses))
+            q = cls.apply_challenge_jurisdiction(q, viewer)
+            total_records = q.count()
+            raw_challenges = q.order_by(Challenge.updated_at.desc()).offset(offset).limit(limit).all()
+            for ch in raw_challenges:
+                dist = ch.location.district_name if ch.location else None
+                records.append(KPIDrillDownRecordOut(
+                    record_id=ch.id, entity_type="Challenge", title=ch.title, category=ch.category,
+                    status=ch.status.value, district_name=dist, block_name=ch.location.block_name if ch.location else None,
+                    verification_level="VERIFIED", contributing_value=ch.status.value, timestamp=ch.updated_at or ch.created_at,
+                    audit_event_id=ch.version, redacted=False
                 ))
 
         elif norm_key in ["csr_funding", "csr_funding_disbursed"]:

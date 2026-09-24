@@ -71,16 +71,22 @@ def test_production_fails_with_missing_s3_credentials():
     assert "STORAGE_TYPE='s3'" in str(exc_info.value)
 
 def test_production_succeeds_with_valid_config():
+    # Local storage is strictly prohibited in production (see
+    # Settings.validate_production_and_runtime_constraints) — a valid production
+    # config must use S3 with credentials, not STORAGE_TYPE="local".
     s = Settings(
         ENVIRONMENT="production",
         SECRET_KEY="a" * 40,
         DATABASE_URL="postgresql://sih_user:secure_pwd@db:5432/sih_jharkhand",
         ALLOWED_CORS_ORIGINS=["https://portal.jharkhand.gov.in", "https://admin.jharkhand.gov.in"],
-        STORAGE_TYPE="local",
-        UPLOAD_DIR="uploads"
+        STORAGE_TYPE="s3",
+        AWS_ACCESS_KEY_ID="AKIA_TEST_KEY_ID",
+        AWS_SECRET_ACCESS_KEY="test-secret-access-key",
+        S3_BUCKET_NAME="jharkhand-sih-production-bucket"
     )
     assert s.ENVIRONMENT == "production"
     assert len(s.ALLOWED_CORS_ORIGINS) == 2
+    assert s.STORAGE_TYPE == "s3"
 
 def test_token_and_upload_limits_validation():
     with pytest.raises((ValueError, ValidationError)):

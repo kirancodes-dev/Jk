@@ -24,7 +24,7 @@ from backend.app.models.models import (
     User, UserRole, Notification, NotificationOutbox, UserNotificationPreference, utc_now
 )
 from backend.app.services.notification_service import (
-    notification_service, NotificationSanitizer, MockGovSmsAdapter, MockGovEmailAdapter, MockPushAdapter
+    notification_service, NotificationSanitizer, SimulatedGovSmsAdapter, GovEmailAdapter, SimulatedPushAdapter
 )
 
 client = TestClient(app)

@@ -3,7 +3,8 @@ from fastapi.testclient import TestClient
 from backend.app.main import app
 from backend.app.core.database import Base, engine, SessionLocal
 from backend.app.services.seed_data import seed_database
-from backend.app.models.models import Challenge, AuditLog, CitizenFeedback, VerificationRecord
+from backend.app.core.security import create_access_token
+from backend.app.models.models import Challenge, AuditLog, CitizenFeedback, VerificationRecord, User, UserRole
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_db():
@@ -162,20 +163,33 @@ def test_citizen_feedback_and_impact_metrics(client):
     assert "total_challenges" in metrics
 
 def test_verification_record_submission_and_review(client):
-    # Login as Student
-    stud_login = client.post("/api/v1/auth/login", json={
-        "email": "rahul.verma@bitmesra.ac.in",
-        "password": "password123"
-    })
-    stud_token = stud_login.json()["access_token"]
-    stud_headers = {"Authorization": f"Bearer {stud_token}"}
-
-    # Get a project
+    # Field verification must be independent (Stage 8): the project's own student/faculty
+    # team can no longer submit a verification record for their own project — only an
+    # unaffiliated, authorized verifier (e.g. a government officer) can. Get a project
+    # via the global listing (any project works here since the officer isn't a team member)
+    # and submit as a freshly created government officer rather than the seeded student.
     proj_res = client.get("/api/v1/projects")
     assert proj_res.status_code == 200
     projects = proj_res.json()
     assert len(projects) > 0
     proj_id = projects[0]["id"]
+
+    db = SessionLocal()
+    try:
+        officer = db.query(User).filter(User.email == "field_officer_prodtest@jharkhand.gov.in").first()
+        if not officer:
+            officer = User(
+                email="field_officer_prodtest@jharkhand.gov.in", full_name="Field Verification Officer",
+                phone_number="9000000099", role=UserRole.GOVERNMENT_OFFICER, hashed_password="hash",
+                is_active=True, is_verified=True, admin_tier="STATE"
+            )
+            db.add(officer)
+            db.commit()
+            db.refresh(officer)
+        officer_token = create_access_token(subject=str(officer.id), role=officer.role.value, tier=officer.admin_tier)
+    finally:
+        db.close()
+    stud_headers = {"Authorization": f"Bearer {officer_token}"}
 
     # Submit verification record
     v_res = client.post("/api/v1/verification/records", json={
@@ -187,7 +201,7 @@ def test_verification_record_submission_and_review(client):
         "geotagged_lng": 85.3096,
         "inspection_notes": "Groundwater filtration unit inspected and water purity verified."
     }, headers=stud_headers)
-    assert v_res.status_code == 201
+    assert v_res.status_code == 201, v_res.text
     record_id = v_res.json()["id"]
 
     # Admin review and approval

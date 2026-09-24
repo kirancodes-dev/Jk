@@ -9,9 +9,11 @@ from backend.app.models.models import (
     ProjectMilestone, ProjectTask, SolutionProposal, IndustryCollaboration,
     ProjectDocument, Comment, Notification, StatusHistory, ImpactMetrics,
     District, ChallengePriority, ChallengeStatus, MilestoneStatus,
-    AccountStatus, GovernmentScope
+    AccountStatus, GovernmentScope, IPRecord, IPRecordType, IPOwnership,
+    CollaborationOfferType, AgreementStatus
 )
 from backend.app.core.config import settings
+from backend.app.services.ai.priority_service import JHARKHAND_ASPIRATIONAL_DISTRICTS
 
 JHARKHAND_DISTRICTS = [
     {"name": "Ranchi", "lat": 23.3441, "lon": 85.3096, "pop": 2914253, "rural": 56.9},
@@ -41,7 +43,7 @@ JHARKHAND_DISTRICTS = [
 ]
 
 CATEGORIES = [
-    ("Water Management", "Groundwater recharge, drinking water kiosks, filtration, smart irrigation and water bodies conservation."),
+    ("Water Resources", "Groundwater recharge, drinking water kiosks, filtration, smart irrigation and water bodies conservation."),
     ("Agriculture", "Smart farming, crop disease detection, localized weather stations, precision irrigation, post-harvest processing."),
     ("Healthcare", "Portable telemedicine, point-of-care diagnostics, maternal health, sickle cell screening, rural ambulance routing."),
     ("Education", "Digital smart classrooms, tribal language translation tools, interactive STEM labs, student retention systems."),
@@ -73,7 +75,8 @@ def seed_database(db: Session):
             latitude=d["lat"],
             longitude=d["lon"],
             total_population=d["pop"],
-            rural_population_pct=d["rural"]
+            rural_population_pct=d["rural"],
+            is_aspirational=d["name"].lower() in JHARKHAND_ASPIRATIONAL_DISTRICTS
         )
         db.add(dist)
         district_map[d["name"]] = dist
@@ -167,7 +170,7 @@ def seed_database(db: Session):
     db.commit()
 
     db.add_all([
-        UniversityExpertise(university_id=univ1.id, domain="Water Management", department="Civil & Environmental Engg", focus_area="Fluoride Removal & Solar Kiosks", score_weight=1.5),
+        UniversityExpertise(university_id=univ1.id, domain="Water Resources", department="Civil & Environmental Engg", focus_area="Fluoride Removal & Solar Kiosks", score_weight=1.5),
         UniversityExpertise(university_id=univ1.id, domain="Agriculture", department="CSE & ECE", focus_area="AI Vision Pest Identification", score_weight=1.4),
         UniversityExpertise(university_id=univ1.id, domain="Environment", department="Environmental Science", focus_area="Mining Dust Particulate Sensors", score_weight=1.3),
         UniversityExpertise(university_id=univ1.id, domain="Energy", department="Electrical Engineering", focus_area="Microgrid Storage & Inverters", score_weight=1.2)
@@ -203,7 +206,7 @@ def seed_database(db: Session):
     db.add_all([
         UniversityExpertise(university_id=univ2.id, domain="Urban Infrastructure", department="Civil Engineering", focus_area="Durable Road Surfaces & Smart Pothole Detection", score_weight=1.5),
         UniversityExpertise(university_id=univ2.id, domain="Sanitation", department="Civil & Chemical", focus_area="Effluent Treatment & Municipal Composting", score_weight=1.3),
-        UniversityExpertise(university_id=univ2.id, domain="Water Management", department="Mechanical & Civil", focus_area="Deep Borewell Pumps & Water Testing", score_weight=1.2)
+        UniversityExpertise(university_id=univ2.id, domain="Water Resources", department="Mechanical & Civil", focus_area="Deep Borewell Pumps & Water Testing", score_weight=1.2)
     ])
 
     # University User 3: IIT (ISM) Dhanbad
@@ -236,7 +239,7 @@ def seed_database(db: Session):
     db.add_all([
         UniversityExpertise(university_id=univ3.id, domain="Environment", department="Mining & Environmental Engg", focus_area="Mine Dust Suppression & Realtime AQI", score_weight=1.6),
         UniversityExpertise(university_id=univ3.id, domain="Energy", department="Electrical & Renewable", focus_area="Solar-Biomass Hybrid Grids", score_weight=1.4),
-        UniversityExpertise(university_id=univ3.id, domain="Water Management", department="Applied Geology", focus_area="Groundwater Aquifer Mapping", score_weight=1.3)
+        UniversityExpertise(university_id=univ3.id, domain="Water Resources", department="Applied Geology", focus_area="Groundwater Aquifer Mapping", score_weight=1.3)
     ])
 
     # 4. Faculty Mentor User
@@ -356,7 +359,7 @@ def seed_database(db: Session):
     ch1 = Challenge(
         title="Severe Drinking Water Shortage and Fluoride Contamination in Angara Block",
         description="Our village Nawagarh in Angara block is facing severe drinking water shortage as three community handpumps dried up. The only operational deep borewell produces water with hazardous fluoride content exceeding 3.5 mg/L, causing dental and skeletal fluorosis among children and elderly villagers.",
-        category="Water Management",
+        category="Water Resources",
         sub_category="Drinking Water Purification",
         urgency="High",
         priority=ChallengePriority.HIGH,
@@ -388,7 +391,7 @@ def seed_database(db: Session):
     db.add(AIAnalysis(
         challenge_id=ch1.id,
         cleaned_text="village nawagarh angara block facing severe drinking water shortage handpumps dried borewell hazardous fluoride content",
-        classified_domain="Water Management",
+        classified_domain="Water Resources",
         detected_priority=ChallengePriority.HIGH,
         extracted_keywords="Drinking Water, Fluoride Contamination, Angara Village, Groundwater, Solar Purification",
         required_expertise="Civil Engineering, Environmental Engineering, IoT & Sensor Systems, Chemical Engineering",
@@ -396,13 +399,13 @@ def seed_database(db: Session):
         confidence_score=0.96
     ))
     db.add_all([
-        UniversityMatch(challenge_id=ch1.id, university_id=univ1.id, match_percentage=94.5, ranking=1, matching_factors="Local District Presence, Specialized Water Management Research Center, SIH Innovation Lab"),
+        UniversityMatch(challenge_id=ch1.id, university_id=univ1.id, match_percentage=94.5, ranking=1, matching_factors="Local District Presence, Specialized Water Resources Research Center, SIH Innovation Lab"),
         UniversityMatch(challenge_id=ch1.id, university_id=univ3.id, match_percentage=82.0, ranking=2, matching_factors="Groundwater Aquifer Mapping Lab, Atal Incubation Center"),
         UniversityMatch(challenge_id=ch1.id, university_id=univ2.id, match_percentage=76.5, ranking=3, matching_factors="Deep Borewell Pumps & Water Testing")
     ])
     db.add_all([
         StatusHistory(challenge_id=ch1.id, from_status=None, to_status="SUBMITTED", updated_by="Citizen (Ramesh Kumar)", remarks="Citizen submitted challenge with GPS coordinates and water report photo", changed_at=now - timedelta(days=20)),
-        StatusHistory(challenge_id=ch1.id, from_status="SUBMITTED", to_status="AI_ANALYSIS", updated_by="AI Engine", remarks="Domain classified as Water Management; Priority flagged as HIGH; Top Match: BIT Mesra (94.5%)", changed_at=now - timedelta(days=20)),
+        StatusHistory(challenge_id=ch1.id, from_status="SUBMITTED", to_status="AI_ANALYSIS", updated_by="AI Engine", remarks="Domain classified as Water Resources; Priority flagged as HIGH; Top Match: BIT Mesra (94.5%)", changed_at=now - timedelta(days=20)),
         StatusHistory(challenge_id=ch1.id, from_status="AI_ANALYSIS", to_status="VALIDATED", updated_by="Govt Admin (Dr. Alok Verma)", remarks="Validated by Jharkhand Technical Education Mission Directorate", changed_at=now - timedelta(days=18)),
         StatusHistory(challenge_id=ch1.id, from_status="VALIDATED", to_status="UNIVERSITY_ASSIGNED", updated_by="Govt Admin", remarks="Assigned to BIT Mesra Technology Incubation Center", changed_at=now - timedelta(days=17)),
         StatusHistory(challenge_id=ch1.id, from_status="UNIVERSITY_ASSIGNED", to_status="TEAM_FORMED", updated_by="University Admin", remarks="Multidisciplinary student team and faculty mentor Dr. Ananya Sharma assigned", changed_at=now - timedelta(days=15)),
@@ -470,6 +473,42 @@ def seed_database(db: Session):
         offer_type="Prototype Support & Pilot Implementation",
         description="Tata Steel Foundation approved a Rs. 1,00,000 prototype fabrication grant and assigned an environmental senior engineer for weekly technical reviews and site validation.",
         status="Active"
+    ))
+
+    # A completed technology-transfer agreement + IP outcomes, so the admin dashboard's
+    # live patent/startup/technology-transfer KPIs show real, non-zero, non-hardcoded numbers.
+    db.add(IndustryCollaboration(
+        project_id=proj1.id,
+        industry_id=ind_profile.id,
+        offer_type=CollaborationOfferType.TECHNOLOGY_TRANSFER.value,
+        description="Tata Steel Foundation licensed the regenerable activated-alumina defluoridation media and IoT telemetry design for replication across its CSR command area.",
+        status="Completed",
+        agreement_status=AgreementStatus.COMPLETED,
+        scope="Transfer of filtration media formulation and IoT telemetry firmware for replication at 5 additional sites.",
+        created_at=now - timedelta(days=2),
+        updated_at=now - timedelta(days=2)
+    ))
+
+    db.add(IPRecord(
+        project_id=proj1.id,
+        record_type=IPRecordType.PATENT,
+        title="Regenerable Activated-Alumina Cartridge for Solar-Powered Defluoridation Kiosks",
+        description="Patent application covering the regenerable adsorption cartridge and automated backwash cycle used in the Jal-Sanjeevani kiosk.",
+        ownership=IPOwnership.JOINT,
+        patent_reference="TEMP/JH/2026/WATER/00147 (provisional filing)",
+        status="APPROVED",
+        created_by_user_id=faculty_user.id
+    ))
+
+    db.add(IPRecord(
+        project_id=proj1.id,
+        record_type=IPRecordType.SOFTWARE,
+        title="AquaSanjeevani IoT Telemetry & Water-Quality Dashboard",
+        description="Embedded firmware and cloud dashboard spun off into an independent startup to commercialize rural water-quality telemetry statewide.",
+        ownership=IPOwnership.JOINT,
+        startup_spinoff_name="AquaSanjeevani Innovations Pvt Ltd",
+        status="APPROVED",
+        created_by_user_id=faculty_user.id
     ))
 
     # Comments for Challenge 1
@@ -547,7 +586,7 @@ def seed_database(db: Session):
         {
             "title": "Solar Powered Drinking Water Filtration Plant Deployed in Namkum Block",
             "desc": "Namkum panchayat had requested drinking water assistance for 500 households due to iron and bacterial contamination. A 3-stage filtration kiosk was designed, tested, and handed over to the local community committee.",
-            "cat": "Water Management", "district": "Ranchi", "urgency": "High", "priority": ChallengePriority.HIGH, "status": ChallengeStatus.RESOLVED,
+            "cat": "Water Resources", "district": "Ranchi", "urgency": "High", "priority": ChallengePriority.HIGH, "status": ChallengeStatus.RESOLVED,
             "kw": "Solar Filtration, Drinking Water, Namkum, Water Kiosk, Community Handover",
             "sol": "Complete 3-stage sand-carbon-UV solar water purification facility operating successfully."
         }
@@ -600,16 +639,17 @@ def seed_database(db: Session):
         ))
 
     print("[*] Seeding Impact Metrics...")
+    # NOTE: Patents Filed, Startups Incubated, Technology Transfers, Prototypes Developed
+    # and Pilots Deployed are NOT seeded here — they are computed live by
+    # AnalyticsService.get_dashboard_summary() from real IPRecord / IndustryCollaboration /
+    # Challenge state (see backend/app/services/analytics_service.py). Only figures that
+    # cannot yet be derived from transactional state stay as manually tracked ImpactMetrics.
     metrics = [
         ("Challenges Resolved", 14, "Impact"),
         ("Projects Completed", 18, "Impact"),
         ("Students Involved", 240, "Academic"),
         ("Universities Involved", 12, "Academic"),
         ("Industry Partnerships", 19, "Industry"),
-        ("Patents Filed", 6, "Innovation"),
-        ("Startups Incubated", 8, "Entrepreneurship"),
-        ("Prototypes Developed", 34, "Innovation"),
-        ("Pilots Deployed", 21, "Implementation"),
         ("Beneficiaries Reached", 48500, "Societal")
     ]
     for m_name, m_val, cat in metrics:
@@ -686,7 +726,7 @@ def ensure_sapthagiri_seeded(db: Session):
     db.commit()
 
     db.add_all([
-        UniversityExpertise(university_id=univ.id, domain="Water Management", department="Environmental & IoT", focus_area="Smart Water Telemetry & Leak Detection", score_weight=1.5),
+        UniversityExpertise(university_id=univ.id, domain="Water Resources", department="Environmental & IoT", focus_area="Smart Water Telemetry & Leak Detection", score_weight=1.5),
         UniversityExpertise(university_id=univ.id, domain="Agriculture", department="CSE & Robotics", focus_area="Autonomous Soil Moisture & Crop Health Drones", score_weight=1.4),
         UniversityExpertise(university_id=univ.id, domain="Energy", department="Electrical & Automation", focus_area="Solar Microgrids & Battery Optimization", score_weight=1.3)
     ])

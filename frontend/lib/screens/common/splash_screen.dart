@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth_provider.dart';
+import '../../core/localization/app_localizations.dart';
+import '../../core/role_routing.dart';
 import '../../core/theme.dart';
 import 'onboarding_screen.dart';
-import '../citizen/citizen_dashboard.dart';
-import '../university/university_dashboard.dart';
-import '../student/student_dashboard.dart';
-import '../faculty/faculty_dashboard.dart';
-import '../industry/industry_dashboard.dart';
-import '../admin/admin_dashboard.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -58,28 +54,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   void _redirectToRoleDashboard(String role) {
-    Widget target;
-    switch (role) {
-      case 'UNIVERSITY':
-        target = const UniversityDashboard();
-        break;
-      case 'STUDENT':
-        target = const StudentDashboard();
-        break;
-      case 'FACULTY_MENTOR':
-        target = const FacultyDashboard();
-        break;
-      case 'INDUSTRY':
-        target = const IndustryDashboard();
-        break;
-      case 'GOVERNMENT_ADMIN':
-        target = const AdminDashboard();
-        break;
-      case 'CITIZEN':
-      default:
-        target = const CitizenDashboard();
-        break;
-    }
+    final target = resolveDashboardForRole(role);
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
@@ -92,6 +67,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
     return Scaffold(
       backgroundColor: AppTheme.primaryGreen,
       body: SafeArea(
@@ -154,9 +130,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Societal Innovation Portal',
-                style: TextStyle(
+              Text(
+                loc.societalInnovationPortal,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -164,9 +140,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'GOVERNMENT OF JHARKHAND',
-                style: TextStyle(
+              Text(
+                loc.text('gov_name'),
+                style: const TextStyle(
                   color: Color(0xFFD1FAE5),
                   fontSize: 12,
                   letterSpacing: 1.8,
@@ -174,9 +150,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Department of Higher & Technical Education',
-                style: TextStyle(
+              Text(
+                loc.deptName,
+                style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 12,
                 ),
@@ -191,9 +167,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white.withOpacity(0.2), width: 1),
                 ),
-                child: const Text(
-                  'Smart India Hackathon 2026 • PS 26043',
-                  style: TextStyle(
+                child: Text(
+                  loc.hackathonTag,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -214,9 +190,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Initializing secure portal...',
-                style: TextStyle(color: Colors.white60, fontSize: 11),
+              Text(
+                loc.initializingPortal,
+                style: const TextStyle(color: Colors.white60, fontSize: 11),
               ),
               const Spacer(),
             ],

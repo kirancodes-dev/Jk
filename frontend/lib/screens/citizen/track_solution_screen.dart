@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
@@ -18,18 +19,7 @@ class _TrackSolutionScreenState extends State<TrackSolutionScreen> {
   Map<String, dynamic>? _detail;
   bool _isLoading = true;
 
-  final List<Map<String, String>> _lifecycleStages = [
-    {'key': 'SUBMITTED', 'title': '1. Citizen Submission', 'desc': 'Citizen logged societal challenge with GPS coordinates & evidence'},
-    {'key': 'AI_ANALYSIS', 'title': '2. AI Diagnostic Assessment', 'desc': 'AI mapped urgency, keywords & recommended academic institutes'},
-    {'key': 'VALIDATED', 'title': '3. Administrative Validation', 'desc': 'Jharkhand State Admin reviewed and authenticated problem'},
-    {'key': 'UNIVERSITY_ASSIGNED', 'title': '4. HEI Institute Assignment', 'desc': 'Assigned to nodal higher education research center'},
-    {'key': 'TEAM_FORMED', 'title': '5. Multidisciplinary Team', 'desc': 'Student innovators and faculty guide assigned to project'},
-    {'key': 'SOLUTION_PROPOSED', 'title': '6. Technical Solution Proposed', 'desc': 'Detailed schematics, budget and milestones submitted'},
-    {'key': 'PROTOTYPE', 'title': '7. Prototype Fabrication', 'desc': 'Laboratory fabrication and hardware/software testing in progress'},
-    {'key': 'FIELD_TESTING', 'title': '8. Ground Field Trials', 'desc': 'Validation in the affected community with local panchayat'},
-    {'key': 'DEPLOYMENT', 'title': '9. Production Commissioning', 'desc': 'Full deployment with district administration and CSR sponsor'},
-    {'key': 'RESOLVED', 'title': '10. Societal Impact Handover', 'desc': 'Resolution certified with verified citizen beneficiaries'},
-  ];
+  List<Map<String, String>> get _lifecycleStages => AppLocalizations.current.lifecycleStages;
 
   @override
   void initState() {
@@ -64,31 +54,32 @@ class _TrackSolutionScreenState extends State<TrackSolutionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppTheme.background,
-        appBar: SIPAppBar(title: 'Track Solution'),
-        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+        appBar: SIPAppBar(title: loc.trackSolutionTitlePrefix),
+        body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
       );
     }
 
     if (_detail == null) {
       return Scaffold(
         backgroundColor: AppTheme.background,
-        appBar: SIPAppBar(title: 'Track Solution #${widget.challengeId}'),
+        appBar: SIPAppBar(title: '${loc.trackSolutionTitlePrefix} #${widget.challengeId}'),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.error_outline_rounded, size: 48, color: AppTheme.error),
               const SizedBox(height: 12),
-              const Text('Failed to load challenge details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(loc.failedToLoadDetails, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 12),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
                 onPressed: _loadDetails,
                 icon: const Icon(Icons.refresh, color: Colors.white),
-                label: const Text('Retry', style: TextStyle(color: Colors.white)),
+                label: Text(loc.retryLabel, style: const TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -104,8 +95,8 @@ class _TrackSolutionScreenState extends State<TrackSolutionScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: SIPAppBar(
-        title: 'Track Solution #${widget.challengeId}',
-        subtitle: '10-Stage Lifecycle Pipeline',
+        title: '${loc.trackSolutionTitlePrefix} #${widget.challengeId}',
+        subtitle: loc.lifecyclePipelineSubtitle,
         actions: [
           IconButton(icon: const Icon(Icons.refresh_rounded, color: AppTheme.primaryGreen), onPressed: _loadDetails),
         ],
@@ -136,19 +127,19 @@ class _TrackSolutionScreenState extends State<TrackSolutionScreen> {
                       ),
                       const Spacer(),
                       Text(
-                        '$progressPct% Complete',
+                        '$progressPct% ${loc.percentComplete}',
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    d['title'] ?? 'Societal Challenge',
+                    d['title'] ?? loc.societalChallengeFallback,
                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${d['district_name'] ?? 'Jharkhand'} • Level ${d['escalation_level'] ?? 1} Governance',
+                    '${d['district_name'] ?? 'Jharkhand'} • ${loc.levelGovernanceText(d['escalation_level'] ?? 1)}',
                     style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                   ),
                   if (d['assigned_university_name'] != null) ...[
@@ -165,7 +156,7 @@ class _TrackSolutionScreenState extends State<TrackSolutionScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Assigned: ${d['assigned_university_name']}',
+                              '${loc.assignedColonLabel}: ${d['assigned_university_name']}',
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
                             ),
                           ),
@@ -188,9 +179,9 @@ class _TrackSolutionScreenState extends State<TrackSolutionScreen> {
             ),
             const SizedBox(height: 20),
 
-            const SectionHeader(
-              title: '10-Stage Solution Lifecycle',
-              trailing: Text('Real-time audit', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            SectionHeader(
+              title: loc.lifecycleSectionTitle,
+              trailing: Text(loc.realTimeAudit, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ),
             const SizedBox(height: 12),
 
@@ -259,9 +250,9 @@ class _TrackSolutionScreenState extends State<TrackSolutionScreen> {
                                         borderRadius: BorderRadius.circular(4),
                                         border: Border.all(color: AppTheme.accentGold.withOpacity(0.3)),
                                       ),
-                                      child: const Text(
-                                        'ACTIVE',
-                                        style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.accentGold),
+                                      child: Text(
+                                        loc.activeLabel,
+                                        style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.accentGold),
                                       ),
                                     ),
                                   ],

@@ -14,7 +14,7 @@ from backend.app.models.models import (
     ProjectMember, ProjectMembershipHistory, MembershipAction, Student, Faculty,
     EvidenceFile, ReviewComment, IndustryCollaboration, AgreementStatus,
     FundingRecord, FundingHoldState, IPConsentRecord, IPConsentStatus, IPRecord,
-    OutcomeMetric, ProjectClosureRecord
+    OutcomeMetric, ProjectClosureRecord, OutcomeReport, ReportedOutcome
 )
 from backend.app.services.finance_integration_service import finance_integration_service
 from backend.app.routers.deps import verify_challenge_jurisdiction
@@ -654,6 +654,23 @@ class WorkflowService:
         # Enforce jurisdiction for government actors
         if actor.role in {UserRole.GOVERNMENT_OFFICER, UserRole.GOVERNMENT_ADMIN}:
             verify_challenge_jurisdiction(challenge, actor, db, action=f"transition_to_{to_status.value.lower()}")
+
+        # Deployment gate: at least one recorded field/lab/user-trial test outcome
+        # (PASS or PARTIAL) across the challenge's project(s) is required before a
+        # prototype can be deployed — a challenge can no longer reach DEPLOYMENT on
+        # milestone/status progression alone.
+        if to_status == ChallengeStatus.DEPLOYMENT and not is_internal:
+            project_ids = [p.id for p in challenge.projects]
+            has_passing_test = bool(project_ids) and db.query(OutcomeReport).filter(
+                OutcomeReport.project_id.in_(project_ids),
+                OutcomeReport.outcome.in_([ReportedOutcome.PASS, ReportedOutcome.PARTIAL])
+            ).first()
+            if not has_passing_test:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Deployment requires at least one recorded field/lab/user-trial test outcome "
+                           "(PASS or PARTIAL) for this project. Submit a test report before deploying."
+                )
 
         challenge.status = to_status
 

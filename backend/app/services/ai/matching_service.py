@@ -9,7 +9,7 @@ AI recommendations do NOT auto-assign projects; they require an explicit human a
 import time
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
-from backend.app.models.models import University, UniversityExpertise, Project
+from backend.app.models.models import University, UniversityExpertise, Project, Faculty
 from backend.app.services.ai.base import (
     BaseMatcher, AIModelResult, compute_input_snapshot_hash
 )
@@ -118,5 +118,77 @@ class AIUniversityMatchingService(BaseMatcher):
             m["ranking"] = idx
 
         return matches[:5]
+
+    def match_faculty(
+        self,
+        db: Session,
+        university_id: int,
+        domain: str,
+        keywords: List[str]
+    ) -> List[Dict[str, Any]]:
+        """
+        Ranks a university's own faculty by named specialization/expertise match
+        against a challenge's classified domain and extracted keywords — named
+        because it surfaces the actual matching faculty member and department,
+        not just an institution-level score.
+
+        Deterministic rule-based keyword overlap over Faculty.expertise and
+        Faculty.research_interests (free-text fields), plus a department-name
+        alignment bonus and a mild active-mentorship-load penalty so a single
+        faculty member is not always recommended for every challenge.
+        """
+        faculty_rows = db.query(Faculty).filter(Faculty.university_id == university_id).all()
+        domain_lower = (domain or "").lower()
+        keyword_set = {k.lower() for k in keywords if k}
+
+        results = []
+        for f in faculty_rows:
+            score = 40.0
+            factors = []
+
+            expertise_text = (f.expertise or "").lower()
+            research_text = (f.research_interests or "").lower()
+            combined_text = f"{expertise_text} {research_text}"
+
+            if domain_lower and domain_lower in combined_text:
+                score += 30.0
+                factors.append(f"Domain specialization match: {domain}")
+
+            matched_keywords = [k for k in keyword_set if k in combined_text]
+            if matched_keywords:
+                score += min(20.0, 5.0 * len(matched_keywords))
+                factors.append(f"Keyword overlap: {', '.join(matched_keywords[:3])}")
+
+            if f.department and domain_lower and domain_lower in f.department.name.lower():
+                score += 10.0
+                factors.append(f"Department alignment: {f.department.name}")
+
+            active_mentorships = db.query(Project).filter(
+                Project.faculty_mentor_id == f.id,
+                Project.current_stage.notin_(["Closed", "Resolved", "Impact Audited"])
+            ).count()
+            if active_mentorships >= 3:
+                score -= 10.0
+                factors.append(f"Mentorship load high ({active_mentorships} active projects, -10%)")
+            elif active_mentorships == 0:
+                score += 5.0
+                factors.append("Available mentorship bandwidth (+5%)")
+
+            final_pct = min(97.0, max(30.0, score))
+            results.append({
+                "faculty_id": f.id,
+                "name": f.user.full_name if f.user else f"Faculty #{f.id}",
+                "department": f.department.name if f.department else None,
+                "designation": f.designation,
+                "expertise": f.expertise,
+                "match_percentage": round(final_pct, 1),
+                "matching_factors": "; ".join(factors) if factors else "General academic capacity; no specific specialization signal",
+                "allocation_notice": "Recommendation only; requires explicit human team-invitation workflow"
+            })
+
+        results.sort(key=lambda x: x["match_percentage"], reverse=True)
+        for idx, r in enumerate(results, 1):
+            r["ranking"] = idx
+        return results[:5]
 
 matching_service = AIUniversityMatchingService()

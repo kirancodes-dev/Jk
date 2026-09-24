@@ -79,7 +79,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _loadNotifications();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All notifications marked as read.'), backgroundColor: AppTheme.success),
+        SnackBar(content: Text(AppLocalizations.current.allNotificationsMarkedRead), backgroundColor: AppTheme.success),
       );
     } catch (e) {
       if (!mounted) return;
@@ -307,7 +307,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                     Icon(Icons.link_rounded, size: 14, color: AppTheme.primaryGreen),
                                                     const SizedBox(width: 4),
                                                     Text(
-                                                      'Tap to view details',
+                                                      l10n.tapToViewDetails,
                                                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryGreen),
                                                     ),
                                                   ],

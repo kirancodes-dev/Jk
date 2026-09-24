@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
 import 'challenge_details_screen.dart';
@@ -44,8 +45,9 @@ class _NearbyChallengesScreenState extends State<NearbyChallengesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
     return Scaffold(
-      appBar: AppBar(title: const Text('Nearby Challenges (District View)')),
+      appBar: AppBar(title: Text(loc.nearbyChallengesTitle)),
       body: Column(
         children: [
           Container(
@@ -55,7 +57,7 @@ class _NearbyChallengesScreenState extends State<NearbyChallengesScreen> {
               children: [
                 const Icon(Icons.location_on, color: AppTheme.primaryGreen),
                 const SizedBox(width: 8),
-                const Text('District: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(loc.districtColonLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 Expanded(
                   child: DropdownButton<String>(
                     value: _selectedDistrict,
@@ -84,7 +86,7 @@ class _NearbyChallengesScreenState extends State<NearbyChallengesScreen> {
                           children: [
                             Icon(Icons.location_off_outlined, size: 54, color: Colors.grey.shade400),
                             const SizedBox(height: 10),
-                            Text('No reported challenges in $_selectedDistrict yet', style: const TextStyle(color: AppTheme.textSecondary)),
+                            Text(loc.noReportedChallengesInDistrict(_selectedDistrict), style: const TextStyle(color: AppTheme.textSecondary)),
                           ],
                         ),
                       )
@@ -99,7 +101,7 @@ class _NearbyChallengesScreenState extends State<NearbyChallengesScreen> {
                               title: Text(ch.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                               subtitle: Padding(
                                 padding: const EdgeInsets.only(top: 6),
-                                child: Text('${ch.category} • Urgency: ${ch.urgency} • Status: ${ch.status.replaceAll('_', ' ')}',
+                                child: Text('${ch.category} • ${loc.urgencyColonLabel}: ${ch.urgency} • ${loc.statusColonLabel}: ${ch.status.replaceAll('_', ' ')}',
                                     style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                               ),
                               trailing: const Icon(Icons.arrow_forward_ios, size: 14),

@@ -29,9 +29,14 @@ HEALTH_SAFETY_SIGNALS = [
     "casualty", "electrocution", "collapse", "toxic", "death", "child", "hospital", "phc"
 ]
 
+# The 19 (of 24) Jharkhand districts under NITI Aayog's Aspirational Districts
+# Programme — used as a static fallback when a DB lookup isn't available (e.g. no
+# session was passed in). When a Session is available, District.is_aspirational
+# is authoritative; see AIPriorityService._is_aspirational_district below.
 JHARKHAND_ASPIRATIONAL_DISTRICTS = {
-    "khunti", "dumka", "pakur", "sahibganj", "simdega", "west singhbhum", "latehar",
-    "hazaribagh", "palamu", "garhwa", "godda", "gumla", "lohardaga"
+    "khunti", "dumka", "pakur", "sahebganj", "simdega", "west singhbhum", "latehar",
+    "hazaribagh", "palamu", "garhwa", "godda", "gumla", "lohardaga",
+    "chatra", "deoghar", "giridih", "jamtara", "koderma", "saraikela kharsawan",
 }
 
 class AIPriorityService(BasePriorityEngine):
@@ -55,6 +60,24 @@ class AIPriorityService(BasePriorityEngine):
                 pass
 
         return DEFAULT_PRIORITY_WEIGHTS.copy(), "v2026.1-DEFAULT"
+
+    @staticmethod
+    def _is_aspirational_district(district_name: str, db: Optional[Session] = None) -> bool:
+        """
+        District.is_aspirational is authoritative when a DB session is available.
+        Falls back to the static NITI Aayog list (e.g. for callers with no session,
+        or a district name not yet seeded in the districts table).
+        """
+        dist_clean = (district_name or "").strip()
+        if db and dist_clean:
+            try:
+                from backend.app.models.models import District
+                row = db.query(District).filter(District.name.ilike(dist_clean)).first()
+                if row is not None:
+                    return bool(row.is_aspirational)
+            except Exception:
+                pass
+        return dist_clean.lower() in JHARKHAND_ASPIRATIONAL_DISTRICTS
 
     def calculate_priority(
         self,
@@ -122,8 +145,7 @@ class AIPriorityService(BasePriorityEngine):
         hs_score = min(100.0, 30.0 + (hs_matches * 25.0))
 
         # 5. Regional Vulnerability (Aspirational Districts of Jharkhand)
-        dist_clean = (district_name or "").lower().strip()
-        vuln_score = 85.0 if dist_clean in JHARKHAND_ASPIRATIONAL_DISTRICTS else 50.0
+        vuln_score = 85.0 if self._is_aspirational_district(district_name, db=db) else 50.0
 
         # Composite Weighted Calculation
         composite = (

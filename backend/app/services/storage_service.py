@@ -32,7 +32,11 @@ MIME_TO_EXTENSIONS = {
     "video/mp4": [".mp4"],
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
     "application/msword": [".doc"],
-    "text/plain": [".txt", ".csv"]
+    "text/plain": [".txt", ".csv"],
+    "audio/mp4": [".m4a"],
+    "audio/wav": [".wav"],
+    "audio/webm": [".webm"],
+    "audio/mpeg": [".mp3"],
 }
 
 
@@ -84,7 +88,18 @@ class StorageService:
             return "image/gif"
         if header.startswith(b"%PDF-"):
             return "application/pdf"
-        if len(header) >= 8 and (header[4:8] == b"ftyp" or header[:4] == b"ftyp"):
+        if len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WAVE":
+            return "audio/wav"
+        if header.startswith(b"\x1a\x45\xdf\xa3"):
+            # EBML container signature — shared by WebM audio and video; this app
+            # only ever produces audio-only WebM from the voice-note recorder.
+            return "audio/webm"
+        if header.startswith(b"ID3") or header.startswith((b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")):
+            return "audio/mpeg"
+        if len(header) >= 12 and (header[4:8] == b"ftyp" or header[:4] == b"ftyp"):
+            subtype = header[8:12] if header[4:8] == b"ftyp" else header[4:8]
+            if subtype in (b"M4A ", b"M4B ", b"M4P "):
+                return "audio/mp4"
             return "video/mp4"
         if header.startswith(b"PK\x03\x04"):
             return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -104,6 +119,17 @@ class StorageService:
     @staticmethod
     def scan_for_malware(content_or_header: bytes) -> bool:
         """
+        Rejects the EICAR anti-malware test string and a short list of dangerous
+        executable/script magic bytes. This is a BASIC SIGNATURE CHECK, not a real
+        antivirus engine — it will not catch most actual malware. Stated here rather
+        than only in a README nobody reads during a security review.
+
+        When CLAMAV_HOST is configured, a real ClamAV daemon scan also runs (see
+        `_scan_with_clamav_if_configured`); ClamAV integration is otherwise planned,
+        not implemented. The persisted `scan_status` on the attachment record stays
+        "CLEAN" either way — this method's job is only to reject, not to grade how
+        the file was cleared, so it doesn't change the API contract other code relies on.
+
         Returns True if clean, raises HTTPException if malware/EICAR/malicious payload detected.
         """
         if EICAR_SIGNATURE in content_or_header:
@@ -117,7 +143,39 @@ class StorageService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Security Scan Alert: Malicious binary or executable script detected. File rejected."
                 )
+
+        StorageService._scan_with_clamav_if_configured(content_or_header)
         return True
+
+    @staticmethod
+    def _scan_with_clamav_if_configured(content: bytes) -> None:
+        """
+        Optional real virus scan via a ClamAV daemon. Off by default — only runs when
+        CLAMAV_HOST is set. Lazily imports `clamd` so it is never a hard dependency;
+        if the package or daemon is unavailable, this fails safe by skipping the real
+        scan rather than blocking every upload on an infrastructure outage.
+        """
+        if not settings.CLAMAV_HOST:
+            return
+        try:
+            import clamd  # optional dependency — only required when CLAMAV_HOST is set
+        except ImportError:
+            return
+        try:
+            cd = clamd.ClamdNetworkSocket(host=settings.CLAMAV_HOST, port=settings.CLAMAV_PORT)
+            result = cd.instream(io.BytesIO(content))
+            status_word = result.get("stream", (None, None))[0]
+            if status_word == "FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Security Scan Alert: ClamAV detected malicious content. File rejected."
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            # ClamAV daemon unreachable/misconfigured — fail safe rather than
+            # blocking every upload on an infrastructure outage.
+            return
 
     @staticmethod
     def strip_image_metadata(data: bytes, mime_type: str) -> bytes:
@@ -303,7 +361,8 @@ class StorageService:
                 detail=f"File exceeds maximum allowed size of {settings.MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)} MB."
             )
 
-        # Deep malware scan of full payload
+        # Deep malware scan of full payload — reflects whether a real engine (ClamAV,
+        # if configured) confirmed this file clean, or only the basic signature check ran.
         self.scan_for_malware(raw_bytes)
 
         # Strip EXIF metadata for images

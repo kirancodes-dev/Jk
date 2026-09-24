@@ -108,8 +108,8 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
         _isSaving = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Communication preferences saved successfully.'),
+        SnackBar(
+          content: Text(AppLocalizations.current.prefsSavedSuccess),
           backgroundColor: AppTheme.success,
         ),
       );
@@ -118,7 +118,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save preferences: ${e.toString()}'),
+          content: Text(AppLocalizations.current.failedToSavePrefsText(e.toString())),
           backgroundColor: AppTheme.error,
         ),
       );
@@ -132,7 +132,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
     return Scaffold(
       appBar: SIPAppBar(
         title: l10n.notificationPreferences,
-        subtitle: 'Configure alerts & privacy consent',
+        subtitle: l10n.configureAlertsSubtitle,
       ),
       body: _isLoading
           ? const Padding(
@@ -149,7 +149,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
             )
           : _errorMessage != null
               ? ErrorStateView(
-                  title: 'Unable to Load Preferences',
+                  title: l10n.unableToLoadPreferences,
                   message: _errorMessage!,
                   onRetry: _loadPreferences,
                 )
@@ -159,9 +159,9 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Section 1: Delivery Channels
-                      const Text(
-                        'Delivery Channels',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                      Text(
+                        l10n.deliveryChannelsTitle,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                       ),
                       const SizedBox(height: 8),
                       SIPCard(
@@ -170,7 +170,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                           children: [
                             SwitchListTile.adaptive(
                               title: Text(l10n.emailChannel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              subtitle: const Text('Official updates routed via Jharkhand State Relay', style: TextStyle(fontSize: 11)),
+                              subtitle: Text(l10n.emailChannelDesc, style: const TextStyle(fontSize: 11)),
                               value: _emailEnabled,
                               activeColor: AppTheme.primaryGreen,
                               onChanged: (v) => setState(() => _emailEnabled = v),
@@ -178,7 +178,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                             const Divider(height: 1),
                             SwitchListTile.adaptive(
                               title: Text(l10n.smsChannel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              subtitle: const Text('Priority SMS via C-DAC / NIC National Gateway', style: TextStyle(fontSize: 11)),
+                              subtitle: Text(l10n.smsChannelDesc, style: const TextStyle(fontSize: 11)),
                               value: _smsEnabled,
                               activeColor: AppTheme.primaryGreen,
                               onChanged: (v) => setState(() => _smsEnabled = v),
@@ -186,15 +186,15 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                             const Divider(height: 1),
                             SwitchListTile.adaptive(
                               title: Text(l10n.pushChannel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              subtitle: const Text('Real-time mobile push notifications', style: TextStyle(fontSize: 11)),
+                              subtitle: Text(l10n.pushChannelDesc, style: const TextStyle(fontSize: 11)),
                               value: _pushEnabled,
                               activeColor: AppTheme.primaryGreen,
                               onChanged: (v) => setState(() => _pushEnabled = v),
                             ),
                             const Divider(height: 1),
                             SwitchListTile.adaptive(
-                              title: const Text('WhatsApp Alerts', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                              subtitle: const Text('Citizen notifications via official Gov WhatsApp Business API', style: TextStyle(fontSize: 11)),
+                              title: Text(l10n.whatsappAlertsLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              subtitle: Text(l10n.whatsappChannelDesc, style: const TextStyle(fontSize: 11)),
                               value: _whatsappEnabled,
                               activeColor: AppTheme.primaryGreen,
                               onChanged: (v) => setState(() => _whatsappEnabled = v),
@@ -205,18 +205,18 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                       const SizedBox(height: 24),
 
                       // Section 2: Language Preference
-                      const Text(
-                        'Preferred Language',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                      Text(
+                        l10n.preferredLanguageTitle,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                       ),
                       const SizedBox(height: 8),
                       SIPCard(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         child: DropdownButtonFormField<String>(
                           value: _selectedLocale,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             border: InputBorder.none,
-                            labelText: 'Select Preferred Language',
+                            labelText: l10n.selectPreferredLanguage,
                           ),
                           items: AppLanguage.values.map((lang) {
                             return DropdownMenuItem<String>(
@@ -234,9 +234,9 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                       const SizedBox(height: 24),
 
                       // Section 3: Subscribed Notification Categories
-                      const Text(
-                        'Subscribed Alert Categories',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                      Text(
+                        l10n.subscribedAlertCategoriesTitle,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                       ),
                       const SizedBox(height: 8),
                       SIPCard(
@@ -244,31 +244,31 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                         child: Column(
                           children: [
                             CheckboxListTile(
-                              title: const Text('Challenge Status & AI Screening', style: TextStyle(fontSize: 13)),
+                              title: Text(l10n.catChallengesLabel, style: const TextStyle(fontSize: 13)),
                               value: _catChallenges,
                               activeColor: AppTheme.primaryGreen,
                               onChanged: (v) => setState(() => _catChallenges = v ?? true),
                             ),
                             CheckboxListTile(
-                              title: const Text('Project Milestones & Evidence', style: TextStyle(fontSize: 13)),
+                              title: Text(l10n.catMilestonesLabel, style: const TextStyle(fontSize: 13)),
                               value: _catMilestones,
                               activeColor: AppTheme.primaryGreen,
                               onChanged: (v) => setState(() => _catMilestones = v ?? true),
                             ),
                             CheckboxListTile(
-                              title: const Text('Field Verification Orders & Reports', style: TextStyle(fontSize: 13)),
+                              title: Text(l10n.catVerificationsLabel, style: const TextStyle(fontSize: 13)),
                               value: _catVerifications,
                               activeColor: AppTheme.primaryGreen,
                               onChanged: (v) => setState(() => _catVerifications = v ?? true),
                             ),
                             CheckboxListTile(
-                              title: const Text('Tier Escalations & SLA Breaches', style: TextStyle(fontSize: 13)),
+                              title: Text(l10n.catEscalationsLabel, style: const TextStyle(fontSize: 13)),
                               value: _catEscalations,
                               activeColor: AppTheme.primaryGreen,
                               onChanged: (v) => setState(() => _catEscalations = v ?? true),
                             ),
                             CheckboxListTile(
-                              title: const Text('System & Policy Announcements', style: TextStyle(fontSize: 13)),
+                              title: Text(l10n.catSystemLabel, style: const TextStyle(fontSize: 13)),
                               value: _catSystem,
                               activeColor: AppTheme.primaryGreen,
                               onChanged: (v) => setState(() => _catSystem = v ?? true),
@@ -279,9 +279,9 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                       const SizedBox(height: 24),
 
                       // Section 4: DPDP Statutory Consent
-                      const Text(
-                        'DPDP Statutory Consent',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                      Text(
+                        l10n.dpdpConsentTitle,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                       ),
                       const SizedBox(height: 8),
                       SIPCard(
@@ -303,7 +303,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                             if (_consentTimestamp.isNotEmpty) ...[
                               const SizedBox(height: 4),
                               Text(
-                                'Last Recorded: $_consentTimestamp (Version: $_consentVersion)',
+                                l10n.lastRecordedText(_consentTimestamp, _consentVersion),
                                 style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                               ),
                             ],
@@ -321,7 +321,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                           icon: _isSaving
                               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                               : const Icon(Icons.check_circle_outline_rounded, size: 20),
-                          label: Text(_isSaving ? 'Saving Preferences...' : l10n.savePreferences),
+                          label: Text(_isSaving ? l10n.savingPreferences : l10n.savePreferences),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryGreen,
                             foregroundColor: Colors.white,

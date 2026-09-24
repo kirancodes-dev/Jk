@@ -25,7 +25,7 @@ BENCHMARK_GROUND_TRUTH = [
         "title": "Severe Arsenic and Fluoride Contamination in Village Handpumps",
         "description": "Groundwater tested with fatal levels of arsenic and fluoride. 3500 villagers suffering skin lesions and skeletal fluorosis.",
         "district": "Sahibganj",
-        "true_domain": "Water Management",
+        "true_domain": "Water Resources",
         "true_priority": ChallengePriority.CRITICAL,
         "urgency": "Critical",
         "affected_population": 3500
@@ -35,7 +35,7 @@ BENCHMARK_GROUND_TRUTH = [
         "title": "गांव के चापाकल में आर्सेनिक और फ्लोराइड का जहर",
         "description": "पीने के पानी में भारी आर्सेनिक मिला है, ग्रामीण बीमार पड़ रहे हैं और तुरंत फिल्टर की जरूरत है।",
         "district": "Sahibganj",
-        "true_domain": "Water Management",
+        "true_domain": "Water Resources",
         "true_priority": ChallengePriority.CRITICAL,
         "urgency": "Critical",
         "affected_population": 3500

@@ -256,4 +256,30 @@ Jharkhand Innovation Collaboration Portal
             print(f"[!] Failed to send OTP email to {recipient_email}: {e}")
             return False
 
+    @staticmethod
+    def send_generic_email(recipient_email: str, subject: str, body_text: str) -> bool:
+        """
+        Sends a plain notification email via real SMTP (same credentials/host as
+        send_otp_email). Returns False — without raising — when SMTP credentials are
+        not configured, so callers (e.g. the notification outbox) can record an
+        honest delivery failure instead of pretending a message went out.
+        """
+        if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+            return False
+        try:
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+            msg["To"] = recipient_email
+            msg.attach(MIMEText(body_text, "plain"))
+
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as server:
+                server.starttls()
+                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
+                server.send_message(msg)
+            return True
+        except Exception as e:
+            print(f"[!] Failed to send notification email to {recipient_email}: {e}")
+            return False
+
 email_service = EmailService()

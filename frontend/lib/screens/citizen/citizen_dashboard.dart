@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth_provider.dart';
 import '../../core/api_service.dart';
+import '../../core/localization/app_localizations.dart';
+import '../../core/role_routing.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../widgets/sip_app_bar.dart';
@@ -58,14 +60,22 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
     final user = context.watch<AuthProvider>().currentUser;
-    final firstName = user?.fullName.split(' ').first ?? 'Citizen';
+    final firstName = user?.fullName.split(' ').first ?? loc.accountTypeCitizen;
+    final role = user?.role ?? 'CITIZEN';
+    final isOrgSubmitter = isOrganisationalSubmitterRole(role);
+    final roleLabels = {
+      'COMMUNITY_ORG': loc.communityOrgLabel,
+      'PRI': loc.priLabel,
+      'ULB': loc.ulbLabel,
+    };
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceLight,
-      appBar: const SIPAppBar(
-        title: 'Citizen Portal',
-        subtitle: 'Government of Jharkhand',
+      appBar: SIPAppBar(
+        title: isOrgSubmitter ? loc.submitterPortalTitle : loc.citizenPortalTitle,
+        subtitle: loc.govOfJharkhandTitleCase,
         showLeading: false,
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -73,7 +83,7 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
         foregroundColor: Colors.white,
         elevation: 3,
         icon: const Icon(Icons.add_a_photo_outlined, size: 20),
-        label: const Text('Report Challenge', style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2)),
+        label: Text(loc.reportChallengeButton, style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2)),
         onPressed: () async {
           final res = await Navigator.push(
             context,
@@ -91,6 +101,29 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (isOrgSubmitter)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentGold.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.accentGold.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.apartment_rounded, size: 18, color: AppTheme.accentGold),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          loc.submittingAsOrgText(roleLabels[role] ?? role, firstName),
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary, height: 1.3),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               // Hero Greeting & Action Banner
               Container(
                 width: double.infinity,
@@ -118,7 +151,7 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
                       children: [
                         Row(
                           children: [
-                            const Text('Johar, ', style: TextStyle(color: Color(0xFFD1FAE5), fontSize: 18, fontWeight: FontWeight.w500)),
+                            Text(loc.joharGreeting, style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 18, fontWeight: FontWeight.w500)),
                             Text('$firstName!', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
                           ],
                         ),
@@ -144,9 +177,9 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Report local ground challenges in your village or ward to connect with university research teams and CSR innovation funding.',
-                      style: TextStyle(color: Color(0xFFE2E8F0), fontSize: 12.5, height: 1.45),
+                    Text(
+                      loc.heroDescription,
+                      style: const TextStyle(color: Color(0xFFE2E8F0), fontSize: 12.5, height: 1.45),
                     ),
                     const SizedBox(height: 18),
 
@@ -162,9 +195,9 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         icon: const Icon(Icons.campaign, size: 20),
-                        label: const Text(
-                          'REPORT A CHALLENGE NOW',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.4),
+                        label: Text(
+                          loc.reportChallengeCta,
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.4),
                         ),
                         onPressed: () async {
                           final res = await Navigator.push(
@@ -183,13 +216,13 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
               // Status Summary Cards (4 Metrics)
               Row(
                 children: [
-                  _metricBox('My Challenges', _total, AppTheme.primaryGreen, Icons.folder_outlined),
+                  _metricBox(loc.metricMyChallenges, _total, AppTheme.primaryGreen, Icons.folder_outlined),
                   const SizedBox(width: 8),
-                  _metricBox('Under Review', _underReview, AppTheme.warning, Icons.pending_outlined),
+                  _metricBox(loc.metricUnderReview, _underReview, AppTheme.warning, Icons.pending_outlined),
                   const SizedBox(width: 8),
-                  _metricBox('In Progress', _inProgress, AppTheme.accentGold, Icons.engineering_outlined),
+                  _metricBox(loc.metricInProgress, _inProgress, AppTheme.accentGold, Icons.engineering_outlined),
                   const SizedBox(width: 8),
-                  _metricBox('Resolved', _resolved, AppTheme.success, Icons.task_alt_outlined),
+                  _metricBox(loc.metricResolved, _resolved, AppTheme.success, Icons.task_alt_outlined),
                 ],
               ),
               const SizedBox(height: 10),
@@ -200,8 +233,8 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
                   Expanded(
                     child: _actionButton(
                       icon: Icons.checklist_rtl_outlined,
-                      title: 'My Submissions',
-                      subtitle: 'Track your filed issues',
+                      title: loc.actionMySubmissions,
+                      subtitle: loc.actionMySubmissionsSub,
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyChallengesScreen())),
                     ),
                   ),
@@ -209,8 +242,8 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
                   Expanded(
                     child: _actionButton(
                       icon: Icons.explore_outlined,
-                      title: 'Nearby Issues',
-                      subtitle: 'District community feed',
+                      title: loc.actionNearbyIssues,
+                      subtitle: loc.actionNearbyIssuesSub,
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NearbyChallengesScreen())),
                     ),
                   ),
@@ -219,9 +252,9 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
 
               // Recent Challenges Section
               SectionHeader(
-                title: 'Recent Submissions',
-                subtitle: 'Track live status & university R&D progress',
-                actionLabel: _challenges.isNotEmpty ? 'View All' : null,
+                title: loc.recentSubmissionsTitle,
+                subtitle: loc.recentSubmissionsSubtitle,
+                actionLabel: _challenges.isNotEmpty ? loc.viewAll : null,
                 onAction: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyChallengesScreen())),
               ),
 
@@ -231,9 +264,9 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
               ] else if (_challenges.isEmpty)
                 EmptyStateView(
                   icon: Icons.campaign_outlined,
-                  title: 'No challenges reported yet',
-                  description: 'Be the first to report a water, road, sanitation, or farming problem in your community.',
-                  actionLabel: 'Report Challenge',
+                  title: loc.emptyChallengesTitle,
+                  description: loc.emptyChallengesDescription,
+                  actionLabel: loc.reportChallengeButton,
                   onAction: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const ReportChallengeScreen()),
@@ -321,6 +354,7 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
   }
 
   Widget _challengeTile(Challenge ch) {
+    final loc = AppLocalizations.current;
     return SIPCard(
       margin: const EdgeInsets.symmetric(vertical: 5),
       padding: const EdgeInsets.all(14),
@@ -338,7 +372,7 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
               StatusBadge(status: ch.currentTier, isTier: true),
               const Spacer(),
               Text(
-                'Priority: ${ch.priority}',
+                '${loc.priorityLabelPrefix}: ${ch.priority}',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
@@ -384,12 +418,12 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('Track Solution', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen)),
-                        SizedBox(width: 2),
-                        Icon(Icons.arrow_forward, size: 12, color: AppTheme.primaryGreen),
+                        Text(loc.trackSolution, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen)),
+                        const SizedBox(width: 2),
+                        const Icon(Icons.arrow_forward, size: 12, color: AppTheme.primaryGreen),
                       ],
                     ),
                   ),

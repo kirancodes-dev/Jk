@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
 import 'challenge_details_screen.dart';
@@ -55,16 +56,25 @@ class _MyChallengesScreenState extends State<MyChallengesScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
+    final tabLabels = {
+      'All': loc.tabAll,
+      'Submitted': loc.tabSubmitted,
+      'Under Review': loc.tabUnderReview,
+      'Assigned': loc.tabAssigned,
+      'In Progress': loc.tabInProgress,
+      'Resolved': loc.tabResolved,
+    };
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Reported Challenges'),
+        title: Text(loc.myChallengesTitle),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           indicatorColor: AppTheme.accentGold,
-          tabs: _tabs.map((t) => Tab(text: t)).toList(),
+          tabs: _tabs.map((t) => Tab(text: tabLabels[t] ?? t)).toList(),
         ),
       ),
       body: _isLoading
@@ -80,7 +90,7 @@ class _MyChallengesScreenState extends State<MyChallengesScreen> with SingleTick
                       children: [
                         Icon(Icons.inbox, size: 54, color: Colors.grey.shade400),
                         const SizedBox(height: 10),
-                        Text('No $tab challenges found', style: const TextStyle(color: AppTheme.textSecondary)),
+                        Text(loc.noChallengesFoundText(tabLabels[tab] ?? tab), style: const TextStyle(color: AppTheme.textSecondary)),
                       ],
                     ),
                   );
@@ -99,6 +109,7 @@ class _MyChallengesScreenState extends State<MyChallengesScreen> with SingleTick
   }
 
   Widget _buildCard(Challenge ch) {
+    final loc = AppLocalizations.current;
     Color badgeColor = AppTheme.info;
     if (ch.status == 'RESOLVED') badgeColor = AppTheme.success;
     if (ch.status == 'IN_PROGRESS' || ch.status == 'PROTOTYPE') badgeColor = AppTheme.accentGold;
@@ -151,7 +162,7 @@ class _MyChallengesScreenState extends State<MyChallengesScreen> with SingleTick
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Assigned to: ${ch.assignedUniversityName}',
+                      loc.assignedToText(ch.assignedUniversityName!),
                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryGreen),
                     ),
                   ),
@@ -164,7 +175,7 @@ class _MyChallengesScreenState extends State<MyChallengesScreen> with SingleTick
               children: [
                 TextButton.icon(
                   icon: const Icon(Icons.visibility_outlined, size: 16),
-                  label: const Text('Details', style: TextStyle(fontSize: 12)),
+                  label: Text(loc.detailsLabel, style: const TextStyle(fontSize: 12)),
                   onPressed: () {
                     Navigator.push(
                       context,
@@ -178,7 +189,7 @@ class _MyChallengesScreenState extends State<MyChallengesScreen> with SingleTick
                     textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                   icon: const Icon(Icons.timeline, size: 16),
-                  label: const Text('Track Solution'),
+                  label: Text(loc.trackSolution),
                   onPressed: () {
                     Navigator.push(
                       context,

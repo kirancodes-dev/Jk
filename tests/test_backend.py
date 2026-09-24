@@ -74,7 +74,7 @@ def test_ai_text_analysis(client):
     })
     assert res.status_code == 200
     data = res.json()
-    assert data["domain"] == "Water Management"
+    assert data["domain"] == "Water Resources"
     assert data["priority"] in ["HIGH", "CRITICAL"]
     assert len(data["recommended_universities"]) >= 1
 
@@ -91,7 +91,7 @@ def test_citizen_report_challenge_flow(client):
     res = client.post("/api/v1/challenges", json={
         "title": "Severe drinking water shortage in rural school",
         "description": "Our high school in Dumka has 400 students but the solar borehole pump failed, causing children to drink pond water.",
-        "category": "Water Management",
+        "category": "Water Resources",
         "urgency": "High",
         "expected_impact": "Provide clean drinking water to 400 school students.",
         "affected_population": 400,
@@ -108,5 +108,5 @@ def test_citizen_report_challenge_flow(client):
     ch_data = res.json()
     assert ch_data["id"] is not None
     assert ch_data["ai_analysis"] is not None
-    assert ch_data["ai_analysis"]["classified_domain"] == "Water Management"
+    assert ch_data["ai_analysis"]["classified_domain"] == "Water Resources"
     assert len(ch_data["university_matches"]) >= 1

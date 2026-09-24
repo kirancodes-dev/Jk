@@ -12,7 +12,7 @@ from backend.app.core.security import (
 )
 from backend.app.models.models import (
     User, Citizen, Student, University, Faculty, IndustryPartner, UserRole,
-    AccountStatus, RevokedToken, UserSession
+    AccountStatus, RevokedToken, UserSession, OrganizationProfile, PartnerType
 )
 from backend.app.schemas.schemas import (
     Token, LoginRequest, UserCreate, UserOut, ForgotPasswordRequest, ResetPasswordRequest,
@@ -181,14 +181,13 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
     if not is_valid_pwd:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=pwd_error)
 
-    # Government accounts domain check
+    # Government officer/admin accounts are provisioned by an administrator only —
+    # never self-registered, regardless of email domain.
     if payload.role in (UserRole.GOVERNMENT_ADMIN, UserRole.GOVERNMENT_OFFICER):
-        allowed_domains = ("@jharkhand.gov.in", "@gov.in", "@nic.in")
-        if not any(email_clean.endswith(domain) for domain in allowed_domains):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Government officers must register with an official government email domain (@jharkhand.gov.in, @gov.in, or @nic.in)."
-            )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Government officer and administrator accounts are provisioned by a department administrator and cannot be self-registered. Contact your nodal officer for account creation."
+        )
 
     # Determine initial verification state
     # Citizens start active but institutional / government accounts require verification
@@ -269,6 +268,32 @@ def register(request: Request, payload: UserCreate, db: Session = Depends(get_db
         db.refresh(univ)
         user_univ_id = univ.id
         user_univ_name = univ.institution_name
+    elif payload.role in (UserRole.COMMUNITY_ORG, UserRole.PRI, UserRole.ULB):
+        # Community organisations, Gram Panchayats (PRI) and Urban Local Bodies submit
+        # challenges on behalf of their organisation and require government verification,
+        # same as University/Industry — never auto-verified.
+        org_name = payload.organisation_name or payload.full_name
+        db.add(OrganizationProfile(
+            user_id=user.id,
+            legal_name=org_name,
+            org_type=payload.role.value,
+            reg_number=payload.registration_number,
+            official_email=email_clean,
+            district_name=payload.district_name or "Ranchi",
+            contact_person=payload.full_name,
+            phone_number=payload.phone_number,
+            verification_status="PENDING"
+        ))
+        user.district_name = payload.district_name
+        user.block_name = payload.block_name
+        user.panchayat_name = payload.panchayat_name
+    elif payload.role in (UserRole.RESEARCH_LAB, UserRole.INNOVATION_HUB):
+        db.add(IndustryPartner(
+            user_id=user.id,
+            company_name=payload.organisation_name or payload.company_name or payload.full_name,
+            industry_domain="Research & Innovation",
+            partner_type=PartnerType.RESEARCH_LAB if payload.role == UserRole.RESEARCH_LAB else PartnerType.INNOVATION_HUB
+        ))
 
     db.commit()
 

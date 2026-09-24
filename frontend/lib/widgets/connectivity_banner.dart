@@ -44,7 +44,7 @@ class ConnectivityBannerState extends State<ConnectivityBanner> {
             duration: const Duration(milliseconds: 300),
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            color: _status == NetworkStatus.offline ? Colors.amber.shade800 : AppColors.primary,
+            color: _status == NetworkStatus.offline ? Colors.amber.shade800 : AppTheme.primaryGreen,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

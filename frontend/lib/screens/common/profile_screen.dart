@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth_provider.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
@@ -12,6 +13,7 @@ import '../student/student_dashboard.dart';
 import '../faculty/faculty_dashboard.dart';
 import '../industry/industry_dashboard.dart';
 import '../admin/admin_dashboard.dart';
+import '../citizen/privacy_data_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -50,11 +52,12 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.currentUser;
+    final loc = AppLocalizations.current;
 
     return Scaffold(
-      appBar: const SIPAppBar(
-        title: 'Officer & User Profile',
-        subtitle: 'Government of Jharkhand • Innovation Portal',
+      appBar: SIPAppBar(
+        title: loc.officerUserProfileTitle,
+        subtitle: loc.innovationPortalSubtitle,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -88,7 +91,7 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    user?.fullName ?? 'Anonymous User',
+                    user?.fullName ?? loc.anonymousUser,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
                   ),
                   const SizedBox(height: 4),
@@ -111,7 +114,7 @@ class ProfileScreen extends StatelessWidget {
                       ],
                     ),
                     child: Text(
-                      'ROLE: ${(user?.role ?? 'CITIZEN').replaceAll('_', ' ')}',
+                      loc.roleColonLabel((user?.role ?? 'CITIZEN').replaceAll('_', ' ')),
                       style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 0.8),
                     ),
                   ),
@@ -126,21 +129,21 @@ class ProfileScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SectionHeader(
-                    title: 'SIH Live Role Demonstration',
-                    subtitle: 'Quickly switch between personas to inspect specialized dashboards',
+                  SectionHeader(
+                    title: loc.sihRoleDemoTitle,
+                    subtitle: loc.sihRoleDemoSubtitle,
                   ),
                   const SizedBox(height: 14),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _roleButton(context, 'Citizen', 'CITIZEN', Icons.person_outline),
-                      _roleButton(context, 'University Admin', 'UNIVERSITY', Icons.account_balance_outlined),
-                      _roleButton(context, 'Student Innovator', 'STUDENT', Icons.school_outlined),
-                      _roleButton(context, 'Faculty Mentor', 'FACULTY_MENTOR', Icons.psychology_outlined),
-                      _roleButton(context, 'Industry Partner', 'INDUSTRY', Icons.business_outlined),
-                      _roleButton(context, 'State Administrator', 'GOVERNMENT_ADMIN', Icons.admin_panel_settings_outlined),
+                      _roleButton(context, loc.roleCitizen, 'CITIZEN', Icons.person_outline),
+                      _roleButton(context, loc.roleUniversityAdmin, 'UNIVERSITY', Icons.account_balance_outlined),
+                      _roleButton(context, loc.roleStudentInnovator, 'STUDENT', Icons.school_outlined),
+                      _roleButton(context, loc.roleFacultyMentorSwitch, 'FACULTY_MENTOR', Icons.psychology_outlined),
+                      _roleButton(context, loc.roleIndustryPartner, 'INDUSTRY', Icons.business_outlined),
+                      _roleButton(context, loc.roleStateAdministrator, 'GOVERNMENT_ADMIN', Icons.admin_panel_settings_outlined),
                     ],
                   ),
                 ],
@@ -163,8 +166,8 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       child: const Icon(Icons.shield_outlined, color: AppTheme.primaryGreen, size: 20),
                     ),
-                    title: const Text('Identity & Access Control', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    subtitle: const Text('Government of Jharkhand Verified • Tier 4 Active', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    title: Text(loc.identityAccessControl, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    subtitle: Text(loc.govJharkhandVerifiedTier, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                     trailing: const Icon(Icons.check_circle_rounded, color: AppTheme.success, size: 20),
                   ),
                   const Divider(height: 1, indent: 56),
@@ -178,8 +181,8 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       child: const Icon(Icons.location_on_outlined, color: AppTheme.accentGold, size: 20),
                     ),
-                    title: const Text('Jurisdiction & Coverage', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    subtitle: const Text('All 24 Districts of Jharkhand State', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    title: Text(loc.jurisdictionCoverage, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    subtitle: Text(loc.all24DistrictsJharkhand, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                   ),
                   const Divider(height: 1, indent: 56),
                   ListTile(
@@ -192,8 +195,24 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       child: const Icon(Icons.cloud_done_outlined, color: Colors.indigo, size: 20),
                     ),
-                    title: const Text('Offline Local Database Synchronization', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                    subtitle: const Text('Encrypted draft cache operational for remote field units', style: TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    title: Text(loc.offlineDbSyncTitle, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    subtitle: Text(loc.offlineDbSyncSubtitle, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
+                    leading: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryGreen.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.privacy_tip_outlined, color: AppTheme.primaryGreen, size: 20),
+                    ),
+                    title: Text(loc.myDataPrivacyTitle, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    subtitle: Text(loc.dpdpSubtitle, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textMuted),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyDataScreen())),
                   ),
                 ],
               ),
@@ -205,7 +224,7 @@ class ProfileScreen extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.logout_rounded, color: AppTheme.error, size: 18),
-                label: const Text('Sign Out from Portal', style: TextStyle(color: AppTheme.error, fontWeight: FontWeight.bold, fontSize: 14)),
+                label: Text(loc.signOutFromPortal, style: const TextStyle(color: AppTheme.error, fontWeight: FontWeight.bold, fontSize: 14)),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: AppTheme.error.withOpacity(0.5)),
                   padding: const EdgeInsets.symmetric(vertical: 14),

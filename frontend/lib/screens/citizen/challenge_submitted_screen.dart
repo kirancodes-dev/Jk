@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 import 'track_solution_screen.dart';
 import 'citizen_dashboard.dart';
@@ -10,9 +11,10 @@ class ChallengeSubmittedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
     final chId = challengeDetail['id'] ?? 1;
     final status = challengeDetail['status'] ?? 'AI_ANALYSIS';
-    final category = challengeDetail['category'] ?? 'Water Management';
+    final category = challengeDetail['category'] ?? 'Water Resources';
     final priority = challengeDetail['priority'] ?? 'HIGH';
     final district = challengeDetail['district_name'] ?? 'Ranchi';
     final matches = challengeDetail['university_matches'] as List? ?? [];
@@ -21,7 +23,7 @@ class ChallengeSubmittedScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Submission Confirmed'),
+        title: Text(loc.submissionConfirmedTitle),
         automaticallyImplyLeading: false,
       ),
       body: SafeArea(
@@ -39,16 +41,16 @@ class ChallengeSubmittedScreen extends StatelessWidget {
                 child: const Icon(Icons.check_circle, size: 70, color: AppTheme.success),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Challenge Registered Successfully!',
+              Text(
+                loc.challengeRegisteredSuccess,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Your challenge has been logged into the Jharkhand State Societal Innovation Portal and forwarded to government validators.',
+              Text(
+                loc.challengeLoggedDescription,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
               ),
               const SizedBox(height: 32),
 
@@ -58,17 +60,17 @@ class ChallengeSubmittedScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      _rowItem('Challenge ID', '#$chId'),
+                      _rowItem(loc.challengeIdLabel, '#$chId'),
                       const Divider(height: 16),
-                      _rowItem('Current Status', status.toString().replaceAll('_', ' ')),
+                      _rowItem(loc.currentStatusLabel, status.toString().replaceAll('_', ' ')),
                       const Divider(height: 16),
-                      _rowItem('Category', category),
+                      _rowItem(loc.categoryRowLabel, category),
                       const Divider(height: 16),
-                      _rowItem('Priority', priority),
+                      _rowItem(loc.priorityRowLabel, priority),
                       const Divider(height: 16),
-                      _rowItem('District', district),
+                      _rowItem(loc.districtRowLabel, district),
                       const Divider(height: 16),
-                      _rowItem('Top Recommended Inst.', recUniv),
+                      _rowItem(loc.topRecommendedInstLabel, recUniv),
                     ],
                   ),
                 ),
@@ -81,7 +83,7 @@ class ChallengeSubmittedScreen extends StatelessWidget {
                 height: 48,
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.timeline),
-                  label: const Text('Track Solution in Real-Time'),
+                  label: Text(loc.trackSolutionRealTime),
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
@@ -101,7 +103,7 @@ class ChallengeSubmittedScreen extends StatelessWidget {
                     (r) => false,
                   );
                 },
-                child: const Text('Return to Citizen Dashboard'),
+                child: Text(loc.returnToCitizenDashboard),
               ),
               const SizedBox(height: 12),
             ],

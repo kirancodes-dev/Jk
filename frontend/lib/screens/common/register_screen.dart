@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 import '../../widgets/sip_card.dart';
 import 'otp_screen.dart';
@@ -18,6 +19,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _districtController = TextEditingController(text: 'Ranchi');
   final _extraController = TextEditingController();
+  final _blockWardController = TextEditingController();
+  final _regCodeController = TextEditingController();
 
   String _selectedRole = 'CITIZEN';
   bool _isLoading = false;
@@ -31,13 +34,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
     'Saraikela Kharsawan', 'Simdega', 'Jamtara'
   ];
 
-  final List<Map<String, dynamic>> _roleOptions = [
-    {'role': 'CITIZEN', 'title': 'Citizen', 'desc': 'Report local problems', 'icon': Icons.person_outline},
-    {'role': 'STUDENT', 'title': 'Student', 'desc': 'Build R&D prototypes', 'icon': Icons.school_outlined},
-    {'role': 'FACULTY_MENTOR', 'title': 'Faculty', 'desc': 'Guide student projects', 'icon': Icons.psychology_outlined},
-    {'role': 'UNIVERSITY', 'title': 'University', 'desc': 'Adopt challenges', 'icon': Icons.account_balance_outlined},
-    {'role': 'INDUSTRY', 'title': 'Industry', 'desc': 'Provide CSR funds', 'icon': Icons.business_outlined},
+  List<Map<String, dynamic>> _roleOptions(AppLocalizations loc) => [
+    {'role': 'CITIZEN', 'title': loc.roleTitleCitizen, 'desc': loc.roleDescCitizen, 'icon': Icons.person_outline},
+    {'role': 'COMMUNITY_ORG', 'title': loc.roleTitleCommunityOrg, 'desc': loc.roleDescCommunityOrg, 'icon': Icons.groups_outlined},
+    {'role': 'PRI', 'title': loc.roleTitleGramPanchayat, 'desc': loc.roleDescGramPanchayat, 'icon': Icons.holiday_village_outlined},
+    {'role': 'ULB', 'title': loc.roleTitleUlb, 'desc': loc.roleDescUlb, 'icon': Icons.location_city_outlined},
+    {'role': 'STUDENT', 'title': loc.roleTitleStudent, 'desc': loc.roleDescStudent, 'icon': Icons.school_outlined},
+    {'role': 'FACULTY_MENTOR', 'title': loc.roleTitleFaculty, 'desc': loc.roleDescFaculty, 'icon': Icons.psychology_outlined},
+    {'role': 'UNIVERSITY', 'title': loc.roleTitleUniversity, 'desc': loc.roleDescUniversity, 'icon': Icons.account_balance_outlined},
+    {'role': 'INDUSTRY', 'title': loc.roleTitleIndustry, 'desc': loc.roleDescIndustry, 'icon': Icons.business_outlined},
+    {'role': 'RESEARCH_LAB', 'title': loc.roleTitleResearchLab, 'desc': loc.roleDescResearchLab, 'icon': Icons.science_outlined},
+    {'role': 'INNOVATION_HUB', 'title': loc.roleTitleInnovationHub, 'desc': loc.roleDescInnovationHub, 'icon': Icons.lightbulb_outline},
   ];
+
+  static const _orgRoles = {'COMMUNITY_ORG', 'PRI', 'ULB'};
+  static const _labRoles = {'RESEARCH_LAB', 'INNOVATION_HUB'};
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
+    _districtController.dispose();
+    _extraController.dispose();
+    _blockWardController.dispose();
+    _regCodeController.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
@@ -60,6 +84,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               if (_selectedRole == 'UNIVERSITY') 'institution_name': _extraController.text.trim(),
               if (_selectedRole == 'INDUSTRY') 'company_name': _extraController.text.trim(),
               if (_selectedRole == 'FACULTY_MENTOR') 'expertise': _extraController.text.trim(),
+              if (_orgRoles.contains(_selectedRole) || _labRoles.contains(_selectedRole))
+                'organisation_name': _extraController.text.trim(),
+              if (_orgRoles.contains(_selectedRole)) ...{
+                'registration_number': _regCodeController.text.trim(),
+                'block_name': _blockWardController.text.trim(),
+                'panchayat_name': _selectedRole == 'PRI' ? _blockWardController.text.trim() : null,
+              },
             },
           ),
         ),
@@ -71,10 +102,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
+    final roleOptions = _roleOptions(loc);
     return Scaffold(
       backgroundColor: AppTheme.surfaceLight,
       appBar: AppBar(
-        title: const Text('Create Account'),
+        title: Text(loc.createAccountTitle),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -84,9 +117,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Join the Innovation Ecosystem',
-                  style: TextStyle(
+                Text(
+                  loc.joinInnovationEcosystem,
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: AppTheme.textPrimary,
@@ -94,16 +127,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Select your stakeholder role and register to collaborate across Jharkhand.',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                Text(
+                  loc.registerSubtitle,
+                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 20),
 
                 // Role Selection Cards
-                const Text(
-                  '1. Select Your Role',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                Text(
+                  loc.selectYourRoleStep,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
                 ),
                 const SizedBox(height: 10),
 
@@ -111,10 +144,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   height: 90,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: _roleOptions.length,
+                    itemCount: roleOptions.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 8),
                     itemBuilder: (context, index) {
-                      final opt = _roleOptions[index];
+                      final opt = roleOptions[index];
                       final isSelected = _selectedRole == opt['role'];
 
                       return InkWell(
@@ -170,52 +203,52 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '2. Profile Information',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                      Text(
+                        loc.profileInformationStep,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
                       ),
                       const SizedBox(height: 14),
 
                       TextFormField(
                         controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Full Name',
-                          hintText: 'Enter your full name',
-                          prefixIcon: Icon(Icons.person_outline, size: 20),
+                        decoration: InputDecoration(
+                          labelText: loc.fullNameLabel,
+                          hintText: loc.fullNameHint,
+                          prefixIcon: const Icon(Icons.person_outline, size: 20),
                         ),
-                        validator: (v) => v == null || v.trim().isEmpty ? 'Full name is required' : null,
+                        validator: (v) => v == null || v.trim().isEmpty ? loc.fullNameRequired : null,
                       ),
                       const SizedBox(height: 14),
 
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        decoration: const InputDecoration(
-                          labelText: 'Email Address',
-                          hintText: 'name@domain.com',
-                          prefixIcon: Icon(Icons.email_outlined, size: 20),
+                        decoration: InputDecoration(
+                          labelText: loc.emailAddressFieldLabel,
+                          hintText: loc.emailAddressHint,
+                          prefixIcon: const Icon(Icons.email_outlined, size: 20),
                         ),
-                        validator: (v) => v == null || !v.contains('@') ? 'Valid email required' : null,
+                        validator: (v) => v == null || !v.contains('@') ? loc.validEmailRequired : null,
                       ),
                       const SizedBox(height: 14),
 
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Mobile Number',
-                          hintText: '+91-XXXXXXXXXX',
-                          prefixIcon: Icon(Icons.phone_outlined, size: 20),
+                        decoration: InputDecoration(
+                          labelText: loc.mobileNumberLabel,
+                          hintText: loc.mobileNumberHint,
+                          prefixIcon: const Icon(Icons.phone_outlined, size: 20),
                         ),
-                        validator: (v) => v == null || v.length < 10 ? 'Valid 10-digit mobile required' : null,
+                        validator: (v) => v == null || v.length < 10 ? loc.validMobileRequired : null,
                       ),
                       const SizedBox(height: 14),
 
                       DropdownButtonFormField<String>(
                         value: _districtController.text,
-                        decoration: const InputDecoration(
-                          labelText: 'District in Jharkhand',
-                          prefixIcon: Icon(Icons.location_on_outlined, size: 20),
+                        decoration: InputDecoration(
+                          labelText: loc.districtInJharkhandLabel,
+                          prefixIcon: const Icon(Icons.location_on_outlined, size: 20),
                         ),
                         items: _districts.map((d) => DropdownMenuItem(value: d, child: Text(d, style: const TextStyle(fontSize: 13)))).toList(),
                         onChanged: (val) => setState(() => _districtController.text = val!),
@@ -226,53 +259,97 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       if (_selectedRole == 'STUDENT')
                         TextFormField(
                           controller: _extraController,
-                          decoration: const InputDecoration(
-                            labelText: 'Technical Skills & Disciplines',
-                            hintText: 'e.g. IoT, CAD, AI/ML, Embedded Systems',
-                            prefixIcon: Icon(Icons.code, size: 20),
+                          decoration: InputDecoration(
+                            labelText: loc.technicalSkillsLabel,
+                            hintText: loc.technicalSkillsHint,
+                            prefixIcon: const Icon(Icons.code, size: 20),
                           ),
                         ),
                       if (_selectedRole == 'FACULTY_MENTOR')
                         TextFormField(
                           controller: _extraController,
-                          decoration: const InputDecoration(
-                            labelText: 'Research Area / Department Specialization',
-                            hintText: 'e.g. Water Treatment, Solar Photovoltaics',
-                            prefixIcon: Icon(Icons.science_outlined, size: 20),
+                          decoration: InputDecoration(
+                            labelText: loc.researchAreaLabel,
+                            hintText: loc.researchAreaHint,
+                            prefixIcon: const Icon(Icons.science_outlined, size: 20),
                           ),
                         ),
                       if (_selectedRole == 'UNIVERSITY')
                         TextFormField(
                           controller: _extraController,
-                          decoration: const InputDecoration(
-                            labelText: 'Institution / University Name',
-                            hintText: 'e.g. Birla Institute of Technology, Mesra',
-                            prefixIcon: Icon(Icons.school_outlined, size: 20),
+                          decoration: InputDecoration(
+                            labelText: loc.institutionNameLabel,
+                            hintText: loc.institutionNameHint,
+                            prefixIcon: const Icon(Icons.school_outlined, size: 20),
                           ),
                         ),
                       if (_selectedRole == 'INDUSTRY')
                         TextFormField(
                           controller: _extraController,
-                          decoration: const InputDecoration(
-                            labelText: 'Company / Organization Name',
-                            hintText: 'e.g. Tata Steel Foundation / Bokaro Steel',
-                            prefixIcon: Icon(Icons.business_outlined, size: 20),
+                          decoration: InputDecoration(
+                            labelText: loc.companyNameLabel,
+                            hintText: loc.companyNameHint,
+                            prefixIcon: const Icon(Icons.business_outlined, size: 20),
                           ),
                         ),
+                      if (_labRoles.contains(_selectedRole))
+                        TextFormField(
+                          controller: _extraController,
+                          decoration: InputDecoration(
+                            labelText: _selectedRole == 'RESEARCH_LAB' ? loc.researchLabNameLabel : loc.innovationHubNameLabel,
+                            hintText: loc.facilityNameHint,
+                            prefixIcon: const Icon(Icons.science_outlined, size: 20),
+                          ),
+                          validator: (v) => v == null || v.trim().isEmpty ? loc.facilityNameRequired : null,
+                        ),
+                      if (_orgRoles.contains(_selectedRole)) ...[
+                        TextFormField(
+                          controller: _extraController,
+                          decoration: InputDecoration(
+                            labelText: _selectedRole == 'COMMUNITY_ORG'
+                                ? loc.organisationNgoShgLabel
+                                : _selectedRole == 'PRI'
+                                    ? loc.gramPanchayatNameLabel
+                                    : loc.ulbNameLabel,
+                            hintText: loc.organisationNameHint,
+                            prefixIcon: const Icon(Icons.apartment_outlined, size: 20),
+                          ),
+                          validator: (v) => v == null || v.trim().isEmpty ? loc.organisationNameRequired : null,
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _blockWardController,
+                          decoration: InputDecoration(
+                            labelText: _selectedRole == 'ULB' ? loc.wardNumberNameLabel : loc.blockTehsilShortLabel,
+                            hintText: _selectedRole == 'ULB' ? loc.wardHint : loc.blockHint,
+                            prefixIcon: const Icon(Icons.map_outlined, size: 20),
+                          ),
+                          validator: (v) => v == null || v.trim().isEmpty ? loc.thisFieldRequired : null,
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _regCodeController,
+                          decoration: InputDecoration(
+                            labelText: loc.registrationLgdCodeLabel,
+                            hintText: loc.registrationLgdCodeHint,
+                            prefixIcon: const Icon(Icons.badge_outlined, size: 20),
+                          ),
+                        ),
+                      ],
                       if (_selectedRole != 'CITIZEN') const SizedBox(height: 14),
 
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
                         decoration: InputDecoration(
-                          labelText: 'Create Password',
+                          labelText: loc.createPasswordLabel,
                           prefixIcon: const Icon(Icons.lock_outline, size: 20),
                           suffixIcon: IconButton(
                             icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
                             onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                           ),
                         ),
-                        validator: (v) => v == null || v.length < 6 ? 'Password must be at least 6 characters' : null,
+                        validator: (v) => v == null || v.length < 6 ? loc.passwordMinLength6 : null,
                       ),
                       const SizedBox(height: 20),
 
@@ -283,7 +360,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           onPressed: _isLoading ? null : _handleRegister,
                           child: _isLoading
                               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : const Text('Proceed to Email/OTP Verification', style: TextStyle(fontWeight: FontWeight.w700)),
+                              : Text(loc.proceedToOtpVerification, style: const TextStyle(fontWeight: FontWeight.w700)),
                         ),
                       ),
                     ],

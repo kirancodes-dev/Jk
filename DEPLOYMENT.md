@@ -251,3 +251,37 @@ After deployment, perform the 5-point sanity check:
 3. **Seed Check**: Verify 24 districts and initial challenges via `/api/v1/challenges`.
 4. **Media Upload Check**: Test uploading a sample image to `/api/v1/challenges/upload-media`.
 5. **AI Pipeline Test**: Call `/api/v1/ai/analyze-challenge` with test description and confirm domain, priority, and similarity results.
+
+---
+
+## 10. Render Deployment (Blueprint) — Faster Alternative to AWS
+
+For a demo/evaluation deployment or a small production pilot, `render.yaml`
+at the repo root defines a [Render Blueprint](https://render.com/docs/blueprint-spec)
+that builds the same root `Dockerfile` used everywhere else in this repo (no
+separate deployment-only image) plus a managed PostgreSQL instance. It is not
+a lighter-weight substitute for the fail-closed production checks in
+`backend/app/core/config.py` — those still apply identically.
+
+### 10.1 Deploy the Blueprint
+1. In the Render dashboard: **New → Blueprint**, point it at this repository. Render reads `render.yaml` and proposes a `sih-jharkhand-backend` web service plus a `sih-jharkhand-postgres` database.
+2. Render auto-fills `DATABASE_URL` (from the managed database) and generates `SECRET_KEY`. Everything else marked `sync: false` in `render.yaml` must be filled in manually in the dashboard before the first deploy — the app fails closed at startup without them (same validator as the AWS path in Section 2):
+   - `ALLOWED_CORS_ORIGINS` — explicit origins, no wildcard (e.g. `https://your-app.onrender.com`).
+   - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET_NAME` — production mode requires real S3 storage; local disk storage is rejected in production.
+   - `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL` — a real departmental address, not a personal inbox.
+   - `CLAMAV_HOST` / `FINANCE_INTEGRATION_PROVIDER` — leave unset unless you are wiring up the corresponding real integration; the app runs correctly without them (basic-signature malware scan, `NOT_CONFIGURED` finance settlement — see `TRACEABILITY_MATRIX.md`).
+
+### 10.2 Run Migrations
+Render's Docker runtime does not auto-run Alembic. After the first deploy (and after every schema-changing release), run migrations from a Render Shell session on the service, or from any machine with network access to the managed database:
+```bash
+export DATABASE_URL="<copy from the Render Postgres dashboard>"
+alembic upgrade head
+```
+
+### 10.3 Frontend
+The `frontend-web-build` job in `.github/workflows/ci.yml` produces a
+`flutter-web-build` artifact (`frontend/build/web`) on every push. Deploy that
+artifact to a Render **Static Site** (or any static host / CDN) pointed at
+the backend's public Render URL via `--dart-define=API_URL=...` at build
+time, following the same `flutter build web --release` command as the AWS
+path in Section 7.1.

@@ -31,7 +31,7 @@ class AIService:
 
     def classify_domain(self, title: str, description: str, category_hint: Optional[str] = None) -> str:
         res = classification_service.classify(title, description, category_hint)
-        return res.output.get("domain", "Urban Infrastructure")
+        return res.output.get("domain", "Unclassified")
 
     def detect_priority(
         self,
@@ -180,7 +180,8 @@ class AIService:
             features_json=json.dumps(cls_res.features_json),
             priority_breakdown_json=json.dumps(prio_breakdown),
             translated_title=lang_res["translated_title"],
-            translated_description=lang_res["translated_description"]
+            translated_description=lang_res["translated_description"],
+            requires_human_review=cls_res.output.get("requires_human_review", False)
         )
         db.add(analysis)
 

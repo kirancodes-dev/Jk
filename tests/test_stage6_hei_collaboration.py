@@ -423,3 +423,134 @@ def test_challenge_never_auto_resolved_from_milestones(db_session, gov_admin):
 
     db_session.refresh(challenge)
     assert challenge.status != ChallengeStatus.RESOLVED
+
+
+# =========================================================================
+# 7. Faculty routing by named specialization/expertise match (Phase 2, Item 11)
+# =========================================================================
+
+def test_recommended_faculty_ranks_by_specialization_match(db_session, gov_admin):
+    """
+    /universities/{id}/recommended-faculty must rank a university's OWN faculty
+    by keyword overlap with the challenge's domain, surfacing the actual matching
+    faculty member (not just an institution-level score). A faculty member with
+    irrelevant expertise (Textiles) must rank below one with matching expertise
+    (Water Resources / IoT), for a water-domain challenge.
+    """
+    gov_user, gov_token = gov_admin
+    home = _mk_verified_university(db_session, "facmatch1")
+    univ = home["univ"]
+
+    # The fixture's default faculty has expertise="IoT" — irrelevant to water_expert below.
+    irrelevant_user = _mk_user(db_session, "s6_faculty_facmatch1_textiles@edu.in", UserRole.FACULTY_MENTOR, "Faculty Textiles")
+    irrelevant_faculty = db_session.query(Faculty).filter(Faculty.user_id == irrelevant_user.id).first()
+    if not irrelevant_faculty:
+        irrelevant_faculty = Faculty(
+            user_id=irrelevant_user.id, university_id=univ.id, department_id=home["dept"].id,
+            designation="Assistant Professor", expertise="Textile Engineering", research_interests="Handloom fabric design"
+        )
+        db_session.add(irrelevant_faculty)
+        db_session.commit()
+
+    water_expert_user = _mk_user(db_session, "s6_faculty_facmatch1_water@edu.in", UserRole.FACULTY_MENTOR, "Faculty Water Expert")
+    water_expert = db_session.query(Faculty).filter(Faculty.user_id == water_expert_user.id).first()
+    if not water_expert:
+        water_expert = Faculty(
+            user_id=water_expert_user.id, university_id=univ.id, department_id=home["dept"].id,
+            designation="Professor", expertise="Water Resources Engineering",
+            research_interests="Groundwater contamination and fluoride filtration"
+        )
+        db_session.add(water_expert)
+        db_session.commit()
+
+    challenge = _mk_challenge(db_session, gov_user, university=univ)
+    challenge.category = "Water Resources"
+    db_session.commit()
+
+    resp = client.get(
+        f"/api/v1/universities/{univ.id}/recommended-faculty?challenge_id={challenge.id}",
+        headers=AUTH(gov_admin[1])
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["university_id"] == univ.id
+    faculty_list = data["recommended_faculty"]
+    assert len(faculty_list) >= 2
+
+    ranked_ids = [f["faculty_id"] for f in faculty_list]
+    assert ranked_ids.index(water_expert.id) < ranked_ids.index(irrelevant_faculty.id)
+
+    top = faculty_list[0]
+    assert top["faculty_id"] == water_expert.id
+    assert "specialization" in top["matching_factors"].lower() or "keyword" in top["matching_factors"].lower()
+    assert "allocation_notice" in top
+    assert top["ranking"] == 1
+
+
+# =========================================================================
+# 8. Structured testing outcomes gate DEPLOYMENT (Phase 2, Item 15)
+# =========================================================================
+
+def test_deployment_requires_recorded_test_outcome(db_session, gov_admin):
+    """
+    A challenge cannot transition to DEPLOYMENT without at least one recorded
+    PASS/PARTIAL test-report for its project. Submitting a test report via
+    POST /projects/{id}/test-reports unblocks the transition.
+    """
+    gov_user, gov_token = gov_admin
+    home = _mk_verified_university(db_session, "deploygate1")
+    challenge = _mk_challenge(db_session, gov_user, university=home["univ"])
+
+    resp = client.post(
+        "/api/v1/projects",
+        json={"challenge_id": challenge.id, "name": "Deploy Gate Project", "description": "desc"},
+        headers=AUTH(home["token"])
+    )
+    assert resp.status_code == 201, resp.text
+    project_id = resp.json()["id"]
+
+    # Move the challenge to a state where DEPLOYMENT is otherwise a legal
+    # transition target, so the test isolates the test-outcome gate itself.
+    challenge.status = ChallengeStatus.FIELD_TESTING
+    db_session.commit()
+
+    # No test reports exist yet — DEPLOYMENT must be rejected.
+    deny = client.post(
+        f"/api/v1/challenges/{challenge.id}/status",
+        json={"status": "DEPLOYMENT", "remarks": "Attempting early deployment"},
+        headers=AUTH(home["token"])
+    )
+    assert deny.status_code == 400
+    assert "test outcome" in deny.json()["detail"].lower()
+
+    # Listing test reports for a fresh project is empty.
+    list_resp = client.get(f"/api/v1/projects/{project_id}/test-reports", headers=AUTH(home["token"]))
+    assert list_resp.status_code == 200
+    assert list_resp.json() == []
+
+    # Record a passing field trial.
+    submit = client.post(
+        f"/api/v1/projects/{project_id}/test-reports",
+        json={
+            "test_type": "FIELD",
+            "outcome": "PASS",
+            "summary": "Field trial at the affected village completed with positive community feedback."
+        },
+        headers=AUTH(home["token"])
+    )
+    assert submit.status_code == 201, submit.text
+    assert submit.json()["outcome"] == "PASS"
+    assert submit.json()["reported_by_name"] == home["user"].full_name
+
+    # DEPLOYMENT is now permitted.
+    allow = client.post(
+        f"/api/v1/challenges/{challenge.id}/status",
+        json={"status": "DEPLOYMENT", "remarks": "Deploying after successful field trial"},
+        headers=AUTH(home["token"])
+    )
+    assert allow.status_code == 200, allow.text
+    db_session.refresh(challenge)
+    assert challenge.status == ChallengeStatus.DEPLOYMENT
+
+    list_resp2 = client.get(f"/api/v1/projects/{project_id}/test-reports", headers=AUTH(home["token"]))
+    assert len(list_resp2.json()) == 1

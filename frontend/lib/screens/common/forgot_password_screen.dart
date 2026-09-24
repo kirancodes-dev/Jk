@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -19,10 +20,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   bool _isSendingOtp = false;
 
   Future<void> _handleSendOtp() async {
+    final loc = AppLocalizations.current;
     final email = _emailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid email address'), backgroundColor: AppTheme.error),
+        SnackBar(content: Text(loc.pleaseEnterValidEmail), backgroundColor: AppTheme.error),
       );
       return;
     }
@@ -34,7 +36,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       setState(() => _codeSent = true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['message'] ?? 'A 6-digit OTP has been sent to your email!'),
+          content: Text(res['message'] ?? loc.otpSentFallbackMessage),
           backgroundColor: AppTheme.success,
           duration: const Duration(seconds: 4),
         ),
@@ -50,20 +52,21 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _handleReset() async {
+    final loc = AppLocalizations.current;
     final email = _emailController.text.trim();
     final otp = _otpController.text.trim();
     final newPass = _newPasswordController.text.trim();
 
     if (otp.isEmpty || otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the 6-digit OTP received in your email'), backgroundColor: AppTheme.error),
+        SnackBar(content: Text(loc.pleaseEnterOtpReceived), backgroundColor: AppTheme.error),
       );
       return;
     }
 
     if (newPass.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password must be at least 6 characters long'), backgroundColor: AppTheme.error),
+        SnackBar(content: Text(loc.passwordMinLength), backgroundColor: AppTheme.error),
       );
       return;
     }
@@ -73,8 +76,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       await ApiService.resetPassword(email, otp, newPass);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password updated successfully! Please sign in with your new password.'),
+        SnackBar(
+          content: Text(loc.passwordUpdatedSuccess),
           backgroundColor: AppTheme.success,
         ),
       );
@@ -91,28 +94,29 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
     return Scaffold(
-      appBar: AppBar(title: const Text('Reset Password')),
+      appBar: AppBar(title: Text(loc.resetPasswordTitle)),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Forgot Password',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            Text(
+              loc.forgotPasswordTitle,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Enter your registered email address to receive a secure 6-digit OTP code directly to your email inbox.',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13),
+            Text(
+              loc.forgotPasswordDescription,
+              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 24),
             TextField(
               controller: _emailController,
               enabled: !_codeSent,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_outlined)),
+              decoration: InputDecoration(labelText: loc.emailAddressLabel, prefixIcon: const Icon(Icons.email_outlined)),
             ),
             const SizedBox(height: 16),
             if (!_codeSent)
@@ -122,7 +126,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   onPressed: _isSendingOtp ? null : _handleSendOtp,
                   child: _isSendingOtp
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Send Verification OTP Email'),
+                      : Text(loc.sendVerificationOtpEmail),
                 ),
               ),
             if (_codeSent) ...[
@@ -140,7 +144,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'A 6-digit OTP has been dispatched to ${_emailController.text}. Please check your inbox or spam folder.',
+                        loc.otpDispatchedTo(_emailController.text),
                         style: TextStyle(fontSize: 12, color: Colors.green.shade900),
                       ),
                     ),
@@ -151,10 +155,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 controller: _otpController,
                 keyboardType: TextInputType.number,
                 maxLength: 6,
-                decoration: const InputDecoration(
-                  labelText: '6-Digit OTP Code',
-                  hintText: 'Enter code from email',
-                  prefixIcon: Icon(Icons.pin),
+                decoration: InputDecoration(
+                  labelText: loc.sixDigitOtpCodeLabel,
+                  hintText: loc.enterCodeFromEmailHint,
+                  prefixIcon: const Icon(Icons.pin),
                   counterText: '',
                 ),
               ),
@@ -162,7 +166,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               TextField(
                 controller: _newPasswordController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'New Password', prefixIcon: Icon(Icons.lock_outline)),
+                decoration: InputDecoration(labelText: loc.newPasswordLabel, prefixIcon: const Icon(Icons.lock_outline)),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -171,7 +175,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   onPressed: _isLoading ? null : _handleReset,
                   child: _isLoading
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Confirm & Update Password'),
+                      : Text(loc.confirmAndUpdatePassword),
                 ),
               ),
               const SizedBox(height: 10),
@@ -179,7 +183,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: TextButton.icon(
                   onPressed: _isSendingOtp ? null : _handleSendOtp,
                   icon: const Icon(Icons.refresh, size: 14),
-                  label: const Text('Resend OTP Email', style: TextStyle(fontSize: 12)),
+                  label: Text(loc.resendOtpEmail, style: const TextStyle(fontSize: 12)),
                 ),
               ),
             ],

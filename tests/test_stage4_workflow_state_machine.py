@@ -8,7 +8,8 @@ from backend.app.core.database import SessionLocal
 from backend.app.models.models import (
     User, UserRole, AccountStatus, Challenge, ChallengeLocation,
     ChallengeStatus, District, University, OrganizationProfile,
-    ChallengeAllocation, AllocationStatus, DomainAuditEvent
+    ChallengeAllocation, AllocationStatus, DomainAuditEvent,
+    Project, OutcomeReport, OutcomeReportType, ReportedOutcome
 )
 from backend.app.core.security import get_password_hash, create_access_token
 from backend.app.services.workflow_service import WorkflowService
@@ -200,6 +201,25 @@ def test_challenge_full_lifecycle_transitions(client, db):
     assert res.status_code == 200
     db.refresh(ch)
     assert ch.status == ChallengeStatus.FIELD_TESTING
+
+    # Deployment gate (Phase 2, Item 15): a challenge cannot progress to DEPLOYMENT
+    # on status/milestone alone anymore — at least one PASS/PARTIAL OutcomeReport is
+    # required for the challenge's project first.
+    project = db.query(Project).filter(Project.challenge_id == ch.id).first()
+    if not project:
+        project = Project(
+            challenge_id=ch.id, university_id=univ.id,
+            name="Stage4 Lifecycle Project", description="Auto-created for lifecycle transition test."
+        )
+        db.add(project)
+        db.commit()
+        db.refresh(project)
+    db.add(OutcomeReport(
+        project_id=project.id, reported_by_user_id=univ_user.id,
+        test_type=OutcomeReportType.FIELD, outcome=ReportedOutcome.PASS,
+        summary="Pilot field trial at the affected village completed successfully."
+    ))
+    db.commit()
 
     # 9. FIELD_TESTING -> DEPLOYMENT
     res = client.post(f"/api/v1/challenges/{ch.id}/status", json={"status": "DEPLOYMENT", "remarks": "Community deployment completed"}, headers=univ_hdr)

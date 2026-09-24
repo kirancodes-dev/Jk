@@ -209,12 +209,34 @@ class IPConsentStatus(str, enum.Enum):
     REJECTED = "REJECTED"
 
 class ChallengeSourceType(str, enum.Enum):
-    CITIZEN_MOBILE = "CITIZEN_MOBILE"
-    PRI_PORTAL = "PRI_PORTAL"
-    ULB_DESK = "ULB_DESK"
-    COMMUNITY_SURVEY = "COMMUNITY_SURVEY"
-    GOVERNMENT_FIELD = "GOVERNMENT_FIELD"
+    """
+    The submission CHANNEL only (how it arrived) — deliberately separate from WHO
+    submitted it. WHO is already reliably captured by Challenge.submitter_role, set
+    server-side from the authenticated user's UserRole (CITIZEN, COMMUNITY_ORG, PRI,
+    ULB, GOVERNMENT_OFFICER/GOVERNMENT_ADMIN) — never a client-editable dropdown,
+    since letting a submitter self-declare "I am a Government Officer" would be a
+    spoofing risk. This enum previously conflated the two (e.g. "PRI_PORTAL",
+    "CITIZEN_MOBILE") in a vocabulary that didn't match what the Flutter app or the
+    default value actually sent; see the stage6_source_type_vocabulary migration.
+    """
+    MOBILE_APP = "MOBILE_APP"
     WEB_PORTAL = "WEB_PORTAL"
+    FIELD_VISIT = "FIELD_VISIT"
+    COMMUNITY_SURVEY = "COMMUNITY_SURVEY"
+
+# Canonical submitter categories — mirrors the PS-required stakeholder set exactly.
+# Challenge.submitter_role is validated against these (plus the two government roles
+# collapsed to GOVERNMENT_DEPARTMENT for reporting) rather than left as a free string.
+SUBMITTER_CATEGORY_VALUES = {"CITIZEN", "COMMUNITY_ORG", "PRI", "ULB", "GOVERNMENT_DEPARTMENT"}
+
+
+def canonical_submitter_category(role_value: str) -> str:
+    """Maps an authenticated UserRole value to its canonical submitter category."""
+    if role_value in ("GOVERNMENT_ADMIN", "GOVERNMENT_OFFICER"):
+        return "GOVERNMENT_DEPARTMENT"
+    if role_value in SUBMITTER_CATEGORY_VALUES:
+        return role_value
+    return role_value  # Preserve the actual role for non-submitter-facing roles (e.g. audits)
 
 class ContactPreference(str, enum.Enum):
     SMS = "SMS"
@@ -248,6 +270,7 @@ class District(Base):
     longitude = Column(Float, nullable=True)
     total_population = Column(Integer, nullable=True)
     rural_population_pct = Column(Float, nullable=True)
+    is_aspirational = Column(Boolean, default=False, nullable=False)  # NITI Aayog Aspirational Districts Programme
 
     challenges = relationship("ChallengeLocation", back_populates="district")
 
@@ -515,7 +538,7 @@ class Challenge(Base):
     submitted_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     organization_id = Column(Integer, ForeignKey("organization_profiles.id"), nullable=True, index=True)
     submitter_role = Column(String(50), nullable=True)
-    source_type = Column(String(50), default="CITIZEN_MOBILE")
+    source_type = Column(String(50), default="WEB_PORTAL")  # ChallengeSourceType value; channel only, see enum docstring
     contact_preference = Column(String(50), default="SMS")
     consent_version = Column(String(20), default="v1.0")
     consent_given = Column(Boolean, default=True)
@@ -609,6 +632,7 @@ class AIAnalysis(Base):
     priority_breakdown_json = Column(Text, nullable=True)
     translated_title = Column(Text, nullable=True)
     translated_description = Column(Text, nullable=True)
+    requires_human_review = Column(Boolean, default=False, nullable=False)  # set when classifier found no signal (domain="Unclassified")
 
     challenge = relationship("Challenge", back_populates="ai_analysis")
     overrides = relationship("AIHumanOverride", back_populates="ai_analysis", cascade="all, delete-orphan")
@@ -931,6 +955,42 @@ class EvidenceFile(Base):
     reviewer = relationship("User", foreign_keys=[reviewer_id])
     project = relationship("Project", foreign_keys=[project_id])
     supersedes = relationship("EvidenceFile", remote_side=[id])
+
+class ReportedOutcome(str, enum.Enum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    PARTIAL = "PARTIAL"
+
+
+class OutcomeReportType(str, enum.Enum):
+    LAB = "LAB"
+    FIELD = "FIELD"
+    USER_TRIAL = "USER_TRIAL"
+
+
+class OutcomeReport(Base):
+    """
+    Structured field/lab/user-trial testing outcome for a project's prototype,
+    recorded before a challenge may transition into DEPLOYMENT. See
+    WorkflowService.transition_challenge, which requires at least one PASS or
+    PARTIAL OutcomeReport across the challenge's project(s) before allowing entry
+    into ChallengeStatus.DEPLOYMENT — a challenge can no longer reach deployment
+    on milestone/status alone.
+    """
+    __tablename__ = "test_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    reported_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    test_type = Column(SQLEnum(OutcomeReportType, native_enum=False), nullable=False)
+    outcome = Column(SQLEnum(ReportedOutcome, native_enum=False), nullable=False)
+    summary = Column(Text, nullable=False)
+    tested_at = Column(DateTime, nullable=False, default=utc_now)
+    created_at = Column(DateTime, default=utc_now)
+
+    project = relationship("Project", foreign_keys=[project_id])
+    reported_by = relationship("User", foreign_keys=[reported_by_user_id])
+
 
 class IndustryCollaboration(Base):
     __tablename__ = "industry_collaborations"

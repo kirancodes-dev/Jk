@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/api_service.dart';
 import '../../core/auth_provider.dart';
+import '../../core/localization/app_localizations.dart';
+import '../../core/role_routing.dart';
 import '../../core/theme.dart';
-import '../citizen/citizen_dashboard.dart';
-import '../university/university_dashboard.dart';
-import '../student/student_dashboard.dart';
-import '../faculty/faculty_dashboard.dart';
-import '../industry/industry_dashboard.dart';
 
 class OTPScreen extends StatefulWidget {
   final String email;
@@ -36,25 +33,7 @@ class _OTPScreenState extends State<OTPScreen> {
       await auth.login(widget.registrationData['email'], widget.registrationData['password']);
       if (!mounted) return;
 
-      Widget target;
-      switch (widget.registrationData['role']) {
-        case 'UNIVERSITY':
-          target = const UniversityDashboard();
-          break;
-        case 'STUDENT':
-          target = const StudentDashboard();
-          break;
-        case 'FACULTY_MENTOR':
-          target = const FacultyDashboard();
-          break;
-        case 'INDUSTRY':
-          target = const IndustryDashboard();
-          break;
-        case 'CITIZEN':
-        default:
-          target = const CitizenDashboard();
-          break;
-      }
+      final target = resolveDashboardForRole(widget.registrationData['role'] as String? ?? 'CITIZEN');
       Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => target), (r) => false);
     } catch (e) {
       if (!mounted) return;
@@ -68,8 +47,9 @@ class _OTPScreenState extends State<OTPScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
     return Scaffold(
-      appBar: AppBar(title: const Text('Verify Mobile / Email')),
+      appBar: AppBar(title: Text(loc.verifyMobileEmail)),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -85,13 +65,13 @@ class _OTPScreenState extends State<OTPScreen> {
               child: const Icon(Icons.mark_email_read_outlined, size: 48, color: AppTheme.primaryGreen),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Verification Code Sent',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            Text(
+              loc.verificationCodeSent,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              'Enter the 6-digit verification code sent to:\n${widget.email}',
+              loc.enterOtpSentTo(widget.email),
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppTheme.textSecondary, height: 1.4),
             ),
@@ -108,9 +88,9 @@ class _OTPScreenState extends State<OTPScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              '(Demo Mode: Code "123456" pre-filled for quick testing)',
-              style: TextStyle(fontSize: 12, color: AppTheme.accentGold, fontWeight: FontWeight.bold),
+            Text(
+              loc.demoOtpNotice,
+              style: const TextStyle(fontSize: 12, color: AppTheme.accentGold, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 32),
             SizedBox(
@@ -120,7 +100,7 @@ class _OTPScreenState extends State<OTPScreen> {
                 onPressed: _isLoading ? null : _verifyAndRegister,
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Verify & Create Account'),
+                    : Text(loc.verifyAndCreateAccount),
               ),
             ),
           ],

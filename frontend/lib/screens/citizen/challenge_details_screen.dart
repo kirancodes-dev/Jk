@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../../core/api_service.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
@@ -24,16 +26,36 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   List<Map<String, dynamic>> _feedbacks = [];
   bool _isSubmittingFeedback = false;
 
+  // Voice-note evidence playback (single shared player; only one attachment
+  // plays at a time).
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _currentlyPlayingUrl;
+
   @override
   void initState() {
     super.initState();
     _loadDetails();
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _currentlyPlayingUrl = null);
+    });
   }
 
   @override
   void dispose() {
     _commentController.dispose();
+    _audioPlayer.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleVoiceNotePlayback(String url) async {
+    if (_currentlyPlayingUrl == url) {
+      await _audioPlayer.stop();
+      setState(() => _currentlyPlayingUrl = null);
+      return;
+    }
+    await _audioPlayer.stop();
+    await _audioPlayer.play(UrlSource(url));
+    setState(() => _currentlyPlayingUrl = url);
   }
 
   Future<void> _loadDetails() async {
@@ -59,6 +81,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   }
 
   void _showFeedbackModal() {
+    final loc = AppLocalizations.current;
     int rating = 5;
     bool isResolved = true;
     final commentsCtrl = TextEditingController();
@@ -68,11 +91,11 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.rate_review_outlined, color: AppTheme.primaryGreen),
-              SizedBox(width: 8),
-              Text('Citizen Impact Feedback', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Icon(Icons.rate_review_outlined, color: AppTheme.primaryGreen),
+              const SizedBox(width: 8),
+              Text(loc.citizenImpactFeedbackTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
           content: SingleChildScrollView(
@@ -80,18 +103,18 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Your ground feedback directly validates university field deployment and ensures public accountability.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                Text(
+                  loc.feedbackValidatesDeployment,
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 16),
-                const Text('Has this problem been resolved on the ground?',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                Text(loc.hasProblemResolvedQuestion,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     ChoiceChip(
-                      label: const Text('Yes, Resolved'),
+                      label: Text(loc.yesResolved),
                       selected: isResolved,
                       selectedColor: AppTheme.primaryGreen,
                       labelStyle: TextStyle(color: isResolved ? Colors.white : AppTheme.textPrimary, fontWeight: FontWeight.bold),
@@ -99,7 +122,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                     ),
                     const SizedBox(width: 10),
                     ChoiceChip(
-                      label: const Text('No, Still Persists'),
+                      label: Text(loc.noStillPersists),
                       selected: !isResolved,
                       selectedColor: AppTheme.error,
                       labelStyle: TextStyle(color: !isResolved ? Colors.white : AppTheme.textPrimary, fontWeight: FontWeight.bold),
@@ -108,8 +131,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Text('Solution Quality Rating:',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                Text(loc.solutionQualityRating,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                 const SizedBox(height: 6),
                 Row(
                   children: List.generate(5, (i) {
@@ -128,10 +151,10 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                 TextField(
                   controller: commentsCtrl,
                   maxLines: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'Comments on ground implementation',
-                    hintText: 'Describe how the university solution helped your village/community...',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: loc.commentsOnGroundImplementation,
+                    hintText: loc.describeHowSolutionHelped,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ],
@@ -140,7 +163,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(loc.cancelLabel),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
@@ -159,8 +182,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                         });
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('✓ Thank you! Citizen feedback recorded for impact evaluation.'),
+                            SnackBar(
+                              content: Text(loc.thankYouFeedbackRecorded),
                               backgroundColor: AppTheme.success,
                             ),
                           );
@@ -169,14 +192,14 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed: ${e.toString()}'), backgroundColor: AppTheme.error),
+                            SnackBar(content: Text(loc.failedWithReasonText(e.toString())), backgroundColor: AppTheme.error),
                           );
                         }
                       } finally {
                         if (mounted) setState(() => _isSubmittingFeedback = false);
                       }
                     },
-              child: const Text('Submit Feedback', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: Text(loc.submitFeedbackLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -200,27 +223,28 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.current;
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppTheme.background,
-        appBar: SIPAppBar(title: 'Challenge Details'),
-        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+        appBar: SIPAppBar(title: l10n.challengeDetailsTitle),
+        body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
       );
     }
 
     if (_detail == null) {
       return Scaffold(
         backgroundColor: AppTheme.background,
-        appBar: const SIPAppBar(title: 'Challenge Details'),
+        appBar: SIPAppBar(title: l10n.challengeDetailsTitle),
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.error_outline, size: 48, color: AppTheme.textSecondary),
               const SizedBox(height: 12),
-              const Text('Challenge not found', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(l10n.challengeNotFound, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              ElevatedButton(onPressed: _loadDetails, child: const Text('Retry')),
+              ElevatedButton(onPressed: _loadDetails, child: Text(l10n.retryLabelDetails)),
             ],
           ),
         ),
@@ -239,12 +263,12 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: SIPAppBar(
-        title: 'Challenge #${d['id']}',
+        title: '${l10n.challengeHashPrefix} #${d['id']}',
         subtitle: loc['district_name'] ?? 'Jharkhand',
         actions: [
           IconButton(
             icon: const Icon(Icons.timeline_rounded, color: AppTheme.primaryGreen),
-            tooltip: 'Track Solution Lifecycle',
+            tooltip: l10n.trackSolutionLifecycleTooltip,
             onPressed: () {
               Navigator.push(
                 context,
@@ -283,7 +307,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                       StatusBadge(label: tier, type: StatusBadgeType.tier),
                       const SizedBox(width: 10),
                       Text(
-                        'Escalation Level: ${d['escalation_level'] ?? 1} / 4',
+                        l10n.escalationLevelText(d['escalation_level'] ?? 1),
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
                       ),
                     ],
@@ -306,7 +330,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                               const Icon(Icons.arrow_upward_rounded, size: 14, color: Colors.deepOrange),
                               const SizedBox(width: 6),
                               Text(
-                                'Escalated by ${d['escalated_by']}',
+                                l10n.escalatedByText(d['escalated_by']),
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.deepOrange),
                               ),
                             ],
@@ -374,7 +398,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${loc['village_or_city'] ?? ''}, Block: ${loc['block_name'] ?? ''}, ${loc['district_name'] ?? 'Jharkhand'}',
+                            l10n.villageBlockDistrictText(loc['village_or_city'] ?? '', loc['block_name'] ?? '', loc['district_name'] ?? 'Jharkhand'),
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
                           ),
                         ),
@@ -410,9 +434,9 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'ASSIGNED HIGHER EDUCATION INSTITUTION',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen, letterSpacing: 0.5),
+                          Text(
+                            l10n.assignedHeiLabel,
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen, letterSpacing: 0.5),
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -431,8 +455,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             // Attached Media & Evidence Section
             if (media.isNotEmpty) ...[
               SectionHeader(
-                title: 'Evidence & Media Attachments',
-                trailing: Text('${media.length} file(s)', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                title: l10n.evidenceMediaAttachmentsTitle,
+                trailing: Text(l10n.fileCountText(media.length), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
               const SizedBox(height: 10),
               SizedBox(
@@ -449,6 +473,12 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                         fileUrl.toLowerCase().endsWith('.png') ||
                         fileUrl.toLowerCase().endsWith('.webp');
                     final isPdf = fileUrl.toLowerCase().endsWith('.pdf');
+                    final isAudio = fileUrl.toLowerCase().endsWith('.m4a') ||
+                        fileUrl.toLowerCase().endsWith('.wav') ||
+                        fileUrl.toLowerCase().endsWith('.mp3') ||
+                        fileUrl.toLowerCase().endsWith('.webm');
+                    final resolvedUrl = ApiService.resolveMediaUrl(fileUrl);
+                    final isPlayingThis = _currentlyPlayingUrl == resolvedUrl;
 
                     return Container(
                       width: 130,
@@ -460,7 +490,9 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                       ),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(10),
-                        onTap: () {
+                        onTap: isAudio
+                            ? () => _toggleVoiceNotePlayback(resolvedUrl)
+                            : () {
                           showDialog(
                             context: context,
                             builder: (_) => Dialog(
@@ -478,9 +510,9 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                                       child: Image.network(
                                         ApiService.resolveMediaUrl(fileUrl),
                                         fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) => const Padding(
-                                          padding: EdgeInsets.all(20),
-                                          child: Text('Image preview unavailable'),
+                                        errorBuilder: (_, __, ___) => Padding(
+                                          padding: const EdgeInsets.all(20),
+                                          child: Text(l10n.imagePreviewUnavailable),
                                         ),
                                       ),
                                     )
@@ -517,14 +549,23 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                                           child: const Icon(Icons.broken_image, color: Colors.grey),
                                         ),
                                       )
-                                    : Container(
-                                        color: isPdf ? Colors.red.shade50 : Colors.green.shade50,
-                                        child: Icon(
-                                          isPdf ? Icons.picture_as_pdf : Icons.insert_drive_file,
-                                          color: isPdf ? Colors.red.shade700 : AppTheme.primaryGreen,
-                                          size: 36,
-                                        ),
-                                      ),
+                                    : isAudio
+                                        ? Container(
+                                            color: AppTheme.primaryGreen.withOpacity(0.08),
+                                            child: Icon(
+                                              isPlayingThis ? Icons.pause_circle_filled : Icons.play_circle_fill,
+                                              color: AppTheme.primaryGreen,
+                                              size: 36,
+                                            ),
+                                          )
+                                        : Container(
+                                            color: isPdf ? Colors.red.shade50 : Colors.green.shade50,
+                                            child: Icon(
+                                              isPdf ? Icons.picture_as_pdf : Icons.insert_drive_file,
+                                              color: isPdf ? Colors.red.shade700 : AppTheme.primaryGreen,
+                                              size: 36,
+                                            ),
+                                          ),
                               ),
                             ),
                             Padding(
@@ -551,12 +592,12 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             const SizedBox(height: 20),
 
             // Status Timeline History
-            const SectionHeader(title: 'Status Audit Trail'),
+            SectionHeader(title: l10n.statusAuditTrailTitle),
             const SizedBox(height: 10),
             SIPCard(
               padding: const EdgeInsets.all(16),
               child: history.isEmpty
-                  ? const Text('Initial status recorded.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary))
+                  ? Text(l10n.initialStatusRecorded, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary))
                   : Column(
                       children: history.asMap().entries.map((entry) {
                         final i = entry.key;
@@ -612,14 +653,14 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
             // Discussion & Comments Section
             SectionHeader(
-              title: 'Stakeholder Discussion',
-              trailing: Text('${comments.length} message(s)', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+              title: l10n.stakeholderDiscussionTitle,
+              trailing: Text(l10n.messageCountText(comments.length), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ),
             const SizedBox(height: 10),
             if (comments.isEmpty)
-              const SIPCard(
-                padding: EdgeInsets.all(16),
-                child: Text('No stakeholder comments yet.', style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+              SIPCard(
+                padding: const EdgeInsets.all(16),
+                child: Text(l10n.noStakeholderComments, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
               )
             else
               ...comments.map((c) => Padding(
@@ -674,7 +715,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                   child: TextField(
                     controller: _commentController,
                     decoration: InputDecoration(
-                      hintText: 'Add an inquiry or update...',
+                      hintText: l10n.addInquiryHint,
                       hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                       filled: true,
                       fillColor: Colors.white,
@@ -711,6 +752,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   }
 
   Widget _buildAiExplainabilityCard(Map<String, dynamic> ai) {
+    final l10n = AppLocalizations.current;
     final domain = ai['classified_domain']?.toString() ?? 'General Problem';
     final priority = ai['detected_priority']?.toString() ?? 'MEDIUM';
     final confidence = ((ai['confidence_score'] as num?)?.toDouble() ?? 0.85) * 100;
@@ -732,9 +774,9 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             children: [
               const Icon(Icons.auto_awesome, color: Color(0xFF2563EB), size: 20),
               const SizedBox(width: 8),
-              const Text(
-                'AI Domain Classification & Rationale',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
+              Text(
+                l10n.aiDomainClassificationRationale,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF)),
               ),
               const Spacer(),
               Container(
@@ -745,7 +787,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                   border: Border.all(color: const Color(0xFF93C5FD)),
                 ),
                 child: Text(
-                  '${confidence.toStringAsFixed(1)}% Confidence',
+                  l10n.confidencePercentText(confidence.toStringAsFixed(1)),
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8)),
                 ),
               ),
@@ -765,7 +807,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Classified Domain', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                      Text(l10n.classifiedDomainLabel, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
                       const SizedBox(height: 2),
                       Text(domain, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
                     ],
@@ -784,7 +826,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Detected Priority', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
+                      Text(l10n.detectedPriorityLabel, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.textSecondary)),
                       const SizedBox(height: 2),
                       Text(priority, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
                     ],
@@ -794,7 +836,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Text('Strategic Recommendation:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+          Text(l10n.strategicRecommendationLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
           const SizedBox(height: 4),
           Text(rationale, style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A8A), height: 1.4)),
           if (expertise.isNotEmpty) ...[
@@ -802,7 +844,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Required Skillset: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                Text(l10n.requiredSkillsetLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
                 Expanded(child: Text(expertise, style: const TextStyle(fontSize: 11, color: Color(0xFF1E3A8A)))),
               ],
             ),
@@ -812,7 +854,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Extracted Terms: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
+                Text(l10n.extractedTermsLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E40AF))),
                 Expanded(child: Text(keywords, style: const TextStyle(fontSize: 11, color: Color(0xFF1E3A8A)))),
               ],
             ),
@@ -823,16 +865,17 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   }
 
   Widget _buildCitizenFeedbackSection(String status) {
+    final l10n = AppLocalizations.current;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const SectionHeader(title: 'Citizen Impact & Ground Feedback'),
+            SectionHeader(title: l10n.citizenImpactGroundFeedbackTitle),
             TextButton.icon(
               icon: const Icon(Icons.rate_review_outlined, size: 16),
-              label: const Text('Add Feedback'),
+              label: Text(l10n.addFeedbackLabel),
               onPressed: _showFeedbackModal,
             ),
           ],
@@ -848,8 +891,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                 Expanded(
                   child: Text(
                     status == 'RESOLVED' || status == 'DEPLOYMENT' || status == 'FIELD_VERIFICATION'
-                        ? 'This challenge has entered deployment/resolution. Citizens can submit ground verification feedback.'
-                        : 'Citizen feedback ensures university prototypes resolve the actual societal issue on the ground.',
+                        ? l10n.deploymentFeedbackNotice
+                        : l10n.feedbackEnsuresPrototypes,
                     style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                   ),
                 ),
@@ -857,7 +900,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                   onPressed: _showFeedbackModal,
-                  child: const Text('Feedback', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: Text(l10n.feedbackButtonLabel, style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -886,7 +929,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                               size: 18, color: isResolved ? AppTheme.success : AppTheme.warning),
                           const SizedBox(width: 6),
                           Text(
-                            isResolved ? 'Verified Resolved on Ground' : 'Issue Still Persists',
+                            isResolved ? l10n.verifiedResolvedOnGround : l10n.issueStillPersists,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,

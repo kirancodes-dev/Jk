@@ -168,11 +168,17 @@ def test_affected_population_positive_integer_enforcement(client, db):
 
 
 def test_multi_stakeholder_creation_and_submitter_metadata(client, db):
-    """Verifies that CITIZEN, PRI, and ULB submitters record metadata correctly."""
+    """
+    Verifies that CITIZEN, PRI, and ULB submitters record metadata correctly, and
+    that submitter identity (submitter_role, server-derived from the authenticated
+    account) is kept strictly separate from source_type (the submission CHANNEL,
+    e.g. MOBILE_APP/WEB_PORTAL/FIELD_VISIT/COMMUNITY_SURVEY). A client cannot spoof
+    submitter_role by sending a role-like value in source_type.
+    """
     roles_to_test = [
-        ("pri_user@jharkhand.gov.in", UserRole.PRI, "Panchayat Mukhiya", "PRI"),
-        ("ulb_user@jharkhand.gov.in", UserRole.ULB, "Ward Commissioner", "ULB"),
-        ("citizen_actor@example.com", UserRole.CITIZEN, "Citizen Submitter", "DIRECT_CITIZEN")
+        ("pri_user@jharkhand.gov.in", UserRole.PRI, "Panchayat Mukhiya", "WEB_PORTAL"),
+        ("ulb_user@jharkhand.gov.in", UserRole.ULB, "Ward Commissioner", "FIELD_VISIT"),
+        ("citizen_actor@example.com", UserRole.CITIZEN, "Citizen Submitter", "MOBILE_APP")
     ]
 
     for email, role, full_name, src_type in roles_to_test:
@@ -180,7 +186,7 @@ def test_multi_stakeholder_creation_and_submitter_metadata(client, db):
         headers = _headers_for(user)
 
         payload = {
-            "title": f"Drainage Overflow Reported by {src_type}",
+            "title": f"Drainage Overflow Reported by {full_name}",
             "description": "Stagnant open drainage breeding mosquitoes and causing water contamination.",
             "category": "Sanitation",
             "affected_population": 250,
@@ -208,6 +214,37 @@ def test_multi_stakeholder_creation_and_submitter_metadata(client, db):
         assert data["submitter_role"] == role.value
         assert data["source_type"] == src_type
         assert data["affected_population"] == 250
+
+
+def test_source_type_rejects_identity_spoofing_values(client, db):
+    """
+    source_type only accepts channel values. A client sending a role-like value
+    (e.g. "PRI", "GOVERNMENT_AGENCY") to masquerade as an official submission
+    must be rejected with 422, since that is not a real submission channel.
+    """
+    user = _get_or_create_user(db, "spoof_attempt@example.com", UserRole.CITIZEN, "Spoof Attempt")
+    headers = _headers_for(user)
+
+    payload = {
+        "title": "Attempted Source Type Spoofing Report",
+        "description": "Testing that identity cannot be spoofed via source_type field.",
+        "category": "Sanitation",
+        "affected_population": 100,
+        "location": {
+            "district_name": "Ranchi",
+            "block_name": "Angara",
+            "village_or_city": "Rupru",
+            "location_address": "Near Gram Panchayat Bhavan",
+            "latitude": 23.3980,
+            "longitude": 85.5520
+        },
+        "source_type": "GOVERNMENT_AGENCY",
+        "consent_given": True,
+        "idempotency_key": str(uuid.uuid4())
+    }
+
+    res = client.post("/api/v1/challenges", json=payload, headers=headers)
+    assert res.status_code == 422
 
 
 def test_idempotency_key_replay(client, db):
@@ -278,7 +315,11 @@ def test_secure_attachment_pipeline_and_magic_byte_verification(client, db):
     files_fake = {"file": ("malware.jpg", io.BytesIO(fake_exe), "image/jpeg")}
     res_fake = client.post("/api/v1/challenges/attachments/upload", files=files_fake, headers=headers1)
     assert res_fake.status_code == 400
-    assert "Malicious or unsupported binary signature" in res_fake.json()["detail"]
+    # The MZ (Windows executable) magic bytes are caught by the dangerous-signature
+    # check before generic MIME-detection even runs — a more specific rejection reason
+    # for the same underlying threat, so either wording is an acceptable rejection.
+    detail = res_fake.json()["detail"]
+    assert "Malicious" in detail and ("binary signature" in detail or "executable script" in detail)
 
     # 3. Citizen 2 tries to link Citizen 1's attachment -> Rejected 403 Forbidden
     payload_theft = {
@@ -354,6 +395,40 @@ def test_secure_attachment_pipeline_and_magic_byte_verification(client, db):
     # Citizen 2 cannot download
     res_dl_c2 = client.get(f"/api/v1/files/attachments/{att_id}", headers=headers2)
     assert res_dl_c2.status_code == 403
+
+
+def test_voice_note_attachment_upload_and_video_mp4_still_distinct(client, db):
+    """
+    Phase 2, Item 13: citizens can attach a voice-note recording as real
+    evidence. An M4A voice note (audio, `ftyp` box with an `M4A ` subtype)
+    must be detected as audio/mp4 and accepted — and must NOT be misdetected
+    as a video/mp4 file, even though both use the same ISO-BMFF container.
+    """
+    citizen = _get_or_create_user(db, "citizen_voice1@example.com", UserRole.CITIZEN, "Voice Citizen")
+    headers = _headers_for(citizen)
+
+    # Minimal valid M4A container: ftyp box with M4A subtype.
+    m4a_bytes = b'\x00\x00\x00\x20ftypM4A \x00\x00\x00\x00M4A mp42isom' + b'\x00' * 32
+    files = {"file": ("voice_note.m4a", io.BytesIO(m4a_bytes), "audio/mp4")}
+    res = client.post("/api/v1/challenges/attachments/upload", files=files, headers=headers)
+    assert res.status_code == 201, res.text
+    data = res.json()
+    assert data["detected_mime"] == "audio/mp4"
+    assert data["scan_status"] == "CLEAN"
+
+    # A genuine MP4 video container (non-M4A subtype) must still be video/mp4.
+    mp4_bytes = b'\x00\x00\x00\x20ftypisom\x00\x00\x02\x00isomiso2avc1mp41' + b'\x00' * 32
+    files_video = {"file": ("evidence_clip.mp4", io.BytesIO(mp4_bytes), "video/mp4")}
+    res_video = client.post("/api/v1/challenges/attachments/upload", files=files_video, headers=headers)
+    assert res_video.status_code == 201, res_video.text
+    assert res_video.json()["detected_mime"] == "video/mp4"
+
+    # WAV voice note is also accepted.
+    wav_bytes = b'RIFF' + (36).to_bytes(4, 'little') + b'WAVEfmt ' + b'\x00' * 20
+    files_wav = {"file": ("voice_note.wav", io.BytesIO(wav_bytes), "audio/wav")}
+    res_wav = client.post("/api/v1/challenges/attachments/upload", files=files_wav, headers=headers)
+    assert res_wav.status_code == 201, res_wav.text
+    assert res_wav.json()["detected_mime"] == "audio/wav"
 
 
 def test_location_privacy_and_anonymity_preservation(client, db):

@@ -3,8 +3,8 @@
 **Smart India Hackathon (SIH 2026) | Problem Statement 26043**
 
 [![CI/CD Pipeline](https://github.com/kirancodes-dev/Jk/actions/workflows/ci.yml/badge.svg)](https://github.com/kirancodes-dev/Jk/actions/workflows/ci.yml)
-[![Backend Tests](https://img.shields.io/badge/pytest-25%20passed-brightgreen.svg)](tests/)
-[![Frontend Tests](https://img.shields.io/badge/flutter%20test-4%20passed-brightgreen.svg)](frontend/test/)
+[![Backend Tests](https://img.shields.io/badge/pytest-156%20passed-brightgreen.svg)](tests/)
+[![Frontend Tests](https://img.shields.io/badge/flutter%20test-17%20tests-brightgreen.svg)](frontend/test/)
 [![Python](https://img.shields.io/badge/python-3.12%20%7C%203.14-blue.svg)](backend/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20Alpine-336791.svg)](https://www.postgresql.org)
@@ -53,7 +53,7 @@ The platform automates grassroots civic problem ingestion, performs explainable 
                ▼                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                 DATA PERSISTENCE LAYER (PostgreSQL 16)                  │
-│  33 Relational 3NF Tables • Composite Performance Indexes              │
+│  60 Relational 3NF Tables • Composite Performance Indexes              │
 │  Alembic Migration Versioning • ACID Transaction Guarantees             │
 └─────────────────────────────────────────────────────────────────────────┘
 
@@ -76,10 +76,11 @@ Unlike naive role-checking (`role == "student"`), every sensitive resource endpo
 - **Administrative Operations**: Restricted to verified government officials and university deans with immutable audit logging.
 
 ### 3. File Upload Security
-- Strict whitelist of MIME types (`image/jpeg`, `image/png`, `application/pdf`).
-- File size ceiling (maximum 10MB per file).
+- Strict whitelist of extensions (`.jpg`, `.jpeg`, `.png`, `.pdf`, `.mp4`, `.doc`, `.docx`) and matching MIME types, enforced by magic-byte detection (not just the declared extension).
+- File size ceiling (default 15MB per file, configurable via `MAX_UPLOAD_SIZE_BYTES`, capped at 100MB).
 - Filename sanitization against directory traversal (`../`) and shell injection attacks.
 - Private storage isolation with authenticated download endpoints.
+- **Malware scanning is a basic signature check today** (EICAR test string + a short list of dangerous executable/script magic bytes) — it is *not* a real antivirus engine and will not catch most actual malware. An optional real scan via a ClamAV daemon is supported (set `CLAMAV_HOST`) but not required or configured by default; see `backend/app/services/storage_service.py`.
 
 ---
 
@@ -152,6 +153,24 @@ A challenge cannot transition to `RESOLVED` through a simple button click. The s
 
 ---
 
+## 🔔 Notification Channels — What's Real vs. Simulated
+
+The outbox pipeline (retry, delivery-status tracking, consent enforcement, sanitization)
+is fully real and tested for every channel. What differs is the last mile:
+
+| Channel | Status | Detail |
+| :--- | :--- | :--- |
+| **In-app** | Real | Persisted `Notification` rows, read/unread state, retention policy. |
+| **Email** | Real (when configured), simulated fallback otherwise | Sends via real SMTP (`backend/app/services/email_service.py`) when `SMTP_USER`/`SMTP_PASSWORD` are set. Falls back to a clearly-labeled simulated success so the outbox still works without a mail relay configured — it never claims a fake delivery came from a real server. |
+| **SMS** | **Simulated** | No telco/DLT SMS gateway is integrated. `provider="SIMULATED_SMS"` on every outbox record makes this explicit. |
+| **WhatsApp** | **Simulated** | No WhatsApp Business API account is integrated. `provider="SIMULATED_WHATSAPP"`. |
+| **Push** | **Simulated** | No Firebase Cloud Messaging (or other) project is wired up. `provider="SIMULATED_PUSH"`. |
+
+See `backend/app/services/notification_service.py` for the adapters and
+`tests/test_stage9_notifications_and_outbox.py` for coverage.
+
+---
+
 ## ⚙️ Configuration: Production vs Evaluation Mode
 
 The system enforces strict operational separation between enterprise production deployment and evaluation demo modes via environment variables:
@@ -177,7 +196,10 @@ MOCK_AI=false
 
 ## 🧪 Comprehensive Testing Suite
 
-The repository contains **25 automated backend integration tests** and **4 Flutter widget tests**, including full unbroken end-to-end lifecycle verification:
+The repository contains **156 automated backend tests** (see `TRACEABILITY_MATRIX.md` for
+which requirement each one verifies, and `scripts/verify_traceability.py` which checks
+that mapping stays accurate) and **17 Flutter tests**, including full unbroken
+end-to-end lifecycle verification:
 
 ```bash
 # Run all backend integration tests:
@@ -185,17 +207,21 @@ PYTHONPATH=. backend/.venv/bin/pytest tests/ -v
 ```
 
 ### Test Suite Breakdown:
-- **`tests/test_end_to_end_lifecycle.py`**: Complete 10-stage simulation: *Citizen submission ➔ AI screening ➔ Government triage & assignment ➔ University adoption ➔ Student task execution ➔ Faculty milestone approval ➔ Industry CSR grant ➔ Government field verification ➔ Citizen satisfaction feedback ➔ Audit trail verification*.
-- **`tests/test_production_upgrade.py`**: Security hardening: *JWT refresh token flow, token logout revocation, object-level authorization (IDOR protection on student and faculty endpoints), demo mode 403 gating, query pagination headers, and async AI background task processing*.
+- **`tests/test_end_to_end_lifecycle.py`** / **`tests/test_stage12_e2e_journeys.py`**: Full multi-actor lifecycle simulations: *Citizen submission ➔ AI screening ➔ Government triage & assignment ➔ University adoption ➔ Student task execution ➔ Faculty milestone approval ➔ Industry CSR grant ➔ Government field verification ➔ Citizen satisfaction feedback ➔ Audit trail verification*.
+- **`tests/test_production_upgrade.py`** / **`tests/test_stage11_security_and_operations.py`**: Security hardening: *JWT refresh token flow, token logout revocation, object-level authorization (IDOR protection on student and faculty endpoints), demo mode 403 gating, query pagination headers, and async AI background task processing*.
+- **`tests/test_stage12_security_negative_properties.py`**: Negative-path security properties: *vertical/horizontal privilege escalation, cross-district tampering, path traversal, fail-closed production config.*
 - **`tests/test_backend.py`**: Core domain logic: *Authentication, challenge ingestion, AI analysis, project creation, and analytics aggregation*.
 - **`tests/test_university_role_auth.py`**: 3-Tier university authentication, role selection, and token scoping.
+- **`tests/test_stage1_*.py`** through **`tests/test_stage10_*.py`**: Per-stage functional suites — migrations, RBAC, challenge ingestion, the workflow state machine, AI governance, HEI collaboration, industry/CSR/IP, field verification & closure, notifications, and verifiable analytics dashboards.
 
-### Frontend Widget Tests:
+See `TRACEABILITY_MATRIX.md` for the exhaustive requirement → file → test mapping.
+
+### Frontend Tests:
 ```bash
 cd frontend
-DEVELOPER_DIR=/Library/Developer/CommandLineTools flutter test
+flutter test
 ```
-- Smoke tests, 4-tier top-level account selection, university context rendering, and multi-role selection modal tests (**4/4 passed**).
+- Smoke tests, role-based routing (including university/faculty/student/citizen/government/industry dashboards), localization/accessibility, and offline-sync coverage across 5 test files.
 
 ---
 

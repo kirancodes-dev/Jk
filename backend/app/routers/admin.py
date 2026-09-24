@@ -158,16 +158,28 @@ def get_impact_metrics(
     current_user: User = Depends(require_permission("analytics.view")),
     db: Session = Depends(get_db)
 ):
+    """
+    Manually-tracked impact metrics plus the live innovation outcomes (patents,
+    startups, technology transfers, prototypes, pilots) computed by
+    AnalyticsService — never hardcoded seed constants.
+    """
     metrics = db.query(ImpactMetrics).all()
-    return {
-        "metrics": [
-            {
-                "name": m.metric_name,
-                "value": m.metric_value,
-                "category": m.category
-            } for m in metrics
-        ]
-    }
+    out = [
+        {"name": m.metric_name, "value": m.metric_value, "category": m.category}
+        for m in metrics
+    ]
+
+    live = analytics_service.get_dashboard_summary(db=db, viewer=current_user)
+    live_kpi_keys = [
+        "patents_filed", "startups_incubated", "technology_transfers_completed",
+        "prototypes_developed", "pilots_deployed"
+    ]
+    for key in live_kpi_keys:
+        kpi = live["kpis"].get(key)
+        if kpi:
+            out.append({"name": kpi["display_title"], "value": kpi["value"], "category": "Innovation (Live)"})
+
+    return {"metrics": out}
 
 
 @router.post("/challenges/{challenge_id}/validate")

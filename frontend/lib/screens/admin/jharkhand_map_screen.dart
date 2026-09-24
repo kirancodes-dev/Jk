@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../core/api_service.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
@@ -19,11 +22,21 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
   List<Map<String, dynamic>> _districtData = [];
   bool _isLoading = true;
   String _selectedDistrict = 'Ranchi';
+  final MapController _mapController = MapController();
+
+  // Jharkhand's approximate geographic center, used as the map's default view.
+  static const LatLng _jharkhandCenter = LatLng(23.6, 85.3);
 
   @override
   void initState() {
     super.initState();
     _loadMap();
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMap() async {
@@ -40,11 +53,12 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppTheme.background,
-        appBar: SIPAppBar(title: 'Jharkhand District Map'),
-        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+        appBar: SIPAppBar(title: loc.jharkhandMapTitle),
+        body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
       );
     }
 
@@ -57,9 +71,9 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: const SIPAppBar(
-        title: 'Jharkhand 24-District Map',
-        subtitle: 'Geographic Challenge Distribution & Heatmap',
+      appBar: SIPAppBar(
+        title: loc.jharkhand24DistrictMapTitle,
+        subtitle: loc.geoDistributionSubtitle,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -99,18 +113,18 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
                         child: const Icon(Icons.map_rounded, color: AppTheme.accentGold, size: 22),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Statewide Geospatial Coverage',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                              loc.statewideGeospatialCoverage,
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                             ),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             Text(
-                              '24 Districts • 260+ Blocks • 4,300+ Gram Panchayats',
-                              style: TextStyle(color: Colors.white70, fontSize: 11),
+                              loc.districtBlockPanchayatCount,
+                              style: const TextStyle(color: Colors.white70, fontSize: 11),
                             ),
                           ],
                         ),
@@ -151,6 +165,88 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
             ),
             const SizedBox(height: 20),
 
+            // Live OpenStreetMap Tile Map — real interactive geographic view,
+            // replacing the district-list-only presentation. Markers are sized
+            // and colored by that district's reported challenge count.
+            SectionHeader(title: loc.liveDistrictMapTitle, subtitle: loc.tapMarkerToSelectDistrict),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: SizedBox(
+                height: 320,
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: const MapOptions(
+                    initialCenter: _jharkhandCenter,
+                    initialZoom: 6.6,
+                    minZoom: 5,
+                    maxZoom: 14,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'gov.jharkhand.societal_innovation_portal',
+                    ),
+                    MarkerLayer(
+                      markers: _districtData
+                          .where((d) => d['latitude'] != null && d['longitude'] != null)
+                          .map((d) {
+                        final isSelected = d['district_name'] == _selectedDistrict;
+                        final count = (d['challenge_count'] as num?)?.toInt() ?? 0;
+                        final markerColor = count > 10
+                            ? AppTheme.error
+                            : (count > 3 ? AppTheme.accentGold : AppTheme.primaryGreen);
+                        return Marker(
+                          point: LatLng(
+                            (d['latitude'] as num).toDouble(),
+                            (d['longitude'] as num).toDouble(),
+                          ),
+                          width: isSelected ? 46 : 34,
+                          height: isSelected ? 46 : 34,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() => _selectedDistrict = d['district_name']);
+                              _mapController.move(
+                                LatLng((d['latitude'] as num).toDouble(), (d['longitude'] as num).toDouble()),
+                                8.5,
+                              );
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: markerColor.withOpacity(isSelected ? 0.95 : 0.8),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: isSelected ? 3 : 2),
+                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 4)],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '$count',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: isSelected ? 13 : 10,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    RichAttributionWidget(
+                      attributions: [
+                        TextSourceAttribution(
+                          '© OpenStreetMap contributors',
+                          onTap: () {},
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
             // District Demographic & Geo Summary
             if (currentDist.isNotEmpty) ...[
               SIPCard(
@@ -181,9 +277,9 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
                     const Divider(height: 24, color: Color(0xFFE2E8F0)),
                     Row(
                       children: [
-                        _demographicItem('Est. Population', '${currentDist['total_population'] ?? '25,00,000'}'),
-                        _demographicItem('Rural Share', '${currentDist['rural_population_pct'] ?? 80}%'),
-                        _demographicItem('Coordinates', '${currentDist['latitude'] ?? '23.34'}, ${currentDist['longitude'] ?? '85.30'}'),
+                        _demographicItem(loc.estPopulationLabel, '${currentDist['total_population'] ?? '25,00,000'}'),
+                        _demographicItem(loc.ruralShareLabel, '${currentDist['rural_population_pct'] ?? 80}%'),
+                        _demographicItem(loc.coordinatesLabel, '${currentDist['latitude'] ?? '23.34'}, ${currentDist['longitude'] ?? '85.30'}'),
                       ],
                     ),
                   ],
@@ -193,15 +289,15 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
 
               // Challenges in this district
               SectionHeader(
-                title: 'Ground Challenges in $_selectedDistrict',
-                trailing: Text('${chList.length} recorded', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                title: loc.groundChallengesInDistrict(_selectedDistrict),
+                trailing: Text(loc.recordedCountText(chList.length), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
               const SizedBox(height: 10),
               if (chList.isEmpty)
-                const EmptyStateView(
+                EmptyStateView(
                   icon: Icons.check_circle_outline_rounded,
-                  title: 'No pending challenges in this district',
-                  description: 'All reported issues have either been resolved or none have been submitted yet.',
+                  title: loc.noPendingChallengesTitle,
+                  description: loc.noPendingChallengesDesc,
                 )
               else
                 ...chList.map((c) {
@@ -260,9 +356,9 @@ class _JharkhandMapScreenState extends State<JharkhandMapScreen> {
             const SizedBox(height: 24),
 
             // All 24 Districts Grid Summary
-            const SectionHeader(
-              title: 'All 24 Districts Directory',
-              trailing: Text('Tap to filter', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            SectionHeader(
+              title: loc.all24DistrictsDirectory,
+              trailing: Text(loc.tapToFilter, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ),
             const SizedBox(height: 10),
             GridView.builder(

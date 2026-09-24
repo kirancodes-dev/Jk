@@ -2,18 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth_provider.dart';
 import '../../core/build_config.dart';
+import '../../core/localization/app_localizations.dart';
+import '../../core/role_routing.dart';
 import '../../core/theme.dart';
 import '../../widgets/sip_card.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 import 'university_selection_screen.dart';
 import 'university_role_selection_screen.dart';
-import '../citizen/citizen_dashboard.dart';
-import '../university/university_dashboard.dart';
-import '../student/student_dashboard.dart';
-import '../faculty/faculty_dashboard.dart';
-import '../industry/industry_dashboard.dart';
-import '../admin/admin_dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
   final String? initialAccountType;
@@ -46,32 +42,32 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _selectedUniversityRole;
   String? _selectedUniversityRoleLabel;
 
-  final List<Map<String, dynamic>> _accountTypes = [
+  List<Map<String, dynamic>> _accountTypes(AppLocalizations loc) => [
     {
       'key': 'CITIZEN',
-      'label': 'Citizen',
-      'sub': 'Civic Reporter',
+      'label': loc.accountTypeCitizen,
+      'sub': loc.accountTypeCitizenSub,
       'icon': Icons.person_outline,
       'email': 'citizen@jharkhand.gov.in',
     },
     {
       'key': 'UNIVERSITY',
-      'label': 'University',
-      'sub': 'Institutions & Roles',
+      'label': loc.accountTypeUniversity,
+      'sub': loc.accountTypeUniversitySub,
       'icon': Icons.account_balance_outlined,
       'email': null,
     },
     {
       'key': 'INDUSTRY',
-      'label': 'Industry',
-      'sub': 'CSR & Innovation',
+      'label': loc.accountTypeIndustry,
+      'sub': loc.accountTypeIndustrySub,
       'icon': Icons.business_outlined,
       'email': 'industry@tatasteel.com',
     },
     {
       'key': 'GOVERNMENT_ADMIN',
-      'label': 'Government',
-      'sub': 'Command Center',
+      'label': loc.accountTypeGovernment,
+      'sub': loc.accountTypeGovernmentSub,
       'icon': Icons.shield_outlined,
       'email': 'admin@jharkhand.gov.in',
     },
@@ -95,9 +91,10 @@ class _LoginScreenState extends State<LoginScreen> {
           _selectedUniversity?['institution_name'],
         );
       } else {
-        _emailController.text = _accountTypes.firstWhere(
+        final accountTypes = _accountTypes(AppLocalizations.current);
+        _emailController.text = accountTypes.firstWhere(
               (a) => a['key'] == _selectedAccountType,
-              orElse: () => _accountTypes.first,
+              orElse: () => accountTypes.first,
             )['email'] ??
             'citizen@jharkhand.gov.in';
       }
@@ -116,28 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _navigateToDashboard(String role) {
-    Widget target;
-    switch (role) {
-      case 'UNIVERSITY':
-        target = const UniversityDashboard();
-        break;
-      case 'STUDENT':
-        target = const StudentDashboard();
-        break;
-      case 'FACULTY_MENTOR':
-        target = const FacultyDashboard();
-        break;
-      case 'INDUSTRY':
-        target = const IndustryDashboard();
-        break;
-      case 'GOVERNMENT_ADMIN':
-        target = const AdminDashboard();
-        break;
-      case 'CITIZEN':
-      default:
-        target = const CitizenDashboard();
-        break;
-    }
+    final target = resolveDashboardForRole(role);
     Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => target), (r) => false);
   }
 
@@ -235,8 +211,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (_selectedAccountType == 'UNIVERSITY') {
         if (_selectedUniversity == null || _selectedUniversityRole == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please select your university and role before logging in.'),
+            SnackBar(
+              content: Text(AppLocalizations.current.pleaseSelectUniversityAndRole),
               backgroundColor: AppTheme.warning,
             ),
           );
@@ -272,6 +248,8 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final loc = AppLocalizations.current;
+    final accountTypes = _accountTypes(loc);
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceLight,
@@ -297,31 +275,31 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: const Icon(Icons.account_balance, color: AppTheme.primaryGreen, size: 28),
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                           Text(
-                            'GOVERNMENT OF JHARKHAND',
-                            style: TextStyle(
+                            loc.text('gov_name'),
+                            style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.textSecondary,
                               letterSpacing: 1.2,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            'Department of Higher & Technical Education',
-                            style: TextStyle(
+                            loc.deptName,
+                            style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
                               color: AppTheme.textPrimary,
                             ),
                           ),
                             Text(
-                              'Societal Innovation Portal (SIP)',
-                              style: TextStyle(
+                              '${loc.societalInnovationPortal} (SIP)',
+                              style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.primaryGreen,
@@ -352,7 +330,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'EVALUATOR MODE: SIH Jury & Demo Build',
+                                  loc.evaluatorModeTitle,
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
@@ -361,7 +339,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Pre-configured demo roles and credentials are active for evaluation purposes.',
+                                  loc.evaluatorModeSubtitle,
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: Colors.amber.shade900.withValues(alpha: 0.85),
@@ -376,9 +354,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
 
                   // Main Title
-                  const Text(
-                    'Portal Sign In',
-                    style: TextStyle(
+                  Text(
+                    loc.portalSignIn,
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w800,
                       color: AppTheme.textPrimary,
@@ -386,16 +364,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Choose your account type or enter registered credentials to sign in.',
-                    style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                  Text(
+                    loc.portalSignInSubtitle,
+                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 20),
 
                   // Section: Choose Account Type (4 Top-level Cards)
-                  const Text(
-                    'Choose Account Type',
-                    style: TextStyle(
+                  Text(
+                    loc.chooseAccountType,
+                    style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                       color: AppTheme.textSecondary,
@@ -413,9 +391,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       crossAxisSpacing: 10,
                       mainAxisSpacing: 10,
                     ),
-                    itemCount: _accountTypes.length,
+                    itemCount: accountTypes.length,
                     itemBuilder: (context, index) {
-                      final acc = _accountTypes[index];
+                      final acc = accountTypes[index];
                       final isSelected = _selectedAccountType == acc['key'];
 
                       return InkWell(
@@ -505,9 +483,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'Account Credentials',
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
+                            Text(
+                              loc.accountCredentials,
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.textPrimary),
                             ),
                             if (_selectedAccountType == 'UNIVERSITY' && _selectedUniversityRoleLabel != null)
                               Container(
@@ -533,7 +511,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
-                            labelText: 'Official / Registered Email',
+                            labelText: loc.officialEmail,
                             hintText: _selectedAccountType == 'UNIVERSITY'
                                 ? 'name@university.edu.in'
                                 : 'name@jharkhand.gov.in',
@@ -546,7 +524,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
-                            labelText: 'Password',
+                            labelText: loc.password,
                             prefixIcon: const Icon(Icons.lock_outline, size: 20),
                             suffixIcon: IconButton(
                               icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
@@ -565,7 +543,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
                               );
                             },
-                            child: const Text('Forgot Password?', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            child: Text(loc.forgotPassword, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -581,7 +559,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     width: 20,
                                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                   )
-                                : const Text('Sign In to Dashboard', style: TextStyle(fontWeight: FontWeight.w700)),
+                                : Text(loc.signInToDashboard, style: const TextStyle(fontWeight: FontWeight.w700)),
                           ),
                         ),
                       ],
@@ -595,7 +573,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       alignment: WrapAlignment.center,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Text("New stakeholder? ", style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+                        Text(loc.newStakeholder, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
                         TextButton(
                           onPressed: () {
                             Navigator.push(
@@ -603,7 +581,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               MaterialPageRoute(builder: (_) => const RegisterScreen()),
                             );
                           },
-                          child: const Text('Register New Account', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                          child: Text(loc.registerNewAccount, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                         ),
                       ],
                     ),
@@ -618,7 +596,8 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildUniversityContextBanner() {
-    final univName = _selectedUniversity?['institution_name'] ?? 'University';
+    final loc = AppLocalizations.current;
+    final univName = _selectedUniversity?['institution_name'] ?? loc.universityLabel;
     final city = _selectedUniversity?['city'] ?? _selectedUniversity?['district_name'] ?? 'Jharkhand';
     final state = _selectedUniversity?['state'] ?? 'Jharkhand';
 
@@ -648,9 +627,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   color: AppTheme.primaryGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Text(
-                  'UNIVERSITY ACCOUNT CONTEXT',
-                  style: TextStyle(
+                child: Text(
+                  loc.universityAccountContext,
+                  style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: AppTheme.primaryGreen,
@@ -682,9 +661,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'University',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                    Text(
+                      loc.universityLabel,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
                     ),
                     Text(
                       univName,
@@ -704,9 +683,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   minimumSize: Size.zero,
                   side: BorderSide(color: AppTheme.primaryGreen.withValues(alpha: 0.5)),
                 ),
-                child: const Text(
-                  'Change University',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen),
+                child: Text(
+                  loc.changeUniversity,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen),
                 ),
               ),
             ],
@@ -742,12 +721,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Role',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
+                    Text(
+                      loc.roleLabel,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondary),
                     ),
                     Text(
-                      _selectedUniversityRoleLabel ?? 'Student',
+                      _selectedUniversityRoleLabel ?? loc.studentLabel,
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppTheme.textPrimary),
                     ),
                   ],
@@ -760,9 +739,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   minimumSize: Size.zero,
                   side: BorderSide(color: AppTheme.primaryGreen.withValues(alpha: 0.5)),
                 ),
-                child: const Text(
-                  'Change Role',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen),
+                child: Text(
+                  loc.changeRole,
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen),
                 ),
               ),
             ],

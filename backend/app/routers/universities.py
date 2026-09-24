@@ -9,6 +9,7 @@ from backend.app.models.models import (
     UniversityFacility, UniversityDistrictCoverage, UniversityCapabilityEvidence,
     Department
 )
+from backend.app.services.ai.matching_service import matching_service
 from backend.app.schemas.schemas import (
     UniversityFacilityCreate, UniversityFacilityOut, UniversityDistrictCoverageCreate,
     UniversityDistrictCoverageOut, UniversityCapabilityEvidenceCreate, UniversityCapabilityEvidenceOut,
@@ -395,4 +396,41 @@ def get_university_roster(
                 "skills": s.skills
             } for s in students
         ]
+    }
+
+
+@router.get("/{university_id}/recommended-faculty")
+def get_recommended_faculty(
+    university_id: int,
+    challenge_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Ranks this university's own faculty by named specialization/expertise match
+    against a specific challenge's AI-classified domain and extracted keywords.
+    Advisory only — team formation still requires an explicit invitation/acceptance
+    workflow (see TeamInvitation); this never auto-assigns a faculty mentor.
+    """
+    univ = db.query(University).filter(University.id == university_id).first()
+    if not univ:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="University not found")
+
+    challenge = db.query(Challenge).filter(Challenge.id == challenge_id).first()
+    if not challenge:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Challenge not found")
+
+    ai_analysis = challenge.ai_analysis
+    domain = ai_analysis.classified_domain if ai_analysis else (challenge.category or "")
+    keywords: List[str] = []
+    if ai_analysis and ai_analysis.extracted_keywords:
+        keywords = [k.strip() for k in ai_analysis.extracted_keywords.split(",") if k.strip()]
+
+    return {
+        "challenge_id": challenge_id,
+        "university_id": university_id,
+        "domain": domain,
+        "recommended_faculty": matching_service.match_faculty(
+            db=db, university_id=university_id, domain=domain, keywords=keywords
+        )
     }

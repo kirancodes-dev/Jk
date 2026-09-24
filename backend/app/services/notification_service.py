@@ -9,6 +9,7 @@ from backend.app.models.models import (
     Notification, NotificationOutbox, UserNotificationPreference,
     User, UserRole, utc_now
 )
+from backend.app.services.email_service import email_service
 
 @dataclass
 class AdapterResult:
@@ -43,15 +44,18 @@ class NotificationSanitizer:
 
 
 class BaseNotificationAdapter:
-    """Base interface for real/emulated notification providers."""
+    """Base interface for notification channel adapters (real or simulated)."""
     def send(self, recipient: str, message: str, metadata: Dict[str, Any]) -> AdapterResult:
         raise NotImplementedError
 
 
-class MockGovSmsAdapter(BaseNotificationAdapter):
+class SimulatedGovSmsAdapter(BaseNotificationAdapter):
     """
-    C-DAC / NIC National SMS Gateway Adapter.
-    Validates Indian MSISDN and Gov DLT Template ID compliance.
+    SIMULATED SMS channel — no real telco/DLT SMS gateway is integrated. Validates
+    Indian MSISDN format and fabricates a delivery ID so the outbox pipeline (retry,
+    status tracking) can be exercised end-to-end, but no SMS is actually sent.
+    Wiring a real gateway (e.g. C-DAC/NIC or a commercial DLT-registered provider)
+    is planned, not implemented.
     """
     def send(self, recipient: str, message: str, metadata: Dict[str, Any]) -> AdapterResult:
         clean_phone = re.sub(r'[^\d+]', '', recipient)
@@ -61,15 +65,17 @@ class MockGovSmsAdapter(BaseNotificationAdapter):
                 success=False,
                 error_message=f"Invalid Indian phone format for SMS gateway: {recipient}"
             )
-        # Simulate gateway message ID
-        msg_id = f"NIC-SMS-{uuid.uuid4().hex[:12].upper()}"
+        msg_id = f"SIMULATED-SMS-{uuid.uuid4().hex[:12].upper()}"
         return AdapterResult(success=True, provider_message_id=msg_id)
 
 
-class MockGovEmailAdapter(BaseNotificationAdapter):
+class GovEmailAdapter(BaseNotificationAdapter):
     """
-    NIC / State SMTP Email Relay Adapter.
-    Validates RFC 5322 email syntax and Gov domain routing.
+    Real SMTP email delivery via backend/app/services/email_service.py (same
+    SMTP_HOST/SMTP_USER/SMTP_PASSWORD used for OTP emails). Falls back to a clearly
+    labeled simulated success — never a fabricated "delivered" claim about a real
+    gateway — when SMTP credentials are not configured (e.g. local/dev/demo
+    environments), so the outbox pipeline still works without a mail relay.
     """
     EMAIL_REGEX = re.compile(r'^[\w\.\+\-]+@[\w\.\-]+\.[a-zA-Z]{2,}$')
 
@@ -79,28 +85,34 @@ class MockGovEmailAdapter(BaseNotificationAdapter):
                 success=False,
                 error_message=f"Malformed recipient email address: {recipient}"
             )
-        msg_id = f"NIC-MAIL-{uuid.uuid4().hex[:12].upper()}@jharkhand.gov.in"
-        return AdapterResult(success=True, provider_message_id=msg_id)
+        subject = str(metadata.get("subject") or "Government of Jharkhand Innovation Portal Notification")
+        sent_via_real_smtp = email_service.send_generic_email(recipient, subject, message)
+        if sent_via_real_smtp:
+            return AdapterResult(success=True, provider_message_id=f"SMTP-{uuid.uuid4().hex[:12].upper()}")
+        # SMTP not configured in this environment — simulated fallback, clearly labeled.
+        return AdapterResult(success=True, provider_message_id=f"SIMULATED-EMAIL-{uuid.uuid4().hex[:12].upper()}")
 
 
-class MockPushAdapter(BaseNotificationAdapter):
+class SimulatedPushAdapter(BaseNotificationAdapter):
     """
-    Firebase Cloud Messaging (FCM) Adapter.
-    Delivers app push notifications to device registration tokens.
+    SIMULATED push channel — no Firebase Cloud Messaging (or other) project is wired
+    up. Validates that a device token is present and fabricates a delivery ID.
     """
     def send(self, recipient: str, message: str, metadata: Dict[str, Any]) -> AdapterResult:
         if not recipient or len(recipient.strip()) < 5:
             return AdapterResult(
                 success=False,
-                error_message=f"Missing or invalid FCM registration token: {recipient}"
+                error_message=f"Missing or invalid push registration token: {recipient}"
             )
-        msg_id = f"projects/jharkhand-sih/messages/{uuid.uuid4().hex}"
+        msg_id = f"SIMULATED-PUSH-{uuid.uuid4().hex}"
         return AdapterResult(success=True, provider_message_id=msg_id)
 
 
-class MockWhatsAppAdapter(BaseNotificationAdapter):
+class SimulatedWhatsAppAdapter(BaseNotificationAdapter):
     """
-    NIC Citizen WhatsApp Business API Adapter.
+    SIMULATED WhatsApp channel — no WhatsApp Business API account is integrated.
+    Wiring a real provider (e.g. Meta's Cloud API via an NIC-approved BSP) is
+    planned, not implemented.
     """
     def send(self, recipient: str, message: str, metadata: Dict[str, Any]) -> AdapterResult:
         clean_phone = re.sub(r'[^\d+]', '', recipient)
@@ -109,24 +121,27 @@ class MockWhatsAppAdapter(BaseNotificationAdapter):
                 success=False,
                 error_message=f"Invalid WhatsApp recipient number: {recipient}"
             )
-        msg_id = f"wamid.{uuid.uuid4().hex}"
+        msg_id = f"SIMULATED-WAMID-{uuid.uuid4().hex}"
         return AdapterResult(success=True, provider_message_id=msg_id)
 
 
 class NotificationService:
     """
-    Enterprise Event-Driven Notification & Outbox Dispatch Service.
+    Event-Driven Notification & Outbox Dispatch Service.
     - Sanitizes all notification content.
     - Persists in-app notifications with deep links & retention policies.
     - Enforces user preferences & statutory consent before queuing outbox items.
-    - Dispatches through real provider adapters with retry, status tracking, and error reporting.
+    - Dispatches through channel adapters with retry, status tracking, and error
+      reporting. Email is real SMTP delivery when configured; SMS, WhatsApp, and
+      push are explicitly simulated (see each adapter's docstring and the
+      "SIMULATED_*" provider labels below) — no real gateway is wired up for them yet.
     """
     def __init__(self):
         self.adapters = {
-            "EMAIL": MockGovEmailAdapter(),
-            "SMS": MockGovSmsAdapter(),
-            "PUSH": MockPushAdapter(),
-            "WHATSAPP": MockWhatsAppAdapter(),
+            "EMAIL": GovEmailAdapter(),
+            "SMS": SimulatedGovSmsAdapter(),
+            "PUSH": SimulatedPushAdapter(),
+            "WHATSAPP": SimulatedWhatsAppAdapter(),
         }
 
     def get_or_create_user_preferences(self, db: Session, user: User) -> UserNotificationPreference:
@@ -231,7 +246,7 @@ class NotificationService:
                 notification_id=notification.id,
                 user_id=user.id,
                 channel="EMAIL",
-                provider="NIC_STATE_EMAIL_RELAY",
+                provider="SMTP_EMAIL",
                 recipient=user.email,
                 template_id=f"TPL_{notification.category}_v1",
                 template_version="1.0",
@@ -254,7 +269,7 @@ class NotificationService:
                 notification_id=notification.id,
                 user_id=user.id,
                 channel="SMS",
-                provider="CDAC_NIC_SMS_GATEWAY",
+                provider="SIMULATED_SMS",
                 recipient=user.phone_number,
                 template_id="DLT_11071600000001",
                 template_version="1.0",
@@ -271,13 +286,13 @@ class NotificationService:
 
         # 3. Push Outbox
         if pref.push_enabled:
-            # Emulated device push token
-            push_token = f"fcm_token_{user.id}_{user.role.value}"
+            # Simulated device push token — no real push provider (e.g. FCM) is wired up.
+            push_token = f"simulated_push_token_{user.id}_{user.role.value}"
             push_outbox = NotificationOutbox(
                 notification_id=notification.id,
                 user_id=user.id,
                 channel="PUSH",
-                provider="FCM_JHARKHAND_SIP",
+                provider="SIMULATED_PUSH",
                 recipient=push_token,
                 template_id="PUSH_ALERT_v1",
                 template_version="1.0",

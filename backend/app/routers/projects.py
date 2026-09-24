@@ -10,7 +10,7 @@ from backend.app.models.models import (
     TeamInvitation, TeamInvitationStatus, ProjectMembershipHistory, ProposalStatus,
     ReviewComment, EvidenceFile, Department, utc_now,
     AgreementStatus, FundingRecord, IPRecord, IPConsentRecord, IPConsentStatus,
-    ProjectClosureRecord
+    ProjectClosureRecord, OutcomeReport
 )
 from backend.app.schemas.schemas import (
     ProjectCreate, ProjectOut, ProjectDetailOut, ProjectMemberOut, MilestoneCreate,
@@ -23,7 +23,8 @@ from backend.app.schemas.schemas import (
     CollaborationOfferCreate, CollaborationReviewRequest, CollaborationAgreementOut,
     FundingRecordCreate, FundingActionRequest, FundingRecordOut,
     IPRecordCreate, IPConsentRespond, IPConsentRecordOut, IPRecordOut, ModerationActionRequest,
-    ProjectClosureEvaluationOut, ProjectClosureRequest, ProjectClosureRecordOut
+    ProjectClosureEvaluationOut, ProjectClosureRequest, ProjectClosureRecordOut,
+    OutcomeReportCreate, OutcomeReportOut
 )
 from backend.app.services.notification_service import notification_service
 from backend.app.services.workflow_service import WorkflowService
@@ -1136,6 +1137,63 @@ def list_review_comments(
             content=c.content, created_at=c.created_at
         ))
     return out
+
+
+# ------------------------------------------------------------------
+# Structured Testing Outcomes (Phase 2, Item 15) — gate DEPLOYMENT
+# ------------------------------------------------------------------
+
+@router.post("/{project_id}/test-reports", response_model=OutcomeReportOut, status_code=status.HTTP_201_CREATED)
+def add_test_report(
+    project_id: int,
+    payload: OutcomeReportCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Records a structured field/lab/user-trial testing outcome for this project.
+    At least one PASS or PARTIAL report is required before the parent challenge
+    can transition to DEPLOYMENT (see WorkflowService.transition_challenge).
+    """
+    verify_project_membership(project_id=project_id, current_user=current_user, db=db)
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+    report = OutcomeReport(
+        project_id=project_id,
+        reported_by_user_id=current_user.id,
+        test_type=payload.test_type,
+        outcome=payload.outcome,
+        summary=payload.summary,
+        tested_at=payload.tested_at or utc_now()
+    )
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+    return OutcomeReportOut(
+        id=report.id, project_id=report.project_id, reported_by_user_id=report.reported_by_user_id,
+        reported_by_name=current_user.full_name, test_type=report.test_type, outcome=report.outcome,
+        summary=report.summary, tested_at=report.tested_at, created_at=report.created_at
+    )
+
+
+@router.get("/{project_id}/test-reports", response_model=List[OutcomeReportOut])
+def list_test_reports(
+    project_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    verify_project_membership(project_id=project_id, current_user=current_user, db=db)
+    reports = db.query(OutcomeReport).filter(OutcomeReport.project_id == project_id).order_by(OutcomeReport.tested_at.desc()).all()
+    return [
+        OutcomeReportOut(
+            id=r.id, project_id=r.project_id, reported_by_user_id=r.reported_by_user_id,
+            reported_by_name=r.reported_by.full_name if r.reported_by else None,
+            test_type=r.test_type, outcome=r.outcome, summary=r.summary,
+            tested_at=r.tested_at, created_at=r.created_at
+        ) for r in reports
+    ]
 
 
 # ------------------------------------------------------------------

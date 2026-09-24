@@ -1,0 +1,17 @@
+# Optional, off-by-default backend dependencies.
+#
+# `pip install -r backend/requirements.txt` alone is sufficient to run the full
+# application and test suite — nothing in this file is imported eagerly by any
+# module. Each package here is lazily imported only when its corresponding
+# feature flag / env var is actually set, and falls back safely if the package
+# isn't installed. Install this file only if you are wiring up the specific
+# integration.
+
+# Real virus scanning via a ClamAV daemon (set CLAMAV_HOST to enable).
+# See backend/app/services/storage_service.py::_scan_with_clamav_if_configured
+clamd>=1.0.2
+
+# Multilingual sentence embeddings for the optional semantic classification /
+# deduplication path (set AI_EMBEDDINGS_ENABLED=true to enable). See Phase 2,
+# item 10 of the credibility roadmap for the service that will lazily import this.
+sentence-transformers>=3.0.0

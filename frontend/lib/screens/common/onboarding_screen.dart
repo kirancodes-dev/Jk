@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 import 'login_screen.dart';
 
@@ -13,27 +14,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  final List<Map<String, dynamic>> _steps = [
+  List<Map<String, dynamic>> _steps(AppLocalizations loc) => [
     {
-      'step': 'STEP 01',
-      'title': 'Report Societal Challenges',
-      'desc': 'Citizens across Jharkhand report ground-level problems in water, agriculture, healthcare, and infrastructure with GPS location and photo/video evidence.',
+      'step': loc.obStep01Label,
+      'title': loc.obStep01Title,
+      'desc': loc.obStep01Desc,
       'icon': Icons.campaign_outlined,
       'color': AppTheme.primaryGreen,
     },
     {
-      'step': 'STEP 02',
-      'title': 'Connect with Universities & Industry',
-      'desc': 'The platform matches validated grassroots challenges with leading research institutions and industry CSR partners for funding, faculty mentorship, and lab facilities.',
+      'step': loc.obStep02Label,
+      'title': loc.obStep02Title,
+      'desc': loc.obStep02Desc,
       'icon': Icons.hub_outlined,
       'color': AppTheme.accentGold,
     },
     {
-      'step': 'STEP 03',
-      'title': 'Build & Track Real-World Solutions',
-      'desc': 'Multidisciplinary student innovators prototype, test, and deploy verified solutions with transparent 10-stage milestone tracking and quantifiable civic impact.',
+      'step': loc.obStep03Label,
+      'title': loc.obStep03Title,
+      'desc': loc.obStep03Desc,
       'icon': Icons.rocket_launch_outlined,
-      'color': Color(0xFF0284C7),
+      'color': const Color(0xFF0284C7),
     },
   ];
 
@@ -50,6 +51,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
+    final steps = _steps(loc);
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -67,18 +70,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: const Icon(Icons.account_balance, size: 16, color: AppTheme.primaryGreen),
             ),
             const SizedBox(width: 8),
-            const Text(
-              'SIP Jharkhand',
-              style: TextStyle(color: AppTheme.primaryGreen, fontSize: 14, fontWeight: FontWeight.bold),
+            Text(
+              loc.sipJharkhand,
+              style: const TextStyle(color: AppTheme.primaryGreen, fontSize: 14, fontWeight: FontWeight.bold),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: _finishOnboarding,
-            child: const Text(
-              'Skip',
-              style: TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.w600, fontSize: 13),
+            child: Text(
+              loc.skip,
+              style: const TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.w600, fontSize: 13),
             ),
           ),
           const SizedBox(width: 8),
@@ -91,9 +94,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: PageView.builder(
                 controller: _pageController,
                 onPageChanged: (idx) => setState(() => _currentPage = idx),
-                itemCount: _steps.length,
+                itemCount: steps.length,
                 itemBuilder: (context, index) {
-                  final step = _steps[index];
+                  final step = steps[index];
                   final Color stepColor = step['color'] as Color;
 
                   return Padding(
@@ -175,7 +178,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
-                      _steps.length,
+                      steps.length,
                       (index) => AnimatedContainer(
                         duration: const Duration(milliseconds: 300),
                         margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -209,7 +212,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            if (_currentPage < _steps.length - 1) {
+                            if (_currentPage < steps.length - 1) {
                               _pageController.nextPage(
                                 duration: const Duration(milliseconds: 300),
                                 curve: Curves.easeInOut,
@@ -222,7 +225,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                _currentPage == _steps.length - 1 ? 'Get Started' : 'Next',
+                                _currentPage == steps.length - 1 ? loc.getStarted : loc.onboardingNext,
                                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                               ),
                               const SizedBox(width: 8),

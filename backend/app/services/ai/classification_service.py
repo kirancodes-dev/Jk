@@ -7,9 +7,12 @@ from backend.app.services.ai.base import (
 )
 from backend.app.services.ai.multilingual_service import multilingual_service
 
-# Controlled Government of Jharkhand Societal Challenge Taxonomy
+# Controlled Government of Jharkhand Societal Challenge Taxonomy.
+# Keys match the canonical PS 26043 domain names in taxonomy_service.CANONICAL_DOMAINS
+# exactly. "Water Management" was the pre-alignment name for this domain; it remains
+# a resolvable alias (see TaxonomyService.LEGACY_ALIASES) for old category_hint values.
 CONTROLLED_TAXONOMY: Dict[str, List[str]] = {
-    "Water Management": ["water", "drinking", "shortage", "borewell", "well", "pipeline", "contamination", "fluoride", "arsenic", "irrigation", "groundwater", "tap", "jal", "drought", "canal", "handpump", "chapakal"],
+    "Water Resources": ["water", "drinking", "shortage", "borewell", "well", "pipeline", "contamination", "fluoride", "arsenic", "irrigation", "groundwater", "tap", "jal", "drought", "canal", "handpump", "chapakal"],
     "Agriculture": ["farmer", "crop", "pest", "soil", "harvest", "seeds", "fertilizer", "monsoon", "plant disease", "paddy", "mandi", "storage", "yield", "livestock", "vegetables", "khet", "kisan"],
     "Healthcare": ["hospital", "clinic", "doctor", "medicine", "malaria", "anemia", "maternal", "infant", "ambulance", "phc", "disease", "health", "nutrition", "vaccination", "aspataal"],
     "Education": ["school", "teacher", "student", "classroom", "books", "digital learning", "dropout", "literacy", "laboratory", "smart class", "midday meal", "attendance", "vidyalaya"],
@@ -115,10 +118,15 @@ class AIClassificationService(BaseClassifier):
         if resolved_hint and resolved_hint in CONTROLLED_TAXONOMY:
             domain_scores[resolved_hint] += 4
 
+        requires_human_review = False
         if not domain_scores:
-            domain = resolved_hint if resolved_hint in CONTROLLED_TAXONOMY else "Urban Infrastructure"
-            confidence = 0.70
-            explanation = f"Default fallback assignment to '{domain}' due to sparse keyword matches."
+            # No keyword signal and no resolvable category hint: do NOT guess a domain
+            # (previously defaulted to "Urban Infrastructure", which silently mis-routed
+            # unrelated submissions). Flag explicitly for a human reviewer instead.
+            domain = "Unclassified"
+            confidence = 0.30
+            requires_human_review = True
+            explanation = "No taxonomy keyword signals or resolvable category hint matched; flagged for human review instead of guessing a domain."
         else:
             top_match, score = domain_scores.most_common(1)[0]
             domain = top_match
@@ -137,6 +145,7 @@ class AIClassificationService(BaseClassifier):
             "keywords": keywords,
             "expertise": expertise,
             "solution": solution,
+            "requires_human_review": requires_human_review,
             "translated_title": norm_title,
             "translated_description": norm_desc,
         }

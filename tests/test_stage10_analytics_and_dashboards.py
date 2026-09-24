@@ -24,7 +24,9 @@ from backend.app.core.security import create_access_token
 from backend.app.models.models import (
     User, UserRole, Challenge, ChallengeLocation, ChallengeStatus,
     ChallengePriority, Project, University, IndustryPartner,
-    Student, District, ImpactMetrics, ExportJob, utc_now
+    Student, District, ImpactMetrics, ExportJob, utc_now,
+    IPRecord, IPRecordType, IPOwnership, IndustryCollaboration,
+    CollaborationOfferType, AgreementStatus
 )
 from backend.app.services.privacy_service import PrivacyRedactionService
 from backend.app.services.analytics_service import analytics_service
@@ -294,8 +296,11 @@ def test_why_this_number_source_reconciliation(db_session):
     assert "verification_level" in record
     assert record["verification_level"] == "REPORTED"
 
-    # Drill down into SLA breaches
-    res_sla = client.get("/api/v1/admin/analytics/drill-down?metric=sla_breaches&limit=10", headers=headers)
+    # Drill down into SLA breaches. This endpoint orders oldest-breach-first (for
+    # triage prioritization), and this shared test database accumulates SLA-breach
+    # fixtures across many prior test runs, so a large limit is required to reliably
+    # find our freshly created breach rather than asserting it lands in the first page.
+    res_sla = client.get("/api/v1/admin/analytics/drill-down?metric=sla_breaches&limit=5000", headers=headers)
     assert res_sla.status_code == 200, res_sla.text
     sla_data = res_sla.json()
     assert sla_data["total_records"] >= 1
@@ -401,3 +406,103 @@ def test_bounded_asynchronous_export_jobs(db_session):
     assert "Challenge ID" in header
     assert "Coarse Latitude" in header
     assert "Verification Level" in header
+
+
+def test_live_patent_startup_and_technology_transfer_kpis(db_session):
+    """
+    Patents Filed, Startups Incubated and Technology Transfers Completed must be computed
+    live from IPRecord / IndustryCollaboration state, never a seeded ImpactMetrics constant.
+    Creating one of each must be reflected in both the KPI value and its drill-down records.
+    """
+    state_admin = _get_or_create_user(
+        db_session, "state_admin_stage10@jharkhand.gov.in", UserRole.GOVERNMENT_ADMIN, admin_tier="STATE"
+    )
+
+    # Impact metrics must no longer carry hardcoded patent/startup constants.
+    assert db_session.query(ImpactMetrics).filter(ImpactMetrics.metric_name == "Patents Filed").first() is None
+    assert db_session.query(ImpactMetrics).filter(ImpactMetrics.metric_name == "Startups Incubated").first() is None
+
+    univ_user = _get_or_create_user(db_session, "s10_univ@edu.in", UserRole.UNIVERSITY)
+    univ = db_session.query(University).filter(University.user_id == univ_user.id).first()
+    if not univ:
+        univ = University(user_id=univ_user.id, institution_name="Stage10 Test Institute", district_name="Ranchi", is_active=True)
+        db_session.add(univ)
+        db_session.commit()
+        db_session.refresh(univ)
+
+    ind_user = _get_or_create_user(db_session, "s10_industry@corp.in", UserRole.INDUSTRY)
+    partner = db_session.query(IndustryPartner).filter(IndustryPartner.user_id == ind_user.id).first()
+    if not partner:
+        partner = IndustryPartner(user_id=ind_user.id, company_name="Stage10 Test Partner", industry_domain="Water Tech")
+        db_session.add(partner)
+        db_session.commit()
+        db_session.refresh(partner)
+
+    ch = Challenge(
+        title="Stage10 KPI Test Challenge", description="Verifies live innovation KPI computation end to end.",
+        category="Water Management", status=ChallengeStatus.RESOLVED
+    )
+    db_session.add(ch)
+    db_session.commit()
+    db_session.refresh(ch)
+    db_session.add(ChallengeLocation(challenge_id=ch.id, district_name="Ranchi", block_name="Kanke"))
+    db_session.commit()
+
+    proj = Project(challenge_id=ch.id, university_id=univ.id, name="Stage10 KPI Test Project", description="desc")
+    db_session.add(proj)
+    db_session.commit()
+    db_session.refresh(proj)
+
+    patent = IPRecord(
+        project_id=proj.id, record_type=IPRecordType.PATENT, title="Stage10 Test Patent",
+        ownership=IPOwnership.JOINT, status="APPROVED", created_by_user_id=univ_user.id
+    )
+    startup = IPRecord(
+        project_id=proj.id, record_type=IPRecordType.SOFTWARE, title="Stage10 Test Spin-off Software",
+        ownership=IPOwnership.JOINT, startup_spinoff_name="Stage10 Spinoff Pvt Ltd", status="APPROVED",
+        created_by_user_id=univ_user.id
+    )
+    db_session.add_all([patent, startup])
+    collab = IndustryCollaboration(
+        project_id=proj.id, industry_id=partner.id, offer_type=CollaborationOfferType.TECHNOLOGY_TRANSFER.value,
+        description="Stage10 test technology transfer", status="Completed", agreement_status=AgreementStatus.COMPLETED
+    )
+    db_session.add(collab)
+    db_session.commit()
+    db_session.refresh(patent)
+    db_session.refresh(startup)
+    db_session.refresh(collab)
+
+    headers = _auth_header(state_admin)
+    res = client.get("/api/v1/admin/dashboard", headers=headers)
+    assert res.status_code == 200, res.text
+    kpis = res.json()["kpis"]
+
+    for key in ("patents_filed", "startups_incubated", "technology_transfers_completed", "prototypes_developed", "pilots_deployed"):
+        assert key in kpis, f"Missing live innovation KPI: {key}"
+        assert kpis[key]["value"] >= 1
+        assert kpis[key]["verification_level"] == "VERIFIED"
+
+    innovation_breakdown = res.json().get("innovation_breakdown")
+    assert innovation_breakdown is not None
+    assert "Ranchi" in innovation_breakdown["by_district"]
+    assert innovation_breakdown["by_district"]["Ranchi"].get("patents_filed", 0) >= 1
+
+    # "Why this number" drill-downs must surface the exact records we just created.
+    dd_patents = client.get("/api/v1/admin/analytics/drill-down?metric=patents_filed", headers=headers).json()
+    assert patent.id in [r["record_id"] for r in dd_patents["records"]]
+
+    dd_startups = client.get("/api/v1/admin/analytics/drill-down?metric=startups_incubated", headers=headers).json()
+    assert startup.id in [r["record_id"] for r in dd_startups["records"]]
+
+    dd_tech = client.get("/api/v1/admin/analytics/drill-down?metric=technology_transfers_completed", headers=headers).json()
+    assert collab.id in [r["record_id"] for r in dd_tech["records"]]
+
+
+def test_hei_participating_drill_down_no_attribute_error(db_session):
+    """Regression: University has `.institution_name`/`.district_name`, not `.name`/`.district`."""
+    state_admin = _get_or_create_user(
+        db_session, "state_admin_stage10@jharkhand.gov.in", UserRole.GOVERNMENT_ADMIN, admin_tier="STATE"
+    )
+    res = client.get("/api/v1/admin/analytics/drill-down?metric=hei_participating", headers=_auth_header(state_admin))
+    assert res.status_code == 200, res.text

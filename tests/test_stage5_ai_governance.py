@@ -34,6 +34,7 @@ from backend.app.services.ai.matching_service import matching_service
 from backend.app.services.ai.multilingual_service import multilingual_service
 from backend.app.services.ai.queue_service import queue_service
 from backend.app.services.ai.evaluation_service import evaluation_service
+from backend.app.services.ai.embedding_service import EmbeddingService, embedding_service
 from backend.app.services.ai_service import ai_service
 from backend.app.core.security import create_access_token
 
@@ -95,14 +96,41 @@ def test_classifier_metadata_and_fallback_label():
     assert result.execution_time_ms >= 0
 
     output = result.output
-    assert output["domain"] == "Water Management"
+    assert output["domain"] == "Water Resources"
     assert output["confidence"] >= 0.75
     assert len(output["keywords"]) > 0
 
     # Test backwards-compatible tuple unpacking
     domain, conf, kw, exp, sol = result
-    assert domain == "Water Management"
+    assert domain == "Water Resources"
     assert conf >= 0.75
+
+
+def test_classifier_unmatched_text_flags_unclassified_not_urban_infrastructure():
+    """
+    Text with no taxonomy keyword signal and no resolvable category hint must be
+    labeled "Unclassified" with requires_human_review=True — never silently
+    defaulted to an arbitrary real domain like "Urban Infrastructure", which would
+    misroute the submission to the wrong university/department without anyone
+    noticing.
+    """
+    result = classification_service.classify(
+        title="xkq zzy plerm",
+        description="qbnf trzl wexo ffgh"
+    )
+    assert result.output["domain"] == "Unclassified"
+    assert result.output["requires_human_review"] is True
+    assert result.output["confidence"] < 0.5
+
+    # A resolvable category hint still avoids the "Unclassified" fallback even
+    # when the free text itself has no keyword signal.
+    hinted = classification_service.classify(
+        title="xkq zzy plerm",
+        description="qbnf trzl wexo ffgh",
+        category_hint="Water Resources"
+    )
+    assert hinted.output["domain"] == "Water Resources"
+    assert hinted.output["requires_human_review"] is False
 
 
 # =========================================================================
@@ -120,9 +148,9 @@ def test_multilingual_devanagari_hindi_detection_and_classification():
     assert meta["requires_human_language_review"] is False
     assert "water" in meta["translated_title"].lower() or "handpump" in meta["translated_title"].lower()
 
-    # Verify classifier properly maps the normalized concepts to Water Management
+    # Verify classifier properly maps the normalized concepts to Water Resources
     result = classification_service.classify(hindi_title, hindi_desc)
-    assert result.output["domain"] == "Water Management"
+    assert result.output["domain"] == "Water Resources"
     assert result.detected_language == "hi"
 
 def test_multilingual_low_confidence_flagged_for_human_review():
@@ -172,6 +200,37 @@ def test_custom_priority_weights_override(db_session: Session):
         db=db_session
     )
     assert result_low_pop.output["priority"] == ChallengePriority.LOW
+
+
+def test_aspirational_district_vulnerability_matches_niti_aayog_list(db_session: Session):
+    """
+    Jharkhand has 19 (of 24) NITI Aayog Aspirational Districts. Previously only 13
+    were recognised and "Sahebganj" was misspelled "sahibganj" (never matching the
+    seeded district name). District.is_aspirational is now authoritative when a DB
+    session is available; newly-added districts like Chatra, Deoghar, Giridih,
+    Jamtara, Koderma, and Saraikela Kharsawan must now score as aspirational, and
+    non-aspirational districts like Ranchi must not.
+    """
+    for district_name in ["Chatra", "Deoghar", "Giridih", "Jamtara", "Koderma", "Saraikela Kharsawan", "Sahebganj"]:
+        result = priority_service.calculate_priority(
+            title="Localized infrastructure delay report",
+            description="Routine maintenance backlog reported by field officer.",
+            urgency="Medium",
+            affected_population=200,
+            district_name=district_name,
+            db=db_session
+        )
+        assert result.output["breakdown"]["scores"]["vulnerability_score"] == 85.0, district_name
+
+    result_non_aspirational = priority_service.calculate_priority(
+        title="Localized infrastructure delay report",
+        description="Routine maintenance backlog reported by field officer.",
+        urgency="Medium",
+        affected_population=200,
+        district_name="Ranchi",
+        db=db_session
+    )
+    assert result_non_aspirational.output["breakdown"]["scores"]["vulnerability_score"] == 50.0
 
 
 # =========================================================================
@@ -457,3 +516,63 @@ def test_offline_benchmark_and_drift_apis(client: TestClient, reviewer_token: st
     assert "total_human_overrides" in drift
     assert "overall_override_rate" in drift
     assert drift["drift_status"] in ["STABLE", "MODERATE_DRIFT", "CRITICAL_DRIFT"]
+
+
+# =========================================================================
+# 8. Optional multilingual embeddings (Phase 2, Item 10) — off by default,
+#    rule-based fallback kept
+# =========================================================================
+
+def test_embedding_service_disabled_by_default_fails_safe_to_none():
+    """
+    Without AI_EMBEDDINGS_ENABLED=true, embedding_service must report
+    unavailable and never attempt to import sentence-transformers.
+    """
+    assert embedding_service.is_available() is False
+    assert embedding_service.semantic_similarity("water shortage", "water crisis") is None
+
+
+def test_embedding_service_enabled_without_package_still_fails_safe(monkeypatch):
+    """
+    Even with the feature flag on, if sentence-transformers isn't installed
+    (this test environment's plain `pip install -r requirements.txt`), the
+    service must fail safe to None rather than raising — callers keep using
+    the deterministic bag-of-words similarity in that case.
+    """
+    from backend.app.core.config import settings
+    monkeypatch.setattr(settings, "AI_EMBEDDINGS_ENABLED", True)
+    fresh_service = EmbeddingService()
+    assert fresh_service.semantic_similarity("water shortage", "water crisis") is None
+
+
+def test_deduplication_uses_rule_based_similarity_method_by_default(db_session: Session, test_reviewer: User):
+    """
+    find_duplicates must label its similarity signal as the deterministic
+    bag-of-words method when embeddings are disabled (the default), never
+    silently claiming a real embedding was used.
+    """
+    ch1 = Challenge(
+        title="Severe drinking water shortage in Ranchi village",
+        description="Villagers have no access to clean drinking water for weeks.",
+        category="Water Resources",
+        priority=ChallengePriority.HIGH,
+        status=ChallengeStatus.SUBMITTED,
+        submitted_by_user_id=test_reviewer.id,
+        affected_population=300
+    )
+    db_session.add(ch1)
+    db_session.flush()
+    db_session.add(ChallengeLocation(challenge_id=ch1.id, district_name="Ranchi", block_name="Namkum"))
+    db_session.commit()
+
+    results = deduplication_service.find_duplicates(
+        db=db_session,
+        title="Drinking water shortage in Ranchi village",
+        description="No access to clean drinking water for weeks in the village.",
+        category="Water Resources",
+        district_name="Ranchi",
+        block_name="Namkum",
+        exclude_id=999999
+    )
+    assert len(results) > 0
+    assert all(r["text_similarity_method"] == "BAG_OF_WORDS_RULE_BASED" for r in results)

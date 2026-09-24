@@ -46,12 +46,35 @@ class Settings(BaseSettings):
     STORAGE_TYPE: str = os.getenv("STORAGE_TYPE", "local").lower()
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "uploads")
     MAX_UPLOAD_SIZE_BYTES: int = int(os.getenv("MAX_UPLOAD_SIZE_BYTES", str(15 * 1024 * 1024)))  # Default 15 MB
-    ALLOWED_UPLOAD_EXTENSIONS: List[str] = [".jpg", ".jpeg", ".png", ".pdf", ".mp4", ".doc", ".docx"]
+    # .m4a/.wav/.webm/.mp3 support real citizen voice-note evidence attachments
+    # (see report_challenge_screen.dart's voice recorder); detected and validated
+    # by real magic-byte signatures in storage_service.py, same as every other type.
+    ALLOWED_UPLOAD_EXTENSIONS: List[str] = [".jpg", ".jpeg", ".png", ".pdf", ".mp4", ".doc", ".docx", ".m4a", ".wav", ".webm", ".mp3"]
     ALLOWED_MIME_TYPES: List[str] = [
-        "image/jpeg", "image/png", "application/pdf", 
-        "video/mp4", "application/msword", 
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        "image/jpeg", "image/png", "application/pdf",
+        "video/mp4", "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "audio/mp4", "audio/wav", "audio/webm", "audio/mpeg"
     ]
+    # Optional ClamAV daemon integration for real virus scanning (off by default).
+    # When unset, uploads fall back to the basic EICAR-string + dangerous-magic-byte
+    # signature check in storage_service.py — this is documented, not hidden, in the
+    # scan_status recorded on each attachment ("CLEAN" vs "CLEAN_BASIC_CHECK_ONLY").
+    CLAMAV_HOST: Optional[str] = os.getenv("CLAMAV_HOST", None)
+    CLAMAV_PORT: int = int(os.getenv("CLAMAV_PORT", "3310"))
+
+    # Optional real payment/finance settlement integration for CSR funding release
+    # (off by default). See backend/app/services/finance_integration_service.py —
+    # without this set, funds are never marked payment_confirmed.
+    FINANCE_INTEGRATION_PROVIDER: Optional[str] = os.getenv("FINANCE_INTEGRATION_PROVIDER", None)
+
+    # Optional real multilingual sentence-embedding similarity for deduplication
+    # (off by default). See backend/app/services/ai/embedding_service.py — without
+    # this enabled (and sentence-transformers installed), similarity scoring stays
+    # on the deterministic bag-of-words rule-based fallback everywhere.
+    AI_EMBEDDINGS_ENABLED: bool = os.getenv("AI_EMBEDDINGS_ENABLED", "false").lower() == "true"
+    AI_EMBEDDINGS_MODEL_NAME: str = os.getenv("AI_EMBEDDINGS_MODEL_NAME", "paraphrase-multilingual-MiniLM-L12-v2")
+
     AWS_ACCESS_KEY_ID: Optional[str] = os.getenv("AWS_ACCESS_KEY_ID", None)
     AWS_SECRET_ACCESS_KEY: Optional[str] = os.getenv("AWS_SECRET_ACCESS_KEY", None)
     AWS_REGION: Optional[str] = os.getenv("AWS_REGION", "ap-south-1")

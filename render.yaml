@@ -1,0 +1,72 @@
+# Render.com Blueprint for SIH 2026 Portal (PS 26043).
+#
+# This is a simpler, faster-to-stand-up alternative to the AWS ECS/RDS path
+# documented in DEPLOYMENT.md — suited for a demo/evaluation deployment or a
+# small production pilot. It builds the same root-level `Dockerfile` used
+# everywhere else in this repo (no separate deployment-only image).
+#
+# IMPORTANT — this Blueprint alone is not enough to reach a running service:
+# backend/app/core/config.py fails closed in ENVIRONMENT=production unless
+# STORAGE_TYPE=s3 with real AWS credentials, ALLOWED_CORS_ORIGINS is set to
+# explicit (non-wildcard) origins, and SMTP_FROM_EMAIL is a real departmental
+# address. Every env var below marked `sync: false` must be filled in via the
+# Render dashboard before the service will start — see DEPLOYMENT.md ("Render
+# Deployment (Blueprint)") for the exact checklist. Nothing here bakes a
+# secret into the repository.
+
+databases:
+  - name: sih-jharkhand-postgres
+    databaseName: sih_jharkhand
+    plan: starter
+    region: singapore
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: sih-jharkhand-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: singapore
+    healthCheckPath: /live
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sih-jharkhand-postgres
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEMO_MODE
+        value: "false"
+      - key: STORAGE_TYPE
+        value: s3
+      # Must be filled in manually — see DEPLOYMENT.md. Fails closed without these.
+      - key: ALLOWED_CORS_ORIGINS
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      # Optional integrations — leave unset to keep the documented "simulated"/
+      # "off by default" behavior (basic-signature malware scan, SIMULATED_SMS,
+      # NOT_CONFIGURED finance settlement, rule-based-only AI).
+      - key: CLAMAV_HOST
+        sync: false
+      - key: FINANCE_INTEGRATION_PROVIDER
+        sync: false
+      - key: AI_EMBEDDINGS_ENABLED
+        value: "false"

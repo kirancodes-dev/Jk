@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
@@ -13,6 +14,7 @@ class AIAnalysisScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.current;
     final ai = challengeDetail['ai_analysis'] ?? {};
     final univMatches = challengeDetail['university_matches'] as List? ?? [];
     final similar = challengeDetail['similar_challenges'] as List? ?? [];
@@ -41,9 +43,9 @@ class AIAnalysisScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: const SIPAppBar(
-        title: 'AI Diagnostic Assessment',
-        subtitle: 'State Decision-Support & Governance Pipeline',
+      appBar: SIPAppBar(
+        title: loc.aiDiagnosticAssessmentTitle,
+        subtitle: loc.governancePipelineSubtitle,
         showEmblem: true,
       ),
       body: SingleChildScrollView(
@@ -90,9 +92,9 @@ class AIAnalysisScreen extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                const Text(
-                                  'AI Decision-Support Triage',
-                                  style: TextStyle(
+                                Text(
+                                  loc.aiDecisionSupportTriage,
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
@@ -105,7 +107,7 @@ class AIAnalysisScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Model: $modelName v$modelVer ($execTime ms)',
+                              loc.modelVersionExecText(modelName, modelVer, execTime),
                               style: const TextStyle(color: Colors.white70, fontSize: 12),
                             ),
                           ],
@@ -135,8 +137,8 @@ class AIAnalysisScreen extends StatelessWidget {
                         Expanded(
                           child: Text(
                             isFallback
-                                ? 'Deterministic Rule-Based Fallback (Calibrated Baseline)'
-                                : 'Validated Machine Learning Inference Pipeline',
+                                ? loc.fallbackBadgeText
+                                : loc.mlBadgeText,
                             style: TextStyle(
                               color: isFallback ? Colors.amber.shade200 : Colors.teal.shade200,
                               fontSize: 11,
@@ -161,9 +163,9 @@ class AIAnalysisScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'AUTOMATED CLASSIFICATION & TRIAGE',
-                        style: TextStyle(
+                      Text(
+                        loc.automatedClassificationTitle,
+                        style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.textSecondary,
@@ -177,7 +179,7 @@ class AIAnalysisScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'Lang: ${lang.toUpperCase()} ($langConf%)',
+                          loc.langConfText(lang, langConf),
                           style: TextStyle(fontSize: 11, color: Colors.blue.shade800, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -190,7 +192,7 @@ class AIAnalysisScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Classified Domain', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                            Text(loc.classifiedDomainLabel, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                             const SizedBox(height: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -223,7 +225,7 @@ class AIAnalysisScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Evaluated Priority', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                            Text(loc.evaluatedPriorityLabel, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
                             const SizedBox(height: 6),
                             StatusBadge(label: priority, type: StatusBadgeType.priority),
                           ],
@@ -252,7 +254,7 @@ class AIAnalysisScreen extends StatelessWidget {
             const SizedBox(height: 20),
 
             // Keywords Section
-            const SectionHeader(title: 'Extracted Semantic Keywords'),
+            SectionHeader(title: loc.extractedKeywordsTitle),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
@@ -282,7 +284,7 @@ class AIAnalysisScreen extends StatelessWidget {
             const SizedBox(height: 22),
 
             // Required Expertise
-            const SectionHeader(title: 'Multidisciplinary Expertise Needed'),
+            SectionHeader(title: loc.multidisciplinaryExpertiseTitle),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
@@ -312,7 +314,7 @@ class AIAnalysisScreen extends StatelessWidget {
             const SizedBox(height: 22),
 
             // AI Proposed Approach
-            const SectionHeader(title: 'AI Proposed Technical Approach'),
+            SectionHeader(title: loc.aiProposedApproachTitle),
             const SizedBox(height: 10),
             SIPCard(
               backgroundColor: const Color(0xFFFFFBEB),
@@ -342,8 +344,8 @@ class AIAnalysisScreen extends StatelessWidget {
             // Similar Challenges (Duplicate detection)
             if (similar.isNotEmpty) ...[
               SectionHeader(
-                title: 'Duplicate & Ground Correlation',
-                trailing: Text('${similar.length} related candidates', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                title: loc.duplicateGroundCorrelationTitle,
+                trailing: Text(loc.relatedCandidatesText(similar.length), style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
               const SizedBox(height: 10),
               ...similar.map((s) => Padding(
@@ -373,7 +375,7 @@ class AIAnalysisScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${s['district_name']} • Status: ${s['status']}',
+                                  loc.districtStatusText(s['district_name'], s['status']),
                                   style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
                                 ),
                               ],
@@ -387,7 +389,7 @@ class AIAnalysisScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              '${s['similarity_score']}% Match',
+                              loc.matchPercentText(s['similarity_score']),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -403,9 +405,9 @@ class AIAnalysisScreen extends StatelessWidget {
             ],
 
             // Recommended Universities
-            const SectionHeader(
-              title: 'Recommended Verified Academic Institutions',
-              trailing: Text('Advisory ranking', style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+            SectionHeader(
+              title: loc.recommendedInstitutionsTitle,
+              trailing: Text(loc.advisoryRanking, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
             ),
             const SizedBox(height: 10),
             if (univMatches.isNotEmpty)
@@ -460,7 +462,7 @@ class AIAnalysisScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
-                                '$matchPct% Fit',
+                                loc.fitPercentText(matchPct),
                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                               ),
                             ),
@@ -482,9 +484,9 @@ class AIAnalysisScreen extends StatelessWidget {
                 );
               })
             else
-              const SIPCard(
-                padding: EdgeInsets.all(16),
-                child: Text('Matching universities initialized.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              SIPCard(
+                padding: const EdgeInsets.all(16),
+                child: Text(loc.matchingUniversitiesInitialized, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
               ),
             const SizedBox(height: 20),
 
@@ -496,14 +498,14 @@ class AIAnalysisScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey.shade300),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.gavel, size: 16, color: AppTheme.textSecondary),
-                  SizedBox(width: 8),
+                  const Icon(Icons.gavel, size: 16, color: AppTheme.textSecondary),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Human-in-the-Loop Policy: AI assessments are advisory decision-support. Formal domain validation and institutional assignment require administrative review.',
-                      style: TextStyle(fontSize: 11, color: AppTheme.textSecondary, height: 1.3),
+                      loc.humanInLoopPolicyText,
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary, height: 1.3),
                     ),
                   ),
                 ],
@@ -517,9 +519,9 @@ class AIAnalysisScreen extends StatelessWidget {
               height: 50,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.check_circle_outline, size: 20),
-                label: const Text(
-                  'Confirm & View Tracking Timeline',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                label: Text(
+                  loc.confirmAndViewTracking,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 onPressed: () {
                   Navigator.pushReplacement(

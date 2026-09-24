@@ -1321,4 +1321,46 @@ class ApiService {
     }
     throw Exception('Failed to cleanup old notifications (${res.statusCode})');
   }
+
+  // ---------------- DPDP Privacy & Citizen Data Rights ----------------
+
+  static Future<Map<String, dynamic>> getPrivacyNotices() async {
+    final res = await http.get(Uri.parse('$baseUrl/privacy/notices'), headers: _headers);
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to load privacy notices (${res.statusCode})');
+  }
+
+  static Future<Map<String, dynamic>> exportMyData() async {
+    final res = await http.get(Uri.parse('$baseUrl/privacy/my-data'), headers: _headers);
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to export personal data (${res.statusCode})');
+  }
+
+  static Future<Map<String, dynamic>> correctMyData(Map<String, dynamic> payload) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/privacy/correct-data'),
+      headers: _headers,
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception(jsonDecode(res.body)['detail']?.toString() ?? 'Failed to correct personal data (${res.statusCode})');
+  }
+
+  static Future<Map<String, dynamic>> requestDataErasure(String reason, bool confirmation) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/privacy/request-erasure'),
+      headers: _headers,
+      body: jsonEncode({'reason': reason, 'confirmation': confirmation}),
+    );
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception(jsonDecode(res.body)['detail']?.toString() ?? 'Failed to request data erasure (${res.statusCode})');
+  }
 }
