@@ -425,6 +425,19 @@ class ApiService {
     return {'faculty': [], 'students': []};
   }
 
+  static Future<List<Map<String, dynamic>>> getRecommendedFaculty(int universityId, int challengeId) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/universities/$universityId/recommended-faculty?challenge_id=$challengeId'),
+      headers: _headers,
+    );
+    if (res.statusCode == 200) {
+      final body = jsonDecode(res.body);
+      final List list = body['recommended_faculty'] ?? [];
+      return list.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
   static Future<void> acceptChallenge(int challengeId) async {
     final res = await http.post(Uri.parse('$baseUrl/universities/accept-challenge/$challengeId'), headers: _headers);
     if (res.statusCode != 200) throw Exception('Accept failed');

@@ -104,93 +104,273 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
     }
   }
 
-  void _showAssignDialog(Challenge ch) {
-    int? selectedUnivId = _universities.isNotEmpty ? _universities.first['id'] : 1;
+  Future<void> _showAssignDialog(Challenge ch) async {
+    List<Map<String, dynamic>> matches = [];
+    try {
+      final detail = await ApiService.getChallengeDetail(ch.id);
+      final raw = (detail['university_matches'] as List?) ?? [];
+      matches = raw.cast<Map<String, dynamic>>();
+      matches.sort((a, b) => ((a['ranking'] ?? 999) as num).compareTo((b['ranking'] ?? 999) as num));
+    } catch (_) {}
+
+    int? selectedUnivId = matches.isNotEmpty
+        ? matches.first['university_id'] as int?
+        : (_universities.isNotEmpty ? _universities.first['id'] as int? : null);
+
+    List<Map<String, dynamic>> recommendedFaculty = [];
+    if (selectedUnivId != null) {
+      try {
+        recommendedFaculty = await ApiService.getRecommendedFaculty(selectedUnivId, ch.id);
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.school_rounded, color: AppTheme.primaryGreen, size: 22),
-              SizedBox(width: 10),
-              Text('Assign Nodal Institution', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Text(
-                  ch.title,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<int>(
-                value: selectedUnivId,
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Nodal Higher Education Institution',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-                items: _universities
-                    .map((u) => DropdownMenuItem<int>(
-                          value: u['id'],
-                          child: Text(
-                            u['institution_name'] ?? 'University',
-                            style: const TextStyle(fontSize: 12),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ))
-                    .toList(),
-                onChanged: (v) => setDlgState(() => selectedUnivId = v),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryGreen,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () async {
-                Navigator.pop(ctx);
-                if (selectedUnivId == null) return;
-                try {
-                  await ApiService.assignUniversity(ch.id, selectedUnivId!);
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('University assigned successfully!'),
-                      backgroundColor: AppTheme.success,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                  _load();
-                } catch (e) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error, behavior: SnackBarBehavior.floating),
-                  );
-                }
-              },
-              child: const Text('Assign Challenge'),
+        builder: (context, setDlgState) {
+          Future<void> onSelectUniv(int? univId) async {
+            setDlgState(() {
+              selectedUnivId = univId;
+              recommendedFaculty = [];
+            });
+            if (univId == null) return;
+            try {
+              final fac = await ApiService.getRecommendedFaculty(univId, ch.id);
+              setDlgState(() => recommendedFaculty = fac);
+            } catch (_) {}
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.school_rounded, color: AppTheme.primaryGreen, size: 22),
+                SizedBox(width: 10),
+                Text('Assign Nodal Institution', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
             ),
-          ],
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Text(
+                        ch.title,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (matches.isNotEmpty) ...[
+                      const Row(
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, size: 15, color: AppTheme.accentGold),
+                          SizedBox(width: 6),
+                          Text('AI-Ranked Matches', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                        ],
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2, bottom: 8),
+                        child: Text(
+                          'Recommendation only — the officer makes the final decision.',
+                          style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                      ...matches.map((m) => _buildUniversityMatchTile(m, selectedUnivId, onSelectUniv)),
+                    ] else ...[
+                      const Text(
+                        'No AI match data yet for this challenge — choose manually.',
+                        style: TextStyle(fontSize: 11, color: AppTheme.textMuted, fontStyle: FontStyle.italic),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<int>(
+                        initialValue: selectedUnivId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Nodal Higher Education Institution',
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        items: _universities
+                            .map((u) => DropdownMenuItem<int>(
+                                  value: u['id'],
+                                  child: Text(
+                                    u['institution_name'] ?? 'University',
+                                    style: const TextStyle(fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ))
+                            .toList(),
+                        onChanged: onSelectUniv,
+                      ),
+                    ],
+                    if (selectedUnivId != null && recommendedFaculty.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      const Row(
+                        children: [
+                          Icon(Icons.person_search_rounded, size: 15, color: AppTheme.primaryGreen),
+                          SizedBox(width: 6),
+                          Text('Top Recommended Faculty', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _buildFacultyTile(recommendedFaculty.first),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  final univId = selectedUnivId;
+                  if (univId == null) return;
+                  try {
+                    await ApiService.assignUniversity(ch.id, univId);
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('University assigned successfully!'),
+                        backgroundColor: AppTheme.success,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                    _load();
+                  } catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString()), backgroundColor: AppTheme.error, behavior: SnackBarBehavior.floating),
+                    );
+                  }
+                },
+                child: const Text('Assign Challenge'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildUniversityMatchTile(Map<String, dynamic> match, int? selectedUnivId, ValueChanged<int?> onSelect) {
+    final univId = match['university_id'] as int?;
+    final isSelected = univId == selectedUnivId;
+    final pct = (match['match_percentage'] as num?)?.toDouble() ?? 0.0;
+    final Color pctColor = pct >= 85 ? AppTheme.success : (pct >= 65 ? AppTheme.accentGold : AppTheme.textMuted);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => onSelect(univId),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primaryGreen.withOpacity(0.06) : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: isSelected ? AppTheme.primaryGreen : Colors.grey.shade200, width: isSelected ? 1.5 : 1),
+          ),
+          child: Row(
+            children: [
+              Radio<int>(
+                value: univId ?? -1,
+                groupValue: selectedUnivId,
+                onChanged: onSelect,
+                activeColor: AppTheme.primaryGreen,
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      match['institution_name'] ?? 'University',
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (match['district_name'] != null)
+                      Text(match['district_name'], style: const TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
+                    if ((match['matching_factors'] as String?)?.isNotEmpty == true)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          match['matching_factors'],
+                          style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondary),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: pctColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                child: Text(
+                  '${pct.toStringAsFixed(0)}%',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: pctColor),
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFacultyTile(Map<String, dynamic> faculty) {
+    final pct = (faculty['match_percentage'] as num?)?.toDouble() ?? 0.0;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.successBg.withOpacity(0.4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(radius: 16, backgroundColor: AppTheme.primaryGreen, child: Icon(Icons.person, color: Colors.white, size: 16)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${faculty['name'] ?? 'Faculty'} · ${pct.toStringAsFixed(0)}% match',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                ),
+                if (faculty['department'] != null)
+                  Text(faculty['department'], style: const TextStyle(fontSize: 10.5, color: AppTheme.textMuted)),
+                if ((faculty['matching_factors'] as String?)?.isNotEmpty == true)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      faculty['matching_factors'],
+                      style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondary),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
