@@ -29,14 +29,46 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
   final List<Map<String, dynamic>> _deliverables = [];
   bool _isUploadingDeliverable = false;
   final Map<int, bool> _uploadingEvidenceForMilestone = {};
+  List<Map<String, dynamic>> _testReports = [];
+  bool _isLoadingTestReports = false;
+  bool _isSubmittingTestReport = false;
+  List<Map<String, dynamic>> _ipRecords = [];
+  bool _isLoadingIpRecords = false;
+  bool _isSubmittingIpRecord = false;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 8, vsync: this);
+    _tabController = TabController(length: 10, vsync: this);
     _loadProject();
     _loadVerifications();
     _loadExtras();
+    _loadTestReports();
+    _loadIpRecords();
+  }
+
+  Future<void> _loadTestReports() async {
+    setState(() => _isLoadingTestReports = true);
+    try {
+      final reports = await ApiService.getTestReports(widget.projectId);
+      if (!mounted) return;
+      setState(() => _testReports = reports);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isLoadingTestReports = false);
+    }
+  }
+
+  Future<void> _loadIpRecords() async {
+    setState(() => _isLoadingIpRecords = true);
+    try {
+      final records = await ApiService.getIpRecords(widget.projectId);
+      if (!mounted) return;
+      setState(() => _ipRecords = records);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isLoadingIpRecords = false);
+    }
   }
 
   Future<void> _loadExtras() async {
@@ -653,6 +685,8 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
             Tab(text: 'Team & Invitations'),
             Tab(text: 'Tasks'),
             Tab(text: 'Industry & CSR'),
+            Tab(text: 'Testing Outcomes'),
+            Tab(text: 'Intellectual Property'),
             Tab(text: 'Field Verification'),
           ],
         ),
@@ -681,7 +715,13 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
           // TAB 7: INDUSTRY & CSR
           _buildIndustryTab(collabs),
 
-          // TAB 8: FIELD VERIFICATION
+          // TAB 8: TESTING OUTCOMES
+          _buildTestOutcomesTab(),
+
+          // TAB 9: INTELLECTUAL PROPERTY
+          _buildIpTab(),
+
+          // TAB 10: FIELD VERIFICATION
           _buildVerificationTab(),
         ],
       ),
@@ -1550,6 +1590,413 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
           ),
         );
       },
+    );
+  }
+
+  static const Map<String, Color> _outcomeColors = {
+    'PASS': AppTheme.success,
+    'PARTIAL': AppTheme.accentGold,
+    'FAIL': AppTheme.error,
+  };
+
+  Future<void> _showAddTestReportDialog() async {
+    String testType = 'FIELD';
+    String outcome = 'PASS';
+    final summaryCtrl = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Record Test Outcome'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Test Type', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                DropdownButtonFormField<String>(
+                  initialValue: testType,
+                  items: const [
+                    DropdownMenuItem(value: 'LAB', child: Text('Lab')),
+                    DropdownMenuItem(value: 'FIELD', child: Text('Field')),
+                    DropdownMenuItem(value: 'USER_TRIAL', child: Text('User Trial')),
+                  ],
+                  onChanged: (v) => setDialogState(() => testType = v ?? testType),
+                ),
+                const SizedBox(height: 12),
+                const Text('Outcome', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                DropdownButtonFormField<String>(
+                  initialValue: outcome,
+                  items: const [
+                    DropdownMenuItem(value: 'PASS', child: Text('Pass')),
+                    DropdownMenuItem(value: 'PARTIAL', child: Text('Partial')),
+                    DropdownMenuItem(value: 'FAIL', child: Text('Fail')),
+                  ],
+                  onChanged: (v) => setDialogState(() => outcome = v ?? outcome),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: summaryCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Summary (min 10 characters)', border: OutlineInputBorder()),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (summaryCtrl.text.trim().length < 10) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Summary must be at least 10 characters.'), backgroundColor: AppTheme.error),
+                  );
+                  return;
+                }
+                try {
+                  await ApiService.createTestReport(widget.projectId, {
+                    'test_type': testType,
+                    'outcome': outcome,
+                    'summary': summaryCtrl.text.trim(),
+                  });
+                  if (context.mounted) Navigator.pop(ctx);
+                  await _loadTestReports();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('✓ Test outcome recorded.'), backgroundColor: AppTheme.success),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: AppTheme.error),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _attachTestReportEvidence(int reportId) async {
+    try {
+      final files = await AppFilePicker.pickFiles(allowMultiple: false, allowedExtensions: ['pdf', 'jpg', 'png', 'docx', 'mp4']);
+      if (files.isEmpty || files.first.bytes.isEmpty) return;
+      await ApiService.uploadTestReportEvidence(widget.projectId, reportId, files.first.bytes, files.first.name);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✓ Evidence attached to test report.'), backgroundColor: AppTheme.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Evidence upload failed: ${e.toString()}'), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  Widget _buildTestOutcomesTab() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Structured field/lab/user-trial outcomes. At least one PASS/PARTIAL result is required before this project\'s challenge can move to Deployment.',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: _showAddTestReportDialog,
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Add', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _isLoadingTestReports
+              ? const Center(child: CircularProgressIndicator())
+              : _testReports.isEmpty
+                  ? const Center(
+                      child: EmptyStateView(
+                        icon: Icons.fact_check_outlined,
+                        title: 'No testing outcomes recorded yet',
+                        description: 'Record a lab, field, or user-trial result before requesting deployment.',
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      itemCount: _testReports.length,
+                      itemBuilder: (context, index) {
+                        final r = _testReports[index];
+                        final outcome = (r['outcome'] ?? 'PASS').toString().toUpperCase();
+                        final color = _outcomeColors[outcome] ?? AppTheme.textSecondary;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: SIPCard(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      (r['test_type'] ?? 'FIELD').toString().replaceAll('_', ' '),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                                      child: Text(outcome, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(r['summary'] ?? '', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary, height: 1.4)),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'By ${r['reported_by_name'] ?? 'Team member'} • ${(r['tested_at'] ?? '').toString().split('T').first}',
+                                      style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () => _attachTestReportEvidence(r['id']),
+                                      icon: const Icon(Icons.attach_file, size: 14),
+                                      label: const Text('Attach Evidence', style: TextStyle(fontSize: 11)),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showAddIpRecordDialog() async {
+    String recordType = 'PATENT';
+    String ownership = 'JOINT';
+    final titleCtrl = TextEditingController();
+    final patentRefCtrl = TextEditingController();
+    final startupNameCtrl = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Add Intellectual Property Record'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Type', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                DropdownButtonFormField<String>(
+                  initialValue: recordType,
+                  items: const [
+                    DropdownMenuItem(value: 'PATENT', child: Text('Patent')),
+                    DropdownMenuItem(value: 'SOFTWARE', child: Text('Software')),
+                    DropdownMenuItem(value: 'DESIGN', child: Text('Design')),
+                  ],
+                  onChanged: (v) => setDialogState(() => recordType = v ?? recordType),
+                ),
+                const SizedBox(height: 12),
+                TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder())),
+                const SizedBox(height: 12),
+                const Text('Ownership', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                DropdownButtonFormField<String>(
+                  initialValue: ownership,
+                  items: const [
+                    DropdownMenuItem(value: 'UNIVERSITY', child: Text('University')),
+                    DropdownMenuItem(value: 'INDUSTRY', child: Text('Industry')),
+                    DropdownMenuItem(value: 'JOINT', child: Text('Joint')),
+                    DropdownMenuItem(value: 'GOVERNMENT', child: Text('Government')),
+                    DropdownMenuItem(value: 'INVENTOR', child: Text('Inventor')),
+                  ],
+                  onChanged: (v) => setDialogState(() => ownership = v ?? ownership),
+                ),
+                const SizedBox(height: 12),
+                TextField(controller: patentRefCtrl, decoration: const InputDecoration(labelText: 'Patent Reference (optional)', border: OutlineInputBorder())),
+                const SizedBox(height: 12),
+                TextField(controller: startupNameCtrl, decoration: const InputDecoration(labelText: 'Startup Spin-off Name (optional)', border: OutlineInputBorder())),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                if (titleCtrl.text.trim().length < 3) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Title must be at least 3 characters.'), backgroundColor: AppTheme.error),
+                  );
+                  return;
+                }
+                try {
+                  await ApiService.createIpRecord(widget.projectId, {
+                    'record_type': recordType,
+                    'title': titleCtrl.text.trim(),
+                    'ownership': ownership,
+                    if (patentRefCtrl.text.trim().isNotEmpty) 'patent_reference': patentRefCtrl.text.trim(),
+                    if (startupNameCtrl.text.trim().isNotEmpty) 'startup_spinoff_name': startupNameCtrl.text.trim(),
+                  });
+                  if (context.mounted) Navigator.pop(ctx);
+                  await _loadIpRecords();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('✓ IP record added.'), backgroundColor: AppTheme.success),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: AppTheme.error),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _respondToIpConsent(int ipId, String decision) async {
+    try {
+      await ApiService.respondIpConsent(widget.projectId, ipId, decision);
+      await _loadIpRecords();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(decision == 'ACCEPTED' ? '✓ Consent recorded.' : 'Consent declined.'), backgroundColor: AppTheme.success),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: AppTheme.error),
+        );
+      }
+    }
+  }
+
+  Widget _buildIpTab() {
+    final currentUserId = context.watch<AuthProvider>().currentUser?.id;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Patents, software, and design outcomes from this project, with multi-party consent tracking.',
+                  style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: _showAddIpRecordDialog,
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Add', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _isLoadingIpRecords
+              ? const Center(child: CircularProgressIndicator())
+              : _ipRecords.isEmpty
+                  ? const Center(
+                      child: EmptyStateView(
+                        icon: Icons.lightbulb_outline,
+                        title: 'No intellectual property recorded yet',
+                        description: 'Log a patent, software, or design outcome to track ownership and consent.',
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      itemCount: _ipRecords.length,
+                      itemBuilder: (context, index) {
+                        final r = _ipRecords[index];
+                        final consents = (r['consents'] as List? ?? []);
+                        final myConsent = consents.cast<Map<String, dynamic>?>().firstWhere(
+                              (c) => c != null && c['party_user_id'] == currentUserId && c['status'] == 'PENDING',
+                              orElse: () => null,
+                            );
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: SIPCard(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(child: Text(r['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary))),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(color: AppTheme.primaryGreen.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                                      child: Text((r['record_type'] ?? '').toString(), style: const TextStyle(color: AppTheme.primaryGreen, fontWeight: FontWeight.bold, fontSize: 10)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Text('Ownership: ${r['ownership'] ?? 'JOINT'}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                if ((r['patent_reference'] ?? '').toString().isNotEmpty)
+                                  Text('Patent Ref: ${r['patent_reference']}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                if ((r['startup_spinoff_name'] ?? '').toString().isNotEmpty)
+                                  Text('Spin-off: ${r['startup_spinoff_name']}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Status: ${r['status'] ?? 'DRAFT'} • ${consents.length} consent(s)',
+                                  style: const TextStyle(fontSize: 10, color: AppTheme.textMuted),
+                                ),
+                                if (myConsent != null) ...[
+                                  const Divider(height: 16),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      OutlinedButton(
+                                        onPressed: () => _respondToIpConsent(r['id'], 'REJECTED'),
+                                        child: const Text('Decline', style: TextStyle(fontSize: 11)),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      ElevatedButton(
+                                        onPressed: () => _respondToIpConsent(r['id'], 'ACCEPTED'),
+                                        child: const Text('Accept Consent', style: TextStyle(fontSize: 11)),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      ],
     );
   }
 

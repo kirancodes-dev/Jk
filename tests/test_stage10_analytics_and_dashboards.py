@@ -499,6 +499,77 @@ def test_live_patent_startup_and_technology_transfer_kpis(db_session):
     assert collab.id in [r["record_id"] for r in dd_tech["records"]]
 
 
+def test_ip_record_created_via_api_reflects_in_live_kpis(db_session):
+    """
+    An IP record created through the real POST /projects/{id}/ip-records
+    endpoint (the same path the new "Intellectual Property" project dashboard
+    tab uses) must immediately count toward the live patents_filed /
+    startups_incubated admin KPIs and appear in their drill-downs, without
+    waiting for consent to be granted.
+    """
+    state_admin = _get_or_create_user(
+        db_session, "state_admin_stage10@jharkhand.gov.in", UserRole.GOVERNMENT_ADMIN, admin_tier="STATE"
+    )
+
+    univ_user = _get_or_create_user(db_session, "s10_ip_api_univ@edu.in", UserRole.UNIVERSITY)
+    univ = db_session.query(University).filter(University.user_id == univ_user.id).first()
+    if not univ:
+        univ = University(user_id=univ_user.id, institution_name="Stage10 IP API Institute", district_name="Ranchi", is_active=True)
+        db_session.add(univ)
+        db_session.commit()
+        db_session.refresh(univ)
+
+    ch = Challenge(
+        title="Stage10 IP API KPI Test Challenge", description="Verifies IP records created via the API reflect in live KPIs.",
+        category="Water Management", status=ChallengeStatus.RESOLVED
+    )
+    db_session.add(ch)
+    db_session.commit()
+    db_session.refresh(ch)
+    db_session.add(ChallengeLocation(challenge_id=ch.id, district_name="Ranchi", block_name="Kanke"))
+    db_session.commit()
+
+    proj = Project(challenge_id=ch.id, university_id=univ.id, name="Stage10 IP API KPI Test Project", description="desc")
+    db_session.add(proj)
+    db_session.commit()
+    db_session.refresh(proj)
+
+    univ_headers = _auth_header(univ_user)
+
+    patent_resp = client.post(
+        f"/api/v1/projects/{proj.id}/ip-records",
+        json={"record_type": "PATENT", "title": "Stage10 API-Created Patent", "ownership": "JOINT"},
+        headers=univ_headers
+    )
+    assert patent_resp.status_code == 201, patent_resp.text
+    patent_id = patent_resp.json()["id"]
+    assert patent_resp.json()["status"] == "PENDING_CONSENT"
+
+    startup_resp = client.post(
+        f"/api/v1/projects/{proj.id}/ip-records",
+        json={
+            "record_type": "SOFTWARE", "title": "Stage10 API-Created Spin-off Software",
+            "ownership": "JOINT", "startup_spinoff_name": "Stage10 API Spinoff Pvt Ltd"
+        },
+        headers=univ_headers
+    )
+    assert startup_resp.status_code == 201, startup_resp.text
+    startup_id = startup_resp.json()["id"]
+
+    admin_headers = _auth_header(state_admin)
+    dash = client.get("/api/v1/admin/dashboard", headers=admin_headers)
+    assert dash.status_code == 200, dash.text
+    kpis = dash.json()["kpis"]
+    assert kpis["patents_filed"]["value"] >= 1
+    assert kpis["startups_incubated"]["value"] >= 1
+
+    dd_patents = client.get("/api/v1/admin/analytics/drill-down?metric=patents_filed", headers=admin_headers).json()
+    assert patent_id in [r["record_id"] for r in dd_patents["records"]]
+
+    dd_startups = client.get("/api/v1/admin/analytics/drill-down?metric=startups_incubated", headers=admin_headers).json()
+    assert startup_id in [r["record_id"] for r in dd_startups["records"]]
+
+
 def test_beneficiaries_kpi_computed_from_verified_outcome_metrics(db_session):
     """
     "Documented Citizen Beneficiaries" must be summed live from

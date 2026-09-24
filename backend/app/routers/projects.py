@@ -1196,6 +1196,39 @@ def list_test_reports(
     ]
 
 
+@router.post("/{project_id}/test-reports/{report_id}/evidence", response_model=EvidenceFileOut)
+async def upload_test_report_evidence(
+    project_id: int,
+    report_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Attaches supporting evidence (lab report, photo, video) to a recorded test outcome."""
+    verify_project_membership(project_id=project_id, current_user=current_user, db=db)
+    report = db.query(OutcomeReport).filter(OutcomeReport.id == report_id, OutcomeReport.project_id == project_id).first()
+    if not report:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Test report not found")
+
+    return await storage_service.save_evidence_file(
+        file=file, owner_id=current_user.id, entity_type="TEST_REPORT",
+        entity_id=report_id, db=db, project_id=project_id
+    )
+
+
+@router.get("/{project_id}/test-reports/{report_id}/evidence", response_model=List[EvidenceFileOut])
+def list_test_report_evidence(
+    project_id: int,
+    report_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    verify_project_membership(project_id=project_id, current_user=current_user, db=db)
+    return db.query(EvidenceFile).filter(
+        EvidenceFile.entity_type == "TEST_REPORT", EvidenceFile.entity_id == report_id
+    ).order_by(EvidenceFile.version.desc()).all()
+
+
 # ------------------------------------------------------------------
 # Industry Collaboration Offers (Stage 7 extends this substantially)
 # ------------------------------------------------------------------

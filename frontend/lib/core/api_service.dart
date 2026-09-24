@@ -655,6 +655,46 @@ class ApiService {
     }
   }
 
+  // ----------------- STRUCTURED TESTING OUTCOMES -----------------
+  // A challenge cannot reach DEPLOYMENT status without at least one recorded
+  // PASS/PARTIAL test report on its project — see
+  // backend/app/services/workflow_service.py::transition_challenge.
+
+  static Future<Map<String, dynamic>> createTestReport(int projectId, Map<String, dynamic> payload) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/projects/$projectId/test-reports'),
+      headers: _headers,
+      body: jsonEncode(payload),
+    );
+    if (res.statusCode == 201) {
+      return jsonDecode(res.body);
+    }
+    final err = _tryDecode(res.body);
+    throw Exception(err?['detail'] ?? 'Failed to record test report');
+  }
+
+  static Future<List<Map<String, dynamic>>> getTestReports(int projectId) async {
+    final res = await http.get(Uri.parse('$baseUrl/projects/$projectId/test-reports'), headers: _headers);
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  static Future<Map<String, dynamic>> uploadTestReportEvidence(int projectId, int reportId, List<int> bytes, String filename) async {
+    return _uploadEvidenceMultipart('$baseUrl/projects/$projectId/test-reports/$reportId/evidence', bytes, filename);
+  }
+
+  static Future<List<Map<String, dynamic>>> getTestReportEvidence(int projectId, int reportId) async {
+    final res = await http.get(Uri.parse('$baseUrl/projects/$projectId/test-reports/$reportId/evidence'), headers: _headers);
+    if (res.statusCode == 200) {
+      final List list = jsonDecode(res.body);
+      return list.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
   // ----------------- VERSIONED SOLUTION PROPOSALS -----------------
 
   static Future<List<Map<String, dynamic>>> getProposals(int projectId) async {

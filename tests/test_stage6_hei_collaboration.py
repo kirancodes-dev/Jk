@@ -554,3 +554,43 @@ def test_deployment_requires_recorded_test_outcome(db_session, gov_admin):
 
     list_resp2 = client.get(f"/api/v1/projects/{project_id}/test-reports", headers=AUTH(home["token"]))
     assert len(list_resp2.json()) == 1
+
+
+def test_test_report_evidence_upload_and_list(db_session, gov_admin):
+    """A test report can have supporting evidence (photo/lab report) attached, mirroring the milestone-evidence pattern."""
+    gov_user, _ = gov_admin
+    home = _mk_verified_university(db_session, "testevid1")
+    challenge = _mk_challenge(db_session, gov_user, university=home["univ"])
+
+    resp = client.post(
+        "/api/v1/projects",
+        json={"challenge_id": challenge.id, "name": "Evidence Test Project", "description": "desc"},
+        headers=AUTH(home["token"])
+    )
+    assert resp.status_code == 201, resp.text
+    project_id = resp.json()["id"]
+
+    report_resp = client.post(
+        f"/api/v1/projects/{project_id}/test-reports",
+        json={"test_type": "LAB", "outcome": "PASS", "summary": "Lab water-quality assay confirmed fluoride reduction below WHO threshold."},
+        headers=AUTH(home["token"])
+    )
+    assert report_resp.status_code == 201, report_resp.text
+    report_id = report_resp.json()["id"]
+
+    files = {"file": ("lab_report.pdf", io.BytesIO(b"%PDF-1.4 fake lab report"), "application/pdf")}
+    up_resp = client.post(
+        f"/api/v1/projects/{project_id}/test-reports/{report_id}/evidence",
+        files=files,
+        headers=AUTH(home["token"])
+    )
+    assert up_resp.status_code == 200, up_resp.text
+    assert up_resp.json()["original_filename"] == "lab_report.pdf"
+
+    list_resp = client.get(
+        f"/api/v1/projects/{project_id}/test-reports/{report_id}/evidence",
+        headers=AUTH(home["token"])
+    )
+    assert list_resp.status_code == 200
+    assert len(list_resp.json()) == 1
+    assert list_resp.json()[0]["original_filename"] == "lab_report.pdf"
