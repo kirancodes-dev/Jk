@@ -13,8 +13,31 @@ from backend.app.models.models import (
     ChallengePriority, Project, ProjectMilestone, University,
     IndustryPartner, Student, ProjectMember, IndustryCollaboration,
     ImpactMetrics, District, ExportJob, DomainAuditEvent, utc_now,
-    IPRecord, IPRecordType, CollaborationOfferType, AgreementStatus
+    IPRecord, IPRecordType, CollaborationOfferType, AgreementStatus,
+    OutcomeMetric
 )
+
+
+def _sum_verified_beneficiary_metrics(db: Session) -> float:
+    """
+    Sums OutcomeMetric.actual_value across INDEPENDENTLY_VERIFIED, beneficiary-
+    reach metrics (matched by metric_name, e.g. "Beneficiary Household
+    Coverage"). actual_value is stored as a free-text String (measurements
+    aren't always numeric), so non-numeric values are safely skipped rather
+    than raising — this replaces the old flat ImpactMetrics seeded constant
+    with a figure derived from real, field-verified per-project records.
+    """
+    total = 0.0
+    metrics = db.query(OutcomeMetric).filter(
+        OutcomeMetric.metric_name.ilike("%beneficiar%"),
+        OutcomeMetric.verification_status == "INDEPENDENTLY_VERIFIED"
+    ).all()
+    for m in metrics:
+        try:
+            total += float(m.actual_value)
+        except (TypeError, ValueError):
+            continue
+    return total
 
 # Challenge statuses that can only be reached after a working prototype exists,
 # respectively after field deployment has begun. Used to derive live "prototypes
@@ -190,10 +213,10 @@ class AnalyticsService:
         # CSR funding totals (cash + in-kind)
         csr_total_inr = db.query(func.sum(IndustryCollaboration.cash_value)).scalar() or 0.0
 
-        # Beneficiaries served
-        beneficiaries_sum = db.query(func.sum(ImpactMetrics.metric_value)).filter(
-            ImpactMetrics.category.ilike("%Beneficiar%")
-        ).scalar() or 0
+        # Beneficiaries served — derived from field-verified OutcomeMetric
+        # records (see _sum_verified_beneficiary_metrics), not the seeded
+        # ImpactMetrics constant.
+        beneficiaries_sum = _sum_verified_beneficiary_metrics(db)
 
         # --- Live innovation outcomes (never hardcoded demo constants) ---
         ip_query = db.query(IPRecord).filter(~IPRecord.status.in_(IP_RECORD_LIVE_STATUSES_EXCLUDED))
@@ -949,23 +972,26 @@ class AnalyticsService:
                 ))
 
         elif norm_key in ["beneficiaries", "measured_beneficiaries_served"]:
-            imp_q = db.query(ImpactMetrics).filter(ImpactMetrics.category.ilike("%Beneficiar%"))
-            total_records = imp_q.count()
-            raw_metrics = imp_q.order_by(ImpactMetrics.id.asc()).offset(offset).limit(limit).all()
+            outcome_q = db.query(OutcomeMetric).filter(
+                OutcomeMetric.metric_name.ilike("%beneficiar%"),
+                OutcomeMetric.verification_status == "INDEPENDENTLY_VERIFIED"
+            )
+            total_records = outcome_q.count()
+            raw_metrics = outcome_q.order_by(OutcomeMetric.id.asc()).offset(offset).limit(limit).all()
 
-            for im in raw_metrics:
+            for om in raw_metrics:
                 records.append(KPIDrillDownRecordOut(
-                    record_id=im.id,
-                    entity_type="ImpactMetric",
-                    title=im.metric_name,
-                    category=im.category,
-                    status="AUDITED",
-                    district_name=None,
-                    block_name=None,
+                    record_id=om.id,
+                    entity_type="OutcomeMetric",
+                    title=om.metric_name,
+                    category=om.district_name or "Beneficiary Coverage",
+                    status=om.verification_status,
+                    district_name=om.district_name,
+                    block_name=om.block_name,
                     verification_level="VERIFIED",
-                    contributing_value=f"{im.metric_value} citizens",
-                    timestamp=im.last_updated or now,
-                    audit_event_id=im.id,
+                    contributing_value=f"{om.actual_value} {om.unit_of_measure or ''}".strip(),
+                    timestamp=om.verified_at or om.actual_date or om.created_at or now,
+                    audit_event_id=om.id,
                     redacted=False
                 ))
 

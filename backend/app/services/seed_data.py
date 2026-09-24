@@ -10,7 +10,8 @@ from backend.app.models.models import (
     ProjectDocument, Comment, Notification, StatusHistory, ImpactMetrics,
     District, ChallengePriority, ChallengeStatus, MilestoneStatus,
     AccountStatus, GovernmentScope, IPRecord, IPRecordType, IPOwnership,
-    CollaborationOfferType, AgreementStatus
+    CollaborationOfferType, AgreementStatus, OutcomeReport, OutcomeReportType,
+    ReportedOutcome, OutcomeMetric
 )
 from backend.app.core.config import settings
 from backend.app.services.ai.priority_service import JHARKHAND_ASPIRATIONAL_DISTRICTS
@@ -511,6 +512,41 @@ def seed_database(db: Session):
         created_by_user_id=faculty_user.id
     ))
 
+    # A recorded field-trial outcome, so the demo project satisfies the
+    # DEPLOYMENT gate (WorkflowService.transition_challenge requires at least
+    # one PASS/PARTIAL OutcomeReport before a challenge can reach DEPLOYMENT).
+    db.add(OutcomeReport(
+        project_id=proj1.id,
+        reported_by_user_id=faculty_user.id,
+        test_type=OutcomeReportType.FIELD,
+        outcome=ReportedOutcome.PASS,
+        summary="7-day continuous field trial at the Nawagarh kiosk site: fluoride reduced from 3.5 mg/L to 0.7 mg/L, turbidity within BIS limits, zero unit downtime.",
+        tested_at=now - timedelta(days=3)
+    ))
+
+    # A field-verified beneficiary-reach figure, so the admin dashboard's live
+    # "Documented Citizen Beneficiaries" KPI shows a real, non-zero number
+    # instead of the old seeded ImpactMetrics constant.
+    db.add(OutcomeMetric(
+        project_id=proj1.id,
+        challenge_id=ch1.id,
+        metric_name="Beneficiary Household Coverage",
+        metric_definition="Households in Nawagarh with verified daily access to defluoridated kiosk water",
+        metric_type="QUANTITATIVE",
+        unit_of_measure="Households",
+        baseline_value="0",
+        baseline_source="Angara Gram Panchayat Census Record",
+        target_value="350",
+        actual_value="350",
+        actual_date=now - timedelta(days=3),
+        actual_source="Gram Panchayat Water Committee Field Audit",
+        district_name="Ranchi",
+        block_name="Angara",
+        verification_status="INDEPENDENTLY_VERIFIED",
+        verified_by_user_id=faculty_user.id,
+        verified_at=now - timedelta(days=3)
+    ))
+
     # Comments for Challenge 1
     db.add_all([
         Comment(challenge_id=ch1.id, user_id=admin_user.id, content="Priority verified. Angara block is situated on the Ranchi granitic belt known for high groundwater fluoride. Approved for immediate university fast-track funding."),
@@ -639,18 +675,18 @@ def seed_database(db: Session):
         ))
 
     print("[*] Seeding Impact Metrics...")
-    # NOTE: Patents Filed, Startups Incubated, Technology Transfers, Prototypes Developed
-    # and Pilots Deployed are NOT seeded here — they are computed live by
-    # AnalyticsService.get_dashboard_summary() from real IPRecord / IndustryCollaboration /
-    # Challenge state (see backend/app/services/analytics_service.py). Only figures that
-    # cannot yet be derived from transactional state stay as manually tracked ImpactMetrics.
+    # NOTE: Patents Filed, Startups Incubated, Technology Transfers, Prototypes Developed,
+    # Pilots Deployed, and Beneficiaries Reached are NOT seeded here — they are computed
+    # live by AnalyticsService.get_dashboard_summary() from real IPRecord /
+    # IndustryCollaboration / Challenge / OutcomeMetric state (see
+    # backend/app/services/analytics_service.py). Only figures that cannot yet be derived
+    # from transactional state stay as manually tracked ImpactMetrics.
     metrics = [
         ("Challenges Resolved", 14, "Impact"),
         ("Projects Completed", 18, "Impact"),
         ("Students Involved", 240, "Academic"),
         ("Universities Involved", 12, "Academic"),
         ("Industry Partnerships", 19, "Industry"),
-        ("Beneficiaries Reached", 48500, "Societal")
     ]
     for m_name, m_val, cat in metrics:
         db.add(ImpactMetrics(metric_name=m_name, metric_value=m_val, category=cat))

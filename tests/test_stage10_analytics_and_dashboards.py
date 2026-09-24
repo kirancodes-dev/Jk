@@ -26,7 +26,7 @@ from backend.app.models.models import (
     ChallengePriority, Project, University, IndustryPartner,
     Student, District, ImpactMetrics, ExportJob, utc_now,
     IPRecord, IPRecordType, IPOwnership, IndustryCollaboration,
-    CollaborationOfferType, AgreementStatus
+    CollaborationOfferType, AgreementStatus, OutcomeMetric
 )
 from backend.app.services.privacy_service import PrivacyRedactionService
 from backend.app.services.analytics_service import analytics_service
@@ -497,6 +497,73 @@ def test_live_patent_startup_and_technology_transfer_kpis(db_session):
 
     dd_tech = client.get("/api/v1/admin/analytics/drill-down?metric=technology_transfers_completed", headers=headers).json()
     assert collab.id in [r["record_id"] for r in dd_tech["records"]]
+
+
+def test_beneficiaries_kpi_computed_from_verified_outcome_metrics(db_session):
+    """
+    "Documented Citizen Beneficiaries" must be summed live from
+    INDEPENDENTLY_VERIFIED OutcomeMetric rows whose metric_name references
+    beneficiary reach, never the old seeded ImpactMetrics constant. A REPORTED
+    (not yet verified) metric must NOT count; an INDEPENDENTLY_VERIFIED one must.
+    """
+    state_admin = _get_or_create_user(
+        db_session, "state_admin_stage10@jharkhand.gov.in", UserRole.GOVERNMENT_ADMIN, admin_tier="STATE"
+    )
+
+    univ_user = _get_or_create_user(db_session, "s10_ben_univ@edu.in", UserRole.UNIVERSITY)
+    univ = db_session.query(University).filter(University.user_id == univ_user.id).first()
+    if not univ:
+        univ = University(user_id=univ_user.id, institution_name="Stage10 Beneficiary Institute", district_name="Ranchi", is_active=True)
+        db_session.add(univ)
+        db_session.commit()
+        db_session.refresh(univ)
+
+    ch = Challenge(
+        title="Stage10 Beneficiary KPI Test Challenge", description="Verifies live beneficiary KPI computation.",
+        category="Water Management", status=ChallengeStatus.RESOLVED
+    )
+    db_session.add(ch)
+    db_session.commit()
+    db_session.refresh(ch)
+    db_session.add(ChallengeLocation(challenge_id=ch.id, district_name="Ranchi", block_name="Kanke"))
+    db_session.commit()
+
+    proj = Project(challenge_id=ch.id, university_id=univ.id, name="Stage10 Beneficiary KPI Test Project", description="desc")
+    db_session.add(proj)
+    db_session.commit()
+    db_session.refresh(proj)
+
+    verified_metric = OutcomeMetric(
+        project_id=proj.id, challenge_id=ch.id,
+        metric_name="Beneficiary Household Coverage",
+        metric_definition="Households with verified access", unit_of_measure="Households",
+        baseline_value="0", baseline_source="Test", target_value="123", actual_value="123",
+        district_name="Ranchi", block_name="Kanke",
+        verification_status="INDEPENDENTLY_VERIFIED"
+    )
+    unverified_metric = OutcomeMetric(
+        project_id=proj.id, challenge_id=ch.id,
+        metric_name="Beneficiary Household Coverage (Self-Reported)",
+        metric_definition="Not yet independently verified", unit_of_measure="Households",
+        baseline_value="0", baseline_source="Test", target_value="999", actual_value="999",
+        district_name="Ranchi", block_name="Kanke",
+        verification_status="REPORTED"
+    )
+    db_session.add_all([verified_metric, unverified_metric])
+    db_session.commit()
+    db_session.refresh(verified_metric)
+
+    headers = _auth_header(state_admin)
+    res = client.get("/api/v1/admin/dashboard", headers=headers)
+    assert res.status_code == 200, res.text
+    kpi = res.json()["kpis"]["measured_beneficiaries_served"]
+    assert kpi["value"] >= 123
+    assert kpi["verification_level"] == "VERIFIED"
+
+    dd = client.get("/api/v1/admin/analytics/drill-down?metric=measured_beneficiaries_served", headers=headers).json()
+    record_ids = [r["record_id"] for r in dd["records"]]
+    assert verified_metric.id in record_ids
+    assert unverified_metric.id not in record_ids
 
 
 def test_hei_participating_drill_down_no_attribute_error(db_session):
