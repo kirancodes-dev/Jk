@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   // Brand Colors - Government of Jharkhand & SIP Identity
-  static const Color primaryGreen = Color(0xFF0A5C36); // Sovereign Forest Green
-  static const Color primaryGreenDark = Color(0xFF074528);
-  static const Color primaryGreenLight = Color(0xFF147A49);
+  // Hue sourced from the official jharkhand.gov.in stylesheet (Content/style.css,
+  // primary brand green #43A906), not an invented palette. The raw official value
+  // is kept as primaryGreenLight (accents/icons only) because it measures ~3.05:1
+  // contrast against white text — below WCAG AA's 4.5:1 text threshold. primaryGreen
+  // below is the same hue darkened to ~6.5:1, since this app uses it as the AppBar/
+  // button background behind white text almost everywhere.
+  static const Color primaryGreen = Color(0xFF2C6E04); // Official hue, AA-safe for white text
+  static const Color primaryGreenDark = Color(0xFF215403);
+  static const Color primaryGreenLight = Color(0xFF43A906); // True official brand green — accents/icons only
   
   static const Color accentGold = Color(0xFFD97706); // Government Warm Amber
   static const Color accentGoldLight = Color(0xFFF59E0B);
