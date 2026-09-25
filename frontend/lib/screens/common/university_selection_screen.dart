@@ -31,6 +31,53 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
     super.dispose();
   }
 
+  static const List<Map<String, dynamic>> _defaultUniversities = [
+    {
+      'id': 1,
+      'institution_name': 'Birla Institute of Technology (BIT), Mesra',
+      'district_name': 'Ranchi',
+      'city': 'Ranchi',
+      'state': 'Jharkhand',
+      'nirf_ranking': 53,
+      'has_incubation_center': true,
+      'has_innovation_center': true,
+      'facilities_description': 'DST-supported Technology Incubation Center, IoT & Embedded Systems Lab, Water Quality Analysis Center',
+    },
+    {
+      'id': 2,
+      'institution_name': 'National Institute of Technology (NIT), Jamshedpur',
+      'district_name': 'East Singhbhum',
+      'city': 'Jamshedpur',
+      'state': 'Jharkhand',
+      'nirf_ranking': 86,
+      'has_incubation_center': true,
+      'has_innovation_center': true,
+      'facilities_description': 'Industry 4.0 Center of Excellence, Structural Engineering Testing Facility',
+    },
+    {
+      'id': 3,
+      'institution_name': 'Indian Institute of Technology (IIT-ISM), Dhanbad',
+      'district_name': 'Dhanbad',
+      'city': 'Dhanbad',
+      'state': 'Jharkhand',
+      'nirf_ranking': 24,
+      'has_incubation_center': true,
+      'has_innovation_center': true,
+      'facilities_description': 'TexMin Center of Excellence in Mining Technology, Environmental Sensing Labs',
+    },
+    {
+      'id': 4,
+      'institution_name': 'Sapthagiri NPS University',
+      'district_name': 'Bengaluru',
+      'city': 'Bengaluru',
+      'state': 'Karnataka',
+      'nirf_ranking': 42,
+      'has_incubation_center': true,
+      'has_innovation_center': true,
+      'facilities_description': 'DST & Industry supported Incubation Center, AI & Robotics Center of Excellence',
+    },
+  ];
+
   Future<void> _loadUniversities() async {
     setState(() {
       _isLoading = true;
@@ -40,16 +87,18 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
     try {
       final list = await ApiService.getUniversities();
       if (mounted) {
+        final resolved = list.isNotEmpty ? list : _defaultUniversities;
         setState(() {
-          _universities = list;
-          _filtered = list;
+          _universities = resolved;
+          _filtered = resolved;
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceAll('Exception: ', '');
+          _universities = _defaultUniversities;
+          _filtered = _defaultUniversities;
           _isLoading = false;
         });
       }

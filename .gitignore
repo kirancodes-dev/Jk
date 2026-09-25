@@ -40,3 +40,9 @@ frontend/build/ios/
 uploads/
 backups/
 
+
+# October desktop — local canvas state
+.october/
+
+# October (generated — context bus / browser MCP)
+.devin/config.local.json

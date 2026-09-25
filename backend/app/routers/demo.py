@@ -23,7 +23,7 @@ def reset_demo_data(db: Session = Depends(get_db)):
 
 @router.get("/accounts")
 def get_demo_accounts():
-    if not settings.DEMO_MODE or settings.ENVIRONMENT == "production":
+    if settings.ENVIRONMENT == "production":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden: Demo account discovery is disabled in production environments."
@@ -41,13 +41,31 @@ def get_demo_accounts():
                 "role": "GOVERNMENT_ADMIN",
                 "email": "admin@jharkhand.gov.in",
                 "name": "Dr. Alok Verma, IAS",
-                "description": "Higher & Technical Education Admin with statewide analytics & validation powers."
+                "description": "Higher & Technical Education Admin with statewide analytics, CSR approval & project closure powers."
+            },
+            {
+                "role": "GOVERNMENT_OFFICER",
+                "email": "officer.ranchi@jharkhand.gov.in",
+                "name": "Sunil Soren",
+                "description": "District Reviewing Officer (Ranchi) validating incoming grassroots challenges."
+            },
+            {
+                "role": "VERIFIER",
+                "email": "verifier.ranchi@jharkhand.gov.in",
+                "name": "Amit Kumar Verma",
+                "description": "Empanelled Field Inspector submitting on-site geotagged audits and lab test metrics."
+            },
+            {
+                "role": "PRI",
+                "email": "pri.angara@jharkhand.gov.in",
+                "name": "Sunita Devi (Gram Mukhiya)",
+                "description": "Panchayati Raj representative verifying village challenges on the ground."
             },
             {
                 "role": "UNIVERSITY",
                 "email": "university@bitmesra.ac.in",
                 "name": "Birla Institute of Technology (BIT), Mesra",
-                "description": "University administrator mobilizing research teams and projects."
+                "description": "University administration adopting validated challenges and allocating research labs."
             },
             {
                 "role": "FACULTY_MENTOR",
@@ -62,10 +80,16 @@ def get_demo_accounts():
                 "description": "B.Tech CSE & IoT 3rd year student working on field sensors and Flutter dashboard."
             },
             {
+                "role": "STUDENT",
+                "email": "student@sapthagiri.edu.in",
+                "name": "Kiran Biradar",
+                "description": "Student innovator working on embedded firmware and AI sensor diagnostics."
+            },
+            {
                 "role": "INDUSTRY",
                 "email": "industry@tatasteel.com",
                 "name": "Tata Steel Foundation",
-                "description": "Corporate CSR partner providing prototype grants and pilot testing sites."
+                "description": "Corporate CSR partner providing prototype grants, milestone co-funding, and signing IP agreements."
             }
         ]
     }

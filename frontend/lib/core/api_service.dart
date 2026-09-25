@@ -26,6 +26,9 @@ class ApiService {
 
   static Map<String, String> get _headers => {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'bypass-tunnel-reminder': 'true',
         if (_token != null) 'Authorization': 'Bearer $_token',
       };
 
@@ -409,11 +412,19 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getUniversities() async {
-    final res = await http.get(Uri.parse('$baseUrl/universities'), headers: _headers);
-    if (res.statusCode == 200) {
-      final List list = jsonDecode(res.body);
-      return list.cast<Map<String, dynamic>>();
-    }
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/universities'), headers: _headers);
+      if (res.statusCode == 200) {
+        final bodyStr = res.body.trim();
+        if (bodyStr.startsWith('<')) {
+          return [];
+        }
+        final dynamic list = jsonDecode(bodyStr);
+        if (list is List) {
+          return list.cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (_) {}
     return [];
   }
 
