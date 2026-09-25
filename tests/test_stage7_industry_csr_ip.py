@@ -70,10 +70,19 @@ def _mk_verified_university(db, suffix):
     user = _mk_user(db, f"s7_univ_{suffix}@edu.in", UserRole.UNIVERSITY, f"University {suffix}")
     univ = db.query(University).filter(University.user_id == user.id).first()
     if not univ:
-        univ = University(user_id=user.id, institution_name=f"Stage7 Institute {suffix}", district_name="Ranchi", is_active=True)
+        univ = University(
+            user_id=user.id, institution_name=f"Stage7 Institute {suffix}", district_name="Ranchi", is_active=True,
+            capacity_max_active_projects=999
+        )
         db.add(univ)
         db.commit()
         db.refresh(univ)
+    elif univ.capacity_max_active_projects < 999:
+        # Test-only headroom: this fixture's university is reused (by fixed email) across every
+        # run of this suite against the persistent shared DB, and each run adds another project,
+        # so the real default cap of 10 eventually makes old runs' accumulated projects break new ones.
+        univ.capacity_max_active_projects = 999
+        db.commit()
     org = db.query(OrganizationProfile).filter(OrganizationProfile.user_id == user.id).first()
     if not org:
         org = OrganizationProfile(
@@ -355,6 +364,59 @@ def test_funding_release_requires_approval_milestone_and_evidence(db_session, go
     assert body["hold_state"] == "RELEASED"
     assert body["payment_confirmed"] is False
     assert body["settlement_status"] == "NOT_CONFIGURED"
+
+
+def test_industry_dashboard_reflects_funding_summary(db_session, gov_admin):
+    """
+    The industry partner's own dashboard (GET /industry/dashboard) must show a
+    live PENDING/HELD/RELEASED funding summary per collaboration — the same
+    per-collaboration funding records the project dashboard's Funding Ledger
+    uses — not a static count.
+    """
+    gov_user, gov_token = gov_admin
+    home = _mk_verified_university(db_session, "p6b")
+    challenge = _mk_challenge(db_session, gov_user, university=home["univ"])
+    project = _mk_project(db_session, home["token"], challenge.id, "P6b")
+    partner = _mk_partner(db_session, "funder2", verified=True)
+
+    offer_resp = client.post(
+        f"/api/v1/projects/{project['id']}/collaborations",
+        json={"offer_type": "FUNDING", "scope": "CSR grant for field pilot.", "cash_value": 40000},
+        headers=AUTH(partner["token"])
+    )
+    collab_id = offer_resp.json()["id"]
+
+    for decision in ["UNDER_REVIEW", "CONFLICT_CHECK", "ACCEPTED", "CONTRACT_RECORDED", "ACTIVE"]:
+        r = client.post(
+            f"/api/v1/projects/{project['id']}/collaborations/{collab_id}/review",
+            json={"decision": decision, "notes": f"Moving to {decision}", "conflict_declared": False},
+            headers=AUTH(gov_token)
+        )
+        assert r.status_code == 200, r.text
+
+    funding_resp = client.post(
+        f"/api/v1/projects/{project['id']}/collaborations/{collab_id}/funding",
+        json={"collaboration_id": collab_id, "budget_line_item": "Field pilot logistics",
+              "amount": 15000, "sanction_authority": "State Nodal Officer"},
+        headers=AUTH(gov_token)
+    )
+    assert funding_resp.status_code == 201, funding_resp.text
+    funding_id = funding_resp.json()["id"]
+
+    dash = client.get("/api/v1/industry/dashboard", headers=AUTH(partner["token"]))
+    assert dash.status_code == 200, dash.text
+    collab_entry = next(c for c in dash.json()["collaborations"] if c["id"] == collab_id)
+    assert collab_entry["funding_summary"]["pending_amount"] == 15000
+    assert collab_entry["funding_summary"]["held_amount"] == 0
+    assert collab_entry["funding_summary"]["count"] == 1
+
+    approve_resp = client.post(f"/api/v1/projects/{project['id']}/funding/{funding_id}/action", json={"action": "APPROVE"}, headers=AUTH(gov_token))
+    assert approve_resp.status_code == 200
+
+    dash2 = client.get("/api/v1/industry/dashboard", headers=AUTH(partner["token"]))
+    collab_entry2 = next(c for c in dash2.json()["collaborations"] if c["id"] == collab_id)
+    assert collab_entry2["funding_summary"]["pending_amount"] == 0
+    assert collab_entry2["funding_summary"]["held_amount"] == 15000
 
 
 # =========================================================================

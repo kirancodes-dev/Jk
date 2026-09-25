@@ -211,41 +211,50 @@ class _IndustryDashboardState extends State<IndustryDashboard> {
                             MaterialPageRoute(builder: (_) => ProjectDashboardScreen(projectId: c['project_id'] ?? 1)),
                           );
                         },
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: AppTheme.primaryGreen.withOpacity(0.1),
-                              child: const Icon(Icons.handshake_rounded, color: AppTheme.primaryGreen, size: 20),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    c['project_name'] ?? 'Project',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary),
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: AppTheme.primaryGreen.withOpacity(0.1),
+                                  child: const Icon(Icons.handshake_rounded, color: AppTheme.primaryGreen, size: 20),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        c['project_name'] ?? 'Project',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimary),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${c['university_name']} • Support: ${c['offer_type']}',
+                                        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${c['university_name']} • Support: ${c['offer_type']}',
-                                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryGreen.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                ],
-                              ),
+                                  child: Text(
+                                    c['status'] ?? 'Active',
+                                    style: const TextStyle(color: AppTheme.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
                             ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryGreen.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                c['status'] ?? 'Active',
-                                style: const TextStyle(color: AppTheme.primaryGreen, fontSize: 10, fontWeight: FontWeight.bold),
-                              ),
-                            ),
+                            if (((c['funding_summary'] as Map?)?['count'] ?? 0) > 0) ...[
+                              const SizedBox(height: 10),
+                              _fundingSummaryRow(c['funding_summary'] as Map<String, dynamic>),
+                            ],
                           ],
                         ),
                       ),
@@ -255,6 +264,30 @@ class _IndustryDashboardState extends State<IndustryDashboard> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _fundingSummaryRow(Map<String, dynamic> summary) {
+    final held = (summary['held_amount'] as num?)?.toDouble() ?? 0.0;
+    final released = (summary['released_amount'] as num?)?.toDouble() ?? 0.0;
+    final pending = (summary['pending_amount'] as num?)?.toDouble() ?? 0.0;
+
+    Widget chip(String label, double amount, Color color) {
+      if (amount <= 0) return const SizedBox.shrink();
+      return Container(
+        margin: const EdgeInsets.only(right: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+        child: Text('$label: ₹${amount.toStringAsFixed(0)}', style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+      );
+    }
+
+    return Wrap(
+      children: [
+        chip('Pending', pending, AppTheme.textMuted),
+        chip('Held', held, AppTheme.accentGold),
+        chip('Released', released, AppTheme.success),
+      ],
     );
   }
 

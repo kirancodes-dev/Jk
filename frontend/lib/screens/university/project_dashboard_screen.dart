@@ -35,6 +35,9 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
   List<Map<String, dynamic>> _ipRecords = [];
   bool _isLoadingIpRecords = false;
   bool _isSubmittingIpRecord = false;
+  final Map<int, List<Map<String, dynamic>>> _fundingByCollab = {};
+  final Set<int> _loadingFundingCollabIds = {};
+  final Set<int> _expandedFundingCollabIds = {};
 
   @override
   void initState() {
@@ -69,6 +72,155 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
     } finally {
       if (mounted) setState(() => _isLoadingIpRecords = false);
     }
+  }
+
+  Future<void> _loadFunding(int collabId) async {
+    setState(() => _loadingFundingCollabIds.add(collabId));
+    try {
+      final records = await ApiService.getFundingRecords(widget.projectId, collabId);
+      if (!mounted) return;
+      setState(() => _fundingByCollab[collabId] = records);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _loadingFundingCollabIds.remove(collabId));
+    }
+  }
+
+  void _toggleFundingSection(int collabId) {
+    setState(() {
+      if (_expandedFundingCollabIds.contains(collabId)) {
+        _expandedFundingCollabIds.remove(collabId);
+      } else {
+        _expandedFundingCollabIds.add(collabId);
+        if (!_fundingByCollab.containsKey(collabId)) _loadFunding(collabId);
+      }
+    });
+  }
+
+  Future<void> _actOnFunding(int collabId, int fundingId, String action) async {
+    try {
+      await ApiService.actOnFunding(widget.projectId, fundingId, action);
+      await _loadFunding(collabId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('✓ Funding $action recorded.'), backgroundColor: AppTheme.success),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: AppTheme.error),
+      );
+    }
+  }
+
+  Future<void> _uploadFundingReceipt(int collabId, int fundingId) async {
+    try {
+      final files = await AppFilePicker.pickFiles(allowMultiple: false, allowedExtensions: ['pdf', 'jpg', 'png', 'docx']);
+      if (files.isEmpty || files.first.bytes.isEmpty) return;
+      await ApiService.uploadFundingReceipt(widget.projectId, fundingId, files.first.bytes, files.first.name);
+      await _loadFunding(collabId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✓ Utilization receipt attached.'), backgroundColor: AppTheme.success),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: AppTheme.error),
+      );
+    }
+  }
+
+  Future<void> _showAddFundingDialog(int collabId) async {
+    final budgetCtrl = TextEditingController();
+    final amountCtrl = TextEditingController();
+    final authorityCtrl = TextEditingController();
+    final milestones = _project?['milestones'] as List? ?? [];
+    int? selectedMilestoneId;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Record Funding Commitment'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: budgetCtrl,
+                  decoration: const InputDecoration(labelText: 'Budget line item', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amountCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Amount (INR)', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: authorityCtrl,
+                  decoration: const InputDecoration(labelText: 'Sanction authority', border: OutlineInputBorder()),
+                ),
+                if (milestones.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int?>(
+                    initialValue: selectedMilestoneId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Linked milestone (optional)', border: OutlineInputBorder()),
+                    items: [
+                      const DropdownMenuItem<int?>(value: null, child: Text('None')),
+                      ...milestones.map((m) => DropdownMenuItem<int?>(
+                            value: m['id'] as int?,
+                            child: Text(m['title'] ?? 'Milestone', overflow: TextOverflow.ellipsis),
+                          )),
+                    ],
+                    onChanged: (v) => setDialogState(() => selectedMilestoneId = v),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final amount = double.tryParse(amountCtrl.text.trim());
+                if (budgetCtrl.text.trim().length < 3 || amount == null || amount <= 0 || authorityCtrl.text.trim().length < 3) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please fill in a valid budget line item, amount and sanction authority.'), backgroundColor: AppTheme.error),
+                  );
+                  return;
+                }
+                try {
+                  await ApiService.createFundingRecord(widget.projectId, collabId, {
+                    'budget_line_item': budgetCtrl.text.trim(),
+                    'amount': amount,
+                    'sanction_authority': authorityCtrl.text.trim(),
+                    if (selectedMilestoneId != null) 'milestone_id': selectedMilestoneId,
+                  });
+                  if (context.mounted) Navigator.pop(ctx);
+                  await _loadFunding(collabId);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('✓ Funding commitment recorded.'), backgroundColor: AppTheme.success),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: AppTheme.error),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _loadExtras() async {
@@ -1585,11 +1737,145 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
                     ),
                   ),
                 ],
+                const Divider(height: 16),
+                _buildFundingSection(c['id'], canReview, userRole),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildFundingSection(int collabId, bool canReview, String? userRole) {
+    final isExpanded = _expandedFundingCollabIds.contains(collabId);
+    final isLoading = _loadingFundingCollabIds.contains(collabId);
+    final records = _fundingByCollab[collabId] ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => _toggleFundingSection(collabId),
+          child: Row(
+            children: [
+              const Icon(Icons.account_balance_wallet_outlined, size: 15, color: AppTheme.primaryGreen),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Text('Funding Ledger', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.textPrimary)),
+              ),
+              Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 18, color: AppTheme.textMuted),
+            ],
+          ),
+        ),
+        if (isExpanded) ...[
+          const SizedBox(height: 8),
+          if (isLoading)
+            const Padding(padding: EdgeInsets.symmetric(vertical: 12), child: Center(child: CircularProgressIndicator(strokeWidth: 2)))
+          else if (records.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('No funding recorded yet for this collaboration.', style: TextStyle(fontSize: 11, color: AppTheme.textMuted)),
+            )
+          else
+            ...records.map((f) => _buildFundingRecordTile(collabId, f, canReview, userRole)),
+          if (canReview) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => _showAddFundingDialog(collabId),
+                icon: const Icon(Icons.add, size: 14),
+                label: const Text('Add Funding', style: TextStyle(fontSize: 11)),
+              ),
+            ),
+          ],
+        ],
+      ],
+    );
+  }
+
+  static const Map<String, Color> _fundingStateColors = {
+    'PENDING': AppTheme.textMuted,
+    'HELD': AppTheme.accentGold,
+    'RELEASED': AppTheme.success,
+    'REVERSED': AppTheme.error,
+  };
+
+  Widget _buildFundingRecordTile(int collabId, Map<String, dynamic> f, bool canReview, String? userRole) {
+    final holdState = (f['hold_state'] ?? 'PENDING').toString().toUpperCase();
+    final color = _fundingStateColors[holdState] ?? AppTheme.textMuted;
+    final amount = (f['amount'] as num?)?.toDouble() ?? 0.0;
+    final hasReceipt = (f['receipt_evidence_object_id'] as String?)?.isNotEmpty == true;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  f['budget_line_item'] ?? 'Budget line item',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textPrimary),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                child: Text(holdState, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('₹${amount.toStringAsFixed(0)} ${f['currency'] ?? 'INR'}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen)),
+          if (f['milestone_id'] != null)
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Text('Linked to a project milestone', style: TextStyle(fontSize: 10.5, color: AppTheme.textSecondary)),
+            ),
+          if (canReview) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                if (holdState == 'PENDING')
+                  OutlinedButton(
+                    onPressed: () => _actOnFunding(collabId, f['id'], 'APPROVE'),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4)),
+                    child: const Text('Approve → Hold', style: TextStyle(fontSize: 10.5)),
+                  ),
+                if (holdState == 'HELD' && !hasReceipt)
+                  OutlinedButton(
+                    onPressed: () => _uploadFundingReceipt(collabId, f['id']),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4)),
+                    child: const Text('Upload Receipt', style: TextStyle(fontSize: 10.5)),
+                  ),
+                if (holdState == 'HELD' && hasReceipt)
+                  ElevatedButton(
+                    onPressed: () => _actOnFunding(collabId, f['id'], 'RELEASE'),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.success, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4)),
+                    child: const Text('Release Funds', style: TextStyle(fontSize: 10.5)),
+                  ),
+                if (userRole == 'GOVERNMENT_ADMIN' && (holdState == 'HELD' || holdState == 'RELEASED'))
+                  OutlinedButton(
+                    onPressed: () => _actOnFunding(collabId, f['id'], 'REVERSE'),
+                    style: OutlinedButton.styleFrom(foregroundColor: AppTheme.error, padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4)),
+                    child: const Text('Reverse', style: TextStyle(fontSize: 10.5)),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
     );
   }
 

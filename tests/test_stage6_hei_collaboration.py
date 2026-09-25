@@ -82,6 +82,11 @@ def _mk_verified_university(db, suffix, verified=True, active=True):
         db.refresh(org)
     univ.organization_profile_id = org.id
     univ.is_active = active
+    # Test-only headroom: this fixture's university is reused (by fixed email) across every
+    # run of this suite against the persistent shared DB, and each run adds another project,
+    # so the real default cap of 10 eventually makes old runs' accumulated projects break new ones.
+    if univ.capacity_max_active_projects < 999:
+        univ.capacity_max_active_projects = 999
     db.commit()
     db.refresh(univ)
 

@@ -176,6 +176,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               const SizedBox(height: 6),
                               Text(
                                 opt['title'] as String,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,

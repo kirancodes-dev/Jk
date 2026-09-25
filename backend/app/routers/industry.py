@@ -30,6 +30,16 @@ def get_industry_dashboard(
     collaborations = db.query(IndustryCollaboration).filter(IndustryCollaboration.industry_id == ind.id).all()
     active_agreements = [c for c in collaborations if c.agreement_status.value in ("ACTIVE", "MILESTONE_LINKED", "CONTRACT_RECORDED")]
     funding_records = db.query(FundingRecord).filter(FundingRecord.industry_id == ind.id).all()
+    funding_by_collab: dict = {}
+    for f in funding_records:
+        summary = funding_by_collab.setdefault(f.collaboration_id, {"held_amount": 0.0, "released_amount": 0.0, "pending_amount": 0.0, "count": 0})
+        summary["count"] += 1
+        if f.hold_state.value == "HELD":
+            summary["held_amount"] += f.amount
+        elif f.hold_state.value == "RELEASED":
+            summary["released_amount"] += f.amount
+        elif f.hold_state.value == "PENDING":
+            summary["pending_amount"] += f.amount
     pending_consents = db.query(IPConsentRecord).filter(
         IPConsentRecord.party_user_id == current_user.id, IPConsentRecord.status == IPConsentStatus.PENDING
     ).count()
@@ -55,7 +65,8 @@ def get_industry_dashboard(
                 "project_name": c.project.name if c.project else "Project",
                 "university_name": c.project.university.institution_name if c.project and c.project.university else "University",
                 "offer_type": c.offer_type,
-                "status": c.agreement_status.value
+                "status": c.agreement_status.value,
+                "funding_summary": funding_by_collab.get(c.id, {"held_amount": 0.0, "released_amount": 0.0, "pending_amount": 0.0, "count": 0})
             } for c in collaborations
         ]
     }
