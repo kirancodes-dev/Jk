@@ -9,6 +9,16 @@ logger = logging.getLogger("backend.database")
 
 is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 
+# Pin the driver explicitly rather than relying on SQLAlchemy's default DBAPI
+# resolution for a bare "postgresql://" URL, which is not guaranteed to stay
+# psycopg2 across SQLAlchemy versions — only psycopg2-binary is a declared
+# dependency (see requirements.txt), not psycopg (v3).
+database_url = settings.DATABASE_URL
+if database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+elif database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql+psycopg2://", 1)
+
 connect_args = {}
 engine_kwargs = {}
 
@@ -31,7 +41,7 @@ else:
     engine_kwargs["pool_recycle"] = 300
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    database_url,
     **engine_kwargs
 )
 
