@@ -2555,6 +2555,7 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
                 ),
                 const SizedBox(width: 8),
                 IconButton(
+                  tooltip: 'Send message',
                   onPressed: _isPostingComment ? null : _postComment,
                   icon: _isPostingComment
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))

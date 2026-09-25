@@ -33,6 +33,7 @@ class UniversityRoleSelectionScreen extends StatelessWidget {
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         leading: IconButton(
+          tooltip: 'Back',
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../screens/common/notifications_screen.dart';
 import '../screens/common/profile_screen.dart';
+import 'accessibility_settings_sheet.dart';
 
 class SIPAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -76,6 +77,7 @@ class SIPAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         if (actions != null) ...actions!,
         if (showDefaultActions) ...[
+          const AccessibilityMenuButton(),
           IconButton(
             icon: const Icon(Icons.notifications_none, size: 22),
             tooltip: 'Notifications',

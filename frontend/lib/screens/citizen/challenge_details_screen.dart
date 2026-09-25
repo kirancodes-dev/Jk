@@ -138,6 +138,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                   children: List.generate(5, (i) {
                     final starNum = i + 1;
                     return IconButton(
+                      tooltip: 'Rate $starNum star${starNum > 1 ? 's' : ''}',
                       icon: Icon(
                         starNum <= rating ? Icons.star : Icons.star_border,
                         color: Colors.amber,
@@ -502,7 +503,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                                 children: [
                                   AppBar(
                                     title: Text(fileName, style: const TextStyle(fontSize: 13)),
-                                    leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                                    leading: IconButton(tooltip: 'Close', icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                                   ),
                                   if (isImage)
                                     Padding(

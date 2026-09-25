@@ -544,7 +544,7 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
                     Text('Government Immutable Audit Trail', style: TextStyle(fontSize: 14)),
                   ],
                 ),
-                leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                leading: IconButton(tooltip: 'Close', icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
               ),
               Expanded(
                 child: FutureBuilder<List<Map<String, dynamic>>>(

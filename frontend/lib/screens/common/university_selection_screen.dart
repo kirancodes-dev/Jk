@@ -144,6 +144,7 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         leading: IconButton(
+          tooltip: 'Back',
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
@@ -183,6 +184,7 @@ class _UniversitySelectionScreenState extends State<UniversitySelectionScreen> {
                           prefixIcon: const Icon(Icons.search, size: 22, color: AppTheme.textSecondary),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
+                                  tooltip: 'Clear search',
                                   icon: const Icon(Icons.clear, size: 18),
                                   onPressed: () => _searchController.clear(),
                                 )

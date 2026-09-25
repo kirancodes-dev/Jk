@@ -233,6 +233,8 @@ class AppLocalizations extends ChangeNotifier {
   // Privacy & DPDP Data Rights Screen
   String get myDataPrivacyTitle => text('my_data_privacy_title');
   String get dpdpSubtitle => text('dpdp_subtitle');
+  String get accessibilitySettingsTitle => text('accessibility_settings_title');
+  String get accessibilitySettingsSubtitle => text('accessibility_settings_subtitle');
   String get privacyNoticeTitle => text('privacy_notice_title');
   String get dataFiduciaryLabel => text('data_fiduciary_label');
   String get grievanceOfficerLabel => text('grievance_officer_label');
@@ -802,6 +804,8 @@ class AppLocalizations extends ChangeNotifier {
       'discard_label': 'Discard',
       'my_data_privacy_title': 'My Data & Privacy',
       'dpdp_subtitle': 'DPDP Act 2023 — Your Data Rights',
+      'accessibility_settings_title': 'Accessibility Settings',
+      'accessibility_settings_subtitle': 'Text size and high-contrast mode',
       'privacy_notice_title': 'Privacy Notice',
       'data_fiduciary_label': 'Data Fiduciary',
       'grievance_officer_label': 'Grievance Officer',
@@ -1285,6 +1289,8 @@ class AppLocalizations extends ChangeNotifier {
       'discard_label': 'त्यागें',
       'my_data_privacy_title': 'मेरा डेटा एवं गोपनीयता',
       'dpdp_subtitle': 'DPDP अधिनियम 2023 — आपके डेटा अधिकार',
+      'accessibility_settings_title': 'सुगम्यता सेटिंग्स',
+      'accessibility_settings_subtitle': 'टेक्स्ट आकार और उच्च कंट्रास्ट मोड',
       'privacy_notice_title': 'गोपनीयता सूचना',
       'data_fiduciary_label': 'डेटा फिडुशियरी',
       'grievance_officer_label': 'शिकायत अधिकारी',

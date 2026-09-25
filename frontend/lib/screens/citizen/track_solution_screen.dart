@@ -98,7 +98,7 @@ class _TrackSolutionScreenState extends State<TrackSolutionScreen> {
         title: '${loc.trackSolutionTitlePrefix} #${widget.challengeId}',
         subtitle: loc.lifecyclePipelineSubtitle,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh_rounded, color: AppTheme.primaryGreen), onPressed: _loadDetails),
+          IconButton(tooltip: 'Refresh', icon: const Icon(Icons.refresh_rounded, color: AppTheme.primaryGreen), onPressed: _loadDetails),
         ],
       ),
       body: SingleChildScrollView(

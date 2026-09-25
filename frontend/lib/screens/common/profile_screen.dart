@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
 import '../../widgets/section_header.dart';
+import '../../widgets/accessibility_settings_sheet.dart';
 import 'login_screen.dart';
 import '../citizen/citizen_dashboard.dart';
 import '../university/university_dashboard.dart';
@@ -213,6 +214,22 @@ class ProfileScreen extends StatelessWidget {
                     subtitle: Text(loc.dpdpSubtitle, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textMuted),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacyDataScreen())),
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
+                    leading: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.teal.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.accessibility_new_rounded, color: Colors.teal, size: 20),
+                    ),
+                    title: Text(loc.accessibilitySettingsTitle, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    subtitle: Text(loc.accessibilitySettingsSubtitle, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondary)),
+                    trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.textMuted),
+                    onTap: () => showAccessibilitySettings(context),
                   ),
                 ],
               ),

@@ -102,6 +102,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         child: Text(attachedFileName!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen), overflow: TextOverflow.ellipsis),
                       ),
                       IconButton(
+                        tooltip: 'Remove attached file',
                         icon: const Icon(Icons.close_rounded, size: 16, color: AppTheme.textSecondary),
                         onPressed: () => setDialogState(() {
                           attachedFileName = null;
@@ -191,10 +192,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
         subtitle: 'Engineering R&D Team Workspace',
         actions: [
           IconButton(
+            tooltip: 'Notifications',
             icon: const Icon(Icons.notifications_none_rounded, color: AppTheme.primaryGreen),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
           ),
           IconButton(
+            tooltip: 'Profile',
             icon: const Icon(Icons.account_circle_outlined, color: AppTheme.primaryGreen),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
           ),

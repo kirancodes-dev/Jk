@@ -145,10 +145,12 @@ class _UniversityDashboardState extends State<UniversityDashboard> {
         subtitle: 'Higher & Technical Education Research',
         actions: [
           IconButton(
+            tooltip: 'Notifications',
             icon: const Icon(Icons.notifications_none_rounded, color: AppTheme.primaryGreen),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
           ),
           IconButton(
+            tooltip: 'Profile',
             icon: const Icon(Icons.account_circle_outlined, color: AppTheme.primaryGreen),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
           ),

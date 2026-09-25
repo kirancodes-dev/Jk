@@ -1104,6 +1104,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                           ),
                         ),
                         IconButton(
+                          tooltip: 'Remove attachment',
                           icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
                           onPressed: () => setState(() => _uploadedAttachments.removeAt(idx)),
                         ),

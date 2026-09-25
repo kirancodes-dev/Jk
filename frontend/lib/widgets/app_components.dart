@@ -447,6 +447,7 @@ class PaginationControls extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
+            tooltip: 'Previous page',
             icon: const Icon(Icons.chevron_left_rounded),
             onPressed: currentPage > 1 ? () => onPageChanged(currentPage - 1) : null,
           ),
@@ -457,6 +458,7 @@ class PaginationControls extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           IconButton(
+            tooltip: 'Next page',
             icon: const Icon(Icons.chevron_right_rounded),
             onPressed: currentPage < totalPages ? () => onPageChanged(currentPage + 1) : null,
           ),
