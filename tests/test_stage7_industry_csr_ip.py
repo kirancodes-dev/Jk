@@ -366,6 +366,61 @@ def test_funding_release_requires_approval_milestone_and_evidence(db_session, go
     assert body["settlement_status"] == "NOT_CONFIGURED"
 
 
+def test_project_comment_thread_visible_to_team_mentor_industry_and_officer(db_session, gov_admin):
+    """
+    A project-level comment thread (entity_type=PROJECT) must be readable by
+    everyone verify_project_membership already grants access to for this
+    project — the university team, the assigned faculty mentor, an industry
+    partner with an active collaboration, and government reviewers — and
+    rejected for an outsider with no relationship to the project.
+    """
+    gov_user, gov_token = gov_admin
+    home = _mk_verified_university(db_session, "p8")
+    challenge = _mk_challenge(db_session, gov_user, university=home["univ"])
+    project = _mk_project(db_session, home["token"], challenge.id, "P8")
+
+    proj = db_session.query(Project).filter(Project.id == project["id"]).first()
+    proj.faculty_mentor_id = home["faculty"].id
+    db_session.commit()
+
+    partner = _mk_partner(db_session, "commenter1", verified=True)
+    offer_resp = client.post(
+        f"/api/v1/projects/{project['id']}/collaborations",
+        json={"offer_type": "MENTORSHIP", "scope": "Technical mentorship."},
+        headers=AUTH(partner["token"])
+    )
+    collab_id = offer_resp.json()["id"]
+    for decision in ["UNDER_REVIEW", "CONFLICT_CHECK", "ACCEPTED", "CONTRACT_RECORDED", "ACTIVE"]:
+        r = client.post(
+            f"/api/v1/projects/{project['id']}/collaborations/{collab_id}/review",
+            json={"decision": decision, "notes": f"Moving to {decision}", "conflict_declared": False},
+            headers=AUTH(gov_token)
+        )
+        assert r.status_code == 200, r.text
+
+    post_resp = client.post(
+        f"/api/v1/projects/{project['id']}/comments",
+        json={"entity_type": "PROJECT", "entity_id": project["id"], "content": "Kickoff call scheduled for Friday."},
+        headers=AUTH(home["token"])
+    )
+    assert post_resp.status_code == 201, post_resp.text
+    comment_id = post_resp.json()["id"]
+
+    for label, token in [
+        ("university team", home["token"]),
+        ("faculty mentor", home["faculty_token"]),
+        ("industry partner", partner["token"]),
+        ("government reviewer", gov_token),
+    ]:
+        resp = client.get(f"/api/v1/projects/{project['id']}/comments", headers=AUTH(token))
+        assert resp.status_code == 200, f"{label} could not read the thread: {resp.text}"
+        assert comment_id in [c["id"] for c in resp.json()], f"{label} did not see the posted comment"
+
+    outsider = _mk_partner(db_session, "outsider2", verified=True)
+    resp = client.get(f"/api/v1/projects/{project['id']}/comments", headers=AUTH(outsider["token"]))
+    assert resp.status_code == 403
+
+
 def test_industry_dashboard_reflects_funding_summary(db_session, gov_admin):
     """
     The industry partner's own dashboard (GET /industry/dashboard) must show a

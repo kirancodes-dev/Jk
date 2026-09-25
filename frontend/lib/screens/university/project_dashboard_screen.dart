@@ -38,16 +38,52 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
   final Map<int, List<Map<String, dynamic>>> _fundingByCollab = {};
   final Set<int> _loadingFundingCollabIds = {};
   final Set<int> _expandedFundingCollabIds = {};
+  List<Map<String, dynamic>> _comments = [];
+  bool _isLoadingComments = false;
+  bool _isPostingComment = false;
+  final TextEditingController _commentCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 10, vsync: this);
+    _tabController = TabController(length: 11, vsync: this);
     _loadProject();
     _loadVerifications();
     _loadExtras();
     _loadTestReports();
     _loadIpRecords();
+    _loadComments();
+  }
+
+  Future<void> _loadComments() async {
+    setState(() => _isLoadingComments = true);
+    try {
+      final comments = await ApiService.getComments(widget.projectId, entityType: 'PROJECT', entityId: widget.projectId);
+      if (!mounted) return;
+      setState(() => _comments = comments);
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _isLoadingComments = false);
+    }
+  }
+
+  Future<void> _postComment() async {
+    final content = _commentCtrl.text.trim();
+    if (content.length < 2) return;
+    setState(() => _isPostingComment = true);
+    try {
+      await ApiService.addProjectComment(widget.projectId, 'PROJECT', widget.projectId, content);
+      _commentCtrl.clear();
+      await _loadComments();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: AppTheme.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isPostingComment = false);
+    }
   }
 
   Future<void> _loadTestReports() async {
@@ -242,6 +278,7 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
   @override
   void dispose() {
     _tabController.dispose();
+    _commentCtrl.dispose();
     super.dispose();
   }
 
@@ -840,6 +877,7 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
             Tab(text: 'Testing Outcomes'),
             Tab(text: 'Intellectual Property'),
             Tab(text: 'Field Verification'),
+            Tab(text: 'Discussion'),
           ],
         ),
       ),
@@ -875,6 +913,9 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
 
           // TAB 10: FIELD VERIFICATION
           _buildVerificationTab(),
+
+          // TAB 11: DISCUSSION
+          _buildCommentsTab(),
         ],
       ),
     );
@@ -2424,6 +2465,108 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
             }),
         ],
       ),
+    );
+  }
+
+  Widget _buildCommentsTab() {
+    final currentUserId = context.watch<AuthProvider>().currentUser?.id;
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Text(
+            'Visible to the project team, faculty mentor, industry partners with an active collaboration, and government reviewers.',
+            style: TextStyle(fontSize: 11, color: AppTheme.textSecondary),
+          ),
+        ),
+        Expanded(
+          child: _isLoadingComments
+              ? const Center(child: CircularProgressIndicator())
+              : _comments.isEmpty
+                  ? const Center(
+                      child: EmptyStateView(
+                        icon: Icons.forum_outlined,
+                        title: 'No discussion yet',
+                        description: 'Start the conversation with the team, mentor, industry partner, or government reviewer.',
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      itemCount: _comments.length,
+                      itemBuilder: (context, index) {
+                        final c = _comments[index];
+                        final isMine = c['author_id'] == currentUserId;
+                        return Align(
+                          alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(10),
+                            constraints: const BoxConstraints(maxWidth: 320),
+                            decoration: BoxDecoration(
+                              color: isMine ? AppTheme.primaryGreen.withOpacity(0.08) : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: isMine ? AppTheme.primaryGreen.withOpacity(0.3) : Colors.grey.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      c['author_name'] ?? 'User',
+                                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    if (c['author_role'] != null)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                        decoration: BoxDecoration(color: AppTheme.primaryGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                                        child: Text(
+                                          c['author_role'].toString().replaceAll('_', ' '),
+                                          style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(c['content'] ?? '', style: const TextStyle(fontSize: 12.5, color: AppTheme.textPrimary, height: 1.35)),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _commentCtrl,
+                    minLines: 1,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      hintText: 'Write a message to the team…',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(20))),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: _isPostingComment ? null : _postComment,
+                  icon: _isPostingComment
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.send_rounded, color: AppTheme.primaryGreen),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
