@@ -23,7 +23,7 @@ def reset_demo_data(db: Session = Depends(get_db)):
 
 @router.get("/accounts")
 def get_demo_accounts():
-    if settings.ENVIRONMENT == "production":
+    if not settings.DEMO_MODE or settings.ENVIRONMENT == "production":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden: Demo account discovery is disabled in production environments."
