@@ -140,8 +140,21 @@ def test_citizen_feedback_and_impact_metrics(client):
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    ch_res = client.get("/api/v1/challenges")
-    ch_id = ch_res.json()[0]["id"]
+    # Submit a fresh challenge owned by this citizen rather than reusing
+    # whichever challenge happens to sort first in the shared /challenges
+    # listing — another test in this same run may have already submitted
+    # feedback for that one (feedback is unique per citizen+challenge+version),
+    # which would 409 here instead of exercising the actual feedback flow.
+    ch_create_res = client.post("/api/v1/challenges", json={
+        "title": "Impact Metrics Test Challenge",
+        "description": "Isolated challenge for citizen feedback and impact metrics coverage.",
+        "category": "Water Management",
+        "urgency": "Medium",
+        "affected_population": 400,
+        "location": {"district_name": "Ranchi", "block_name": "Angara"}
+    }, headers=headers)
+    assert ch_create_res.status_code == 201
+    ch_id = ch_create_res.json()["id"]
 
     # Submit citizen feedback
     fb_res = client.post("/api/v1/impact/feedback", json={
