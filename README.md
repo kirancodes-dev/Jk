@@ -1,367 +1,287 @@
 <div align="center">
 
-# 🇮🇳 Government of Jharkhand
-### Department of Higher & Technical Education
-## Jharkhand Societal Innovation & Collaboration Platform
-**Smart India Hackathon (SIH 2026) | Problem Statement: 26043**
+<sub>GOVERNMENT OF JHARKHAND · DEPARTMENT OF HIGHER & TECHNICAL EDUCATION · SMART INDIA HACKATHON 2026 · PS 26043</sub>
+
+# Jharkhand Societal Innovation & Collaboration Platform
+
+### A village reports a broken hand pump. A university builds the fix. A CSR partner funds it. A field inspector proves it works.<br/>One platform runs that whole journey, across all 24 districts, with a human signing off every step.
 
 [![CI/CD Pipeline](https://github.com/kirancodes-dev/Jk/actions/workflows/ci.yml/badge.svg)](https://github.com/kirancodes-dev/Jk/actions/workflows/ci.yml)
-[![Backend Tests](https://img.shields.io/badge/pytest-156%20passed%20(100%25)-brightgreen.svg)](tests/)
-[![Flutter Tests](https://img.shields.io/badge/flutter%20test-17%20passed%20(100%25)-brightgreen.svg)](frontend/test/)
-[![Python](https://img.shields.io/badge/python-3.12%20%7C%203.14-blue.svg)](backend/)
+[![Backend tests](https://img.shields.io/badge/backend%20tests-168-blue.svg)](tests/)
+[![Flutter tests](https://img.shields.io/badge/flutter%20tests-69%20passed-brightgreen.svg)](frontend/test/)
+[![AI benchmark](https://img.shields.io/badge/AI%20benchmark-published-blueviolet.svg)](ai_accuracy_report.json)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
-[![Flutter](https://img.shields.io/badge/Flutter-3.x%20Web%20%26%20Mobile-02569B.svg)](https://flutter.dev)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16%20Alpine-336791.svg)](https://www.postgresql.org)
-[![Alembic](https://img.shields.io/badge/migrations-Alembic%20Versioned-red.svg)](alembic/)
-[![Docker](https://img.shields.io/badge/docker-compose%20ready-2496ED.svg)](docker-compose.yml)
-[![Security Hardened](https://img.shields.io/badge/security-DPDP%20%7C%20SSE--S3%20%7C%20CSP-orange.svg)](#-production-security--dpdp-data-rights)
+[![Flutter](https://img.shields.io/badge/Flutter-Web%20%26%20Mobile-02569B.svg)](https://flutter.dev)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org)
 
-<br/>
-
-> **Problem Statement (SIH 26043)**:  
-> *"Develop a digital platform to crowdsource societal challenges from citizens and rural communities, and facilitate collaborative, milestone-driven problem solving through Higher Educational Institutions (HEIs) and industry CSR partnerships."*
-
-<br/>
-
-[🌐 Live Public Portal](https://prerighteous-shante-unctuous.ngrok-free.dev) • [📚 Interactive Swagger API Docs](https://prerighteous-shante-unctuous.ngrok-free.dev/docs) • [📋 Traceability Matrix](TRACEABILITY_MATRIX.md) • [🧪 Pilot Acceptance Pack](docs/PILOT_ACCEPTANCE_PACK.md)
-
----
+**[Live demo](https://prerighteous-shante-unctuous.ngrok-free.dev)** · **[API docs](https://prerighteous-shante-unctuous.ngrok-free.dev/docs)** · **[Try it in 5 minutes](#-try-it-in-5-minutes)** · **[Team testing guide (PDF)](docs/JK_Portal_Team_Testing_Guide.pdf)** · **[Traceability matrix](TRACEABILITY_MATRIX.md)**
 
 </div>
 
-## 📌 Table of Contents
+---
 
-- [🏛️ Executive Overview](#️-executive-overview)
-- [⚡ Quick Start for Evaluators & Judges](#-quick-start-for-evaluators--judges)
-- [👥 Pre-Configured Test Personas](#-pre-configured-test-personas)
-- [🏗️ System Architecture](#️-system-architecture)
-- [🔄 13-Stage Challenge Lifecycle State Machine](#-13-stage-challenge-lifecycle-state-machine)
-- [🧠 Explainable & Governable AI Engine](#-explainable--governable-ai-engine)
-- [🔒 Production Security & DPDP Data Rights](#-production-security--dpdp-data-rights)
-- [📦 Secure Object Storage & Evidence Pipeline](#-secure-object-storage--evidence-pipeline)
-- [🔔 Multi-Channel Notification Outbox & Rural Sync](#-multi-channel-notification-outbox--rural-sync)
-- [📊 Executive Command Center & Analytics](#-executive-command-center--analytics)
-- [🧪 Test Suite & Verification Matrix](#-test-suite--verification-matrix)
-- [🚀 Local Setup & Docker Deployment](#-local-setup--docker-deployment)
-- [📚 Operational Runbooks](#-operational-runbooks)
-- [📜 Alignment with State Policies & License](#-alignment-with-state-policies--license)
+## The problem, and our answer
+
+> *"Develop a digital platform to crowdsource societal challenges from citizens and rural communities, and facilitate collaborative, milestone-driven problem solving through Higher Educational Institutions (HEIs) and industry CSR partnerships."* (SIH 26043)
+
+Grievance portals collect complaints, but they end at "forwarded to department". Nobody builds the solution, and nobody proves it worked.
+
+This platform treats every citizen report as an **R&D project with a finish line**:
+
+```mermaid
+flowchart LR
+    A["🧑‍🌾 Citizen / Panchayat<br/><b>reports</b> in Hindi or English,<br/>with photos, GPS, voice note"] --> B["🏛️ District Officer<br/><b>validates</b> with explainable<br/>AI triage"]
+    B --> C["🎓 University<br/><b>builds</b> through faculty-approved<br/>milestones"]
+    C --> D["🏭 Industry CSR<br/><b>funds</b> in tranches,<br/>signs IP agreement"]
+    D --> E["🔍 Field Verifier<br/><b>proves</b> it with geotagged<br/>before/after evidence"]
+    E --> F["📊 State Admin<br/><b>measures</b> impact across<br/>24 districts"]
+```
 
 ---
 
-## 🏛️ Executive Overview
+## By the numbers
 
-The **Jharkhand Societal Innovation & Collaboration Platform** is an enterprise-grade digital public infrastructure designed for the Government of Jharkhand. It bridges grassroots rural communities with academic research horsepower and corporate CSR funding:
-
-```
-┌─────────────────┐       ┌────────────────────┐       ┌─────────────────────┐       ┌─────────────────┐
-│   CITIZENS &    │ ────► │  DISTRICT GOVT &   │ ────► │  UNIVERSITIES / HEI │ ────► │  INDUSTRY CSR & │
-│  PANCHAYATS     │       │  LINE DEPARTMENTS  │       │  R&D TEAMS          │       │  FIELD AUDIT    │
-│  Crowdsource    │       │  AI Triage &       │       │  Prototype, Test &  │       │  Fund, Verify & │
-│  Challenges     │       │  Validation        │       │  Deliver Solutions  │       │  Measure Impact │
-└─────────────────┘       └────────────────────┘       └─────────────────────┘       └─────────────────┘
-```
-
-### Key Highlights for Judges:
-1. **Full 24-District Coverage**: Hardened bounding-box GIS validation covering all 24 districts of Jharkhand with 11 canonical challenge taxonomies.
-2. **Rural-First Resilience**: Offline draft queues with RFC-4122 UUIDs, multi-draft synchronization, audio voice-note submissions, and Hindi/English bilingual UI.
-3. **Multi-Stakeholder Collaboration**: Seamless role-guarded workflows for 8 distinct user personas: Citizens, PRIs/ULBs, District Officers, Students, Faculty Mentors, University Deans, Corporate CSR Heads, and Field Verifiers.
-4. **Governable AI Pipeline**: Transparent multi-factor priority scoring, vector semantic deduplication, and a tamper-evident human override ledger.
-5. **Verified Impact Accounting**: Solutions require physical field inspections with geotagged photo evidence, government department lab test reports, before/after quantifiable metric deltas, and citizen satisfaction ratings.
-6. **Enterprise Resilience & DevSecOps**: S3/MinIO private storage with SSE-S3 encryption, Prometheus observability (`/metrics`), zero-downtime blue/green deployment runbooks, OpenSSL AES-256 encrypted backups, and technical DPDP citizen rights.
+| 24 | 11 | 8 | 15 | 179 | 61 |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| districts, each with GIS boundary checks | challenge domains in a fixed taxonomy | stakeholder personas, each with its own dashboard | lifecycle stages, none skippable | REST API endpoints | database tables, 14 versioned migrations |
 
 ---
 
-## ⚡ Quick Start for Evaluators & Judges
+## ⚡ Try it in 5 minutes
 
-Evaluate the platform in less than 2 minutes using either the live cloud deployment or local setup:
+**1. Open the [live demo](https://prerighteous-shante-unctuous.ngrok-free.dev)** (if ngrok shows a warning page, click *Visit Site*), or run it locally:
 
-### 1. Access the Live Deployment
-- **Web Application Portal**: **[https://prerighteous-shante-unctuous.ngrok-free.dev](https://prerighteous-shante-unctuous.ngrok-free.dev)**  
-  *(If prompted by ngrok's free tier, click **"Visit Site"** to proceed).*
-- **Interactive OpenAPI / Swagger Documentation**: **[https://prerighteous-shante-unctuous.ngrok-free.dev/docs](https://prerighteous-shante-unctuous.ngrok-free.dev/docs)**
-- **System Health & Connectivity Probe**: **[https://prerighteous-shante-unctuous.ngrok-free.dev/health](https://prerighteous-shante-unctuous.ngrok-free.dev/health)**
-- **Prometheus Telemetry Metrics**: **[https://prerighteous-shante-unctuous.ngrok-free.dev/metrics](https://prerighteous-shante-unctuous.ngrok-free.dev/metrics)**
-
-### 2. Or Run Locally via Docker
 ```bash
-git clone https://github.com/kirancodes-dev/Jk.git
-cd Jk
-docker-compose -f docker-compose.dev.yml up -d --build
-# Open http://localhost:8008 in your browser
+git clone https://github.com/kirancodes-dev/Jk.git && cd Jk
+docker compose -f docker-compose.dev.yml up -d --build        # http://localhost:8008
+docker compose -f docker-compose.dev.yml exec web python -m backend.app.services.seed_flagship_demo   # adds officer, verifier and PRI accounts
 ```
+
+**2. Log in.** Every demo account uses the password **`password123`**:
+
+| Persona | Email | What to look at |
+| :--- | :--- | :--- |
+| 🧑‍🌾 Citizen | `citizen@jharkhand.gov.in` | Report a challenge, see the AI analysis, track it to closure |
+| 🏡 Gram Panchayat (PRI) | `pri.angara@jharkhand.gov.in` | Report on behalf of a village |
+| 🏛️ District Officer, Ranchi | `officer.ranchi@jharkhand.gov.in` | Review queue scoped to Ranchi only; override the AI |
+| 🔍 Field Verifier | `verifier.ranchi@jharkhand.gov.in` | Geotagged inspections and lab test results |
+| 🎓 University (BIT Mesra) | `university@bitmesra.ac.in` | Accept assignments, create projects |
+| 👩‍🏫 Faculty Mentor | `faculty@bitmesra.ac.in` | Approve milestones or request revisions |
+| 👨‍💻 Student | `student@bitmesra.ac.in` | Tasks and deliverable uploads |
+| 🏭 Industry CSR (Tata Steel) | `industry@tatasteel.com` | Fund projects, sign IP consent |
+| 📊 State Admin | `admin@jharkhand.gov.in` | Statewide analytics, district heatmap, impact dashboard |
+
+**3. Follow one challenge end to end:**
+
+1. As **Citizen**, report *"Hand pump broken in Angara village"* with a photo. The AI suggests a domain, a priority and possible duplicates, and shows its reasoning.
+2. As **District Officer**, change the AI's category. The override and your written reason go into a tamper-evident ledger. Then validate the challenge.
+3. As **University**, accept the assignment and create a project with a milestone. As **Student**, submit a deliverable.
+4. As **Faculty**, approve the milestone. As **Industry**, pledge a funding tranche.
+5. As **Citizen**, open *Track Solution* and see every step, with who did it and when.
+
+**Then try to break it:** open a Dhanbad challenge as the Ranchi officer, paste an admin URL as a citizen, or upload a disguised `.exe`. Each attempt is refused.
+
+The full test plan (60+ checks across every role, device and language) is in the **[Team testing guide](docs/JK_Portal_Team_Testing_Guide.pdf)**.
 
 ---
 
-## 👥 Pre-Configured Test Personas
+## What makes it different
 
-Use any of these pre-seeded evaluation accounts to explore role-specific dashboards:
-
-| Role | Email | Password | Assigned District / Organization | Dashboard Capabilities |
-| :--- | :--- | :--- | :--- | :--- |
-| **Citizen (Rural Submitter)** | `citizen@jharkhand.gov.in` | `Citizen@1234` | Ranchi (Bero Block) | Submit rural issues, upload evidence, record voice notes, track live status, DPDP privacy rights |
-| **District Review Officer** | `officer.ranchi@jharkhand.gov.in` | `Officer@1234` | Ranchi District Administration | Review district queue, inspect AI scores, override taxonomy, validate or reject challenges |
-| **Student Innovator** | `student.bit@jharkhand.gov.in` | `Student@1234` | BIT Mesra (Engineering) | View matched challenges, join project teams, submit task deliverables, log lab work |
-| **Faculty Research Lead** | `faculty.bit@jharkhand.gov.in` | `Faculty@1234` | BIT Mesra (R&D Department) | Create R&D projects, manage student tasks, review milestone progress, apply for CSR grants |
-| **University Dean / HEI Admin** | `dean.bit@jharkhand.gov.in` | `University@1234` | BIT Mesra Central Administration | Institutional adoption, allocate laboratory infrastructure, approve departmental IP agreements |
-| **Industry Partner (CSR)** | `csr.tatasteel@jharkhand.gov.in` | `Industry@1234` | Tata Steel Rural Development Society | Browse validated projects, pledge CSR grant tranches, sign 4-way IP sharing agreements |
-| **Field Verification Officer** | `verifier.ranchi@jharkhand.gov.in` | `Verifier@1234` | Dept. of Drinking Water & Sanitation | Submit geotagged inspection evidence, record lab test measurements, verify community impact |
-| **Statewide Super Admin** | `admin.jharkhand@jharkhand.gov.in` | `Admin@1234` | Jharkhand State Innovation Council | Statewide command analytics, 24-district heatmaps, audit logs, system-wide governance |
+| | Differentiator | Proof in the repo |
+| :---: | :--- | :--- |
+| 🔒 | **A lifecycle that cannot be skipped.** 15 stages from *Submitted* to *Closed*. Every transition is checked against role, jurisdiction and version, then written to a hash-chained audit trail. | [`workflow_service.py`](backend/app/services/workflow_service.py) · [state machine tests](tests/test_stage4_workflow_state_machine.py) |
+| 🧠 | **AI that shows its work and never decides alone.** Transparent scoring, a published accuracy benchmark, and a mandatory human-override ledger. | [`services/ai/`](backend/app/services/ai/) · [benchmark](ai_accuracy_report.json) · [AI governance](docs/AI_GOVERNANCE.md) |
+| 🗺️ | **District-level isolation.** A Ranchi officer cannot read or act on a Dhanbad challenge, and the server enforces this, not just the UI. | [negative security tests](tests/test_stage12_security_negative_properties.py) |
+| 📶 | **Built for rural connectivity.** Offline drafts with client UUIDs and idempotency keys sync once, with no duplicates. Voice notes, Hindi/English UI, text scaling, high contrast and screen readers are supported. | [`offline_draft_service.dart`](frontend/lib/core/offline_draft_service.dart) · [localization tests](frontend/test/) |
+| ✅ | **Impact you can audit.** Closure needs geotagged field evidence, lab measurements with before/after deltas, and a citizen satisfaction rating. | [verification tests](tests/test_stage8_verification_and_closure.py) |
+| 🛡️ | **Citizen data rights (DPDP), built in.** Citizens can export, correct and erase their data. Erasure pseudonymizes the person but keeps the audit trail intact. Logs scrub Aadhaar, phone numbers, OTPs and GPS. | [`privacy.py`](backend/app/routers/privacy.py) · [ops & security tests](tests/test_stage11_security_and_operations.py) |
 
 ---
 
-## 🏗️ System Architecture
+## 🔄 The challenge lifecycle
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                    FRONTEND: FLUTTER 3.x WEB & MOBILE CLIENTS                           │
-│  Sovereign UI • Bilingual (English & Hindi) • Offline Queue with RFC-4122 UUIDs        │
-│  Role-Guarded Dashboards • Voice-Note Audio Recorder • Geo-location Bounding Box Guard  │
-└───────────────────────────────────────────┬─────────────────────────────────────────────┘
-                                            │ HTTPS / REST (JSON + Bearer JWT)
-                                            ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                      GATEWAY & SECURITY MIDDLEWARE (FastAPI)                            │
-│  Strict CSP (CanvasKit/Wasm) • HSTS over HTTPS • 25MB Body Guard • 60s Timeout Shield    │
-│  Trusted Proxy CIDR Helper • Anti-Brute Force Rate Limiting • Dual-Token Auth (JWT)    │
-└──────────────┬────────────────────────────┬────────────────────────────┬────────────────┘
-               │                            │                            │
-               ▼                            ▼                            ▼
-┌──────────────────────────────┐ ┌───────────────────────────┐ ┌───────────────────────────┐
-│    FINITE STATE MACHINE      │ │   EXPLAINABLE AI ENGINE   │ │    OBJECT STORAGE (S3)    │
-│  13-Stage Strict Lifecycle   │ │  Multi-Factor Priority    │ │  Private Bucket (SSE-S3)  │
-│  Zero-Skipping Workflow      │ │  Sentence-Transformer Vec │ │  15-min Presigned URLs    │
-│  Immutable Audit Hash Chain  │ │  Duplicate Detection      │ │  EICAR Scan & EXIF Strip  │
-│  DPDP Data Rights Manager    │ │  Human Override Ledger    │ │  Soft Delete & 30-Day TTL │
-└──────────────┬───────────────┘ └──────────┬────────────────┘ └──────────────┬─────────────┘
-               │                            │                                 │
-               ▼                            ▼                                 ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                  BACKGROUND PROCESSING & CONCURRENCY WORKER                             │
-│  PostgreSQL SELECT FOR UPDATE SKIP LOCKED • Stale Job Recovery • Multi-Channel Outbox   │
-└───────────────────────────────────────────┬─────────────────────────────────────────────┘
-                                            │
-                                            ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                       PERSISTENCE LAYER (PostgreSQL 16)                                 │
-│  60 Relational Tables (3NF) • Composite District & Spatial Indexes                      │
-│  8 Alembic Migrations • Cryptographically Signed Audit Event Records                    │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🔄 13-Stage Challenge Lifecycle State Machine
-
-Challenges cannot be arbitrarily resolved. Every transition is strictly validated against the finite state machine (`backend/app/core/state_machine.py`) with role-based permission checks, required metadata, and immutable audit logging:
+A challenge only moves forward when the right role acts in the right jurisdiction. Illegal jumps (for example *Submitted → Resolved*) are rejected with a clear error.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> SUBMITTED: Citizen / PRI Reports
-    SUBMITTED --> AI_ANALYSIS: Background Worker Claims
-    AI_ANALYSIS --> UNDER_REVIEW: AI Triage Complete
-    
-    UNDER_REVIEW --> REJECTED: Ineligible / Abusive
-    UNDER_REVIEW --> DUPLICATE: Merged with Master Challenge
-    UNDER_REVIEW --> VALIDATED: District Officer Approves
-    
-    VALIDATED --> UNIVERSITY_ASSIGNED: HEI Adopts Problem
-    UNIVERSITY_ASSIGNED --> IN_PROGRESS: Student Team & Tasks Formed
-    IN_PROGRESS --> FIELD_VERIFICATION: Deliverables Ready
-    
-    FIELD_VERIFICATION --> UNDER_REVIEW: Lab Test Failed (Rework)
-    FIELD_VERIFICATION --> RESOLVED: Verified by Inspector
-    
-    RESOLVED --> IMPACT_AUDITED: Community Feedback Collected
-    IMPACT_AUDITED --> CLOSED: Formal Government Sign-off
+    [*] --> SUBMITTED: Citizen / PRI reports
+    SUBMITTED --> AI_ANALYSIS: automatic triage
+    AI_ANALYSIS --> UNDER_REVIEW: officer picks up
+    UNDER_REVIEW --> NEEDS_MORE_INFO: asks citizen
+    NEEDS_MORE_INFO --> UNDER_REVIEW: citizen adds detail
+    UNDER_REVIEW --> DUPLICATE
+    UNDER_REVIEW --> REJECTED
+    UNDER_REVIEW --> VALIDATED: officer approves
+    VALIDATED --> UNIVERSITY_ASSIGNED: HEI accepts
+    UNIVERSITY_ASSIGNED --> TEAM_FORMED
+    TEAM_FORMED --> SOLUTION_PROPOSED
+    SOLUTION_PROPOSED --> APPROVED
+    APPROVED --> PROTOTYPE
+    PROTOTYPE --> FIELD_TESTING
+    FIELD_TESTING --> DEPLOYMENT
+    DEPLOYMENT --> FIELD_VERIFICATION
+    FIELD_VERIFICATION --> DEPLOYMENT: inspection failed, rework
+    FIELD_VERIFICATION --> RESOLVED: inspector verifies
+    RESOLVED --> IMPACT_AUDITED: citizen feedback
+    IMPACT_AUDITED --> CLOSED: government sign-off
     CLOSED --> [*]
 ```
 
----
-
-## 🧠 Explainable & Governable AI Engine
-
-To maintain democratic public trust, the platform strictly avoids unexplainable black-box models. All AI predictions provide transparent mathematical reasoning and are subject to mandatory government human review:
-
-1. **Multi-Factor Priority Scoring**:
-   $$\text{Priority Score} = 0.35 \times \text{Population} + 0.30 \times \text{Severity} + 0.20 \times \text{Urgency} + 0.15 \times \text{Health Impact}$$
-   Automatically scales up for Aspirational Districts (*e.g., Khunti, Simdega, Gumla*).
-2. **Vector Semantic Deduplication**:
-   - Computes high-dimensional dense embeddings (`SentenceTransformer`) combined with geographic distance ($\le 5\text{ km}$) and category matching.
-   - Provides side-by-side duplicate comparison in the officer triage queue with one-click `[Confirm Duplicate]` or `[Keep Separate]`.
-3. **University Capability Matchmaker**:
-   - Calculates institutional affinity vectors using engineering department accreditation, faculty publication domains, specialized laboratory equipment, and historical project completion velocity.
-4. **Mandatory Human-in-the-Loop Override Ledger**:
-   - Whenever an administrator modifies an AI classification or priority, the system logs the original AI output, the human override, the officer's ID, and their mandatory audit justification.
+Any active stage can be **PAUSED** and resumed. Closed, rejected and duplicate challenges can be **REOPENED** for re-review. Every change records the actor, their role, the reason and the time.
 
 ---
 
-## 🔒 Production Security & DPDP Data Rights
+## 🧠 Explainable, governable AI
 
-The platform is engineered to meet Indian Digital Personal Data Protection (DPDP) technical guidelines and enterprise defense-in-depth standards:
+The AI assists officers. It never approves, rejects or merges anything on its own.
 
-- **Security Headers & Transport Protection**:
-  - `Content-Security-Policy`: Custom configured for Flutter Web CanvasKit and WebAssembly execution (`wasm-unsafe-eval`, `worker-src blob:;`, Google Fonts).
-  - `Strict-Transport-Security`: `max-age=31536000; includeSubDomains; preload` enforced strictly behind HTTPS.
-  - `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Permissions-Policy`.
-- **Structured JSON Logging with PII Scrubbing**:
-  - Logs are structured JSON formatted with correlation IDs (`X-Request-ID`).
-  - Automatic regex-based redaction scrubs Passwords, Bearer/JWT tokens, OTPs, 12-digit Indian Aadhaar numbers, 10-digit mobile phone numbers, and high-precision GPS coordinates.
-- **Technical DPDP Citizen Rights**:
-  - `GET /api/v1/privacy/notices`: Plain-language statutory collection notices in English and Hindi.
-  - `GET /api/v1/privacy/my-data`: Complete portable JSON data extract of all citizen submissions and interactions.
-  - `PUT /api/v1/privacy/correct-data`: Self-service profile correction.
-  - `POST /api/v1/privacy/request-erasure`: Irreversible pseudonymization of citizen personal identifiers (`name="Deleted User"`, `phone=None`, `email="erased_<uuid>@anonymized.invalid"`) while strictly preserving immutable transaction audit trail integrity.
-- **Strict Role-Based Access Control (RBAC)**:
-  - 8 distinct roles with vertical privilege escalation defense and horizontal BOLA (Broken Object-Level Authorization) protection.
-  - District tenancy isolation ensures district officers can only access challenges within their administrative boundary.
+**Priority score.** Five transparent factors, each scored 0–100, combined with versioned weights that administrators can tune:
 
----
+$$\text{Priority} = 0.30\,\text{Severity} + 0.20\,\text{Urgency} + 0.20\,\text{Population} + 0.15\,\text{Health \& Safety} + 0.15\,\text{Regional Vulnerability}$$
 
-## 📦 Secure Object Storage & Evidence Pipeline
+Challenges from NITI Aayog **aspirational districts** (such as Khunti, Simdega and Gumla) score higher on regional vulnerability, so under-served areas are not buried in the queue.
 
-- **Private Encrypted S3/MinIO Engine**: Direct local disk storage is strictly prohibited in production; `STORAGE_TYPE != "s3"` fails closed with a fatal startup error.
-- **SSE-S3 Encryption**: All uploaded files are encrypted at rest with AES-256.
-- **15-Minute Presigned URLs**: Files are stored in private non-public buckets. Authorized clients receive short-lived (900s) presigned GET/PUT URLs with object-level permission verification.
-- **Antivirus & Malware Scanning**:
-  - Magic-byte inspection detects true binary signatures (JPEG, PNG, WebP, PDF, MP4, DOCX).
-  - Disguised Windows PE (`MZ`), Linux ELF (`\x7fELF`), and script files (`#!`, `<script`) are rejected with `400 Bad Request`.
-  - Built-in EICAR antivirus test signature detection.
-- **EXIF Metadata Stripping**: Uploaded JPEG and PNG photos automatically have GPS coordinates and camera metadata stripped via Pillow before permanent storage to preserve citizen privacy.
-- **Soft-Deletion & Retention Lifecycle**: Objects support soft-deletion with a 30-day restore window before permanent lifecycle expiration.
+**Duplicate detection.** Each candidate gets a composite score: text similarity 50%, same district or block 25%, same category 15%, recency within 180 days 10%. Text similarity is bag-of-words by default. It can switch to multilingual embeddings (`paraphrase-multilingual-MiniLM-L12-v2`) with `AI_EMBEDDINGS_ENABLED=true`. A match is only a suggestion: *"Requires human review (never auto-suppressed)."*
+
+**Human override ledger.** When an officer changes an AI classification or priority, the platform records the original output, the new value, the officer and their mandatory justification.
+
+**Published accuracy, not marketing.** We benchmarked the domain classifier on **198 real-style reports (18 per domain) in English, Hindi and romanized Hindi**:
+
+| Overall | Best domains | Hardest domains | Sent to human review |
+| :---: | :--- | :--- | :---: |
+| **68.2%** | Water Resources 100% · Education 83% · Agriculture 78% · Sanitation 78% | Rural Livelihoods 50% · Healthcare 56% · Environment 56% · Public Admin 56% | 21 low-confidence cases |
+
+Most misses are short romanized-Hindi reports such as *"aspatal me dawai khatam ho gayi hai"*. The classifier marks these *Unclassified* with 0.30 confidence, which sends them to an officer instead of guessing. Full confusion matrix and misclassified examples: [`ai_accuracy_report.json`](ai_accuracy_report.json).
 
 ---
 
-## 🔔 Multi-Channel Notification Outbox & Rural Sync
+## 🏗️ Architecture
 
-- **Durable Database Outbox**: Notifications are committed transactionally to the database first, eliminating lost alerts during network partitions.
-- **Concurrency-Safe Distributed Worker**:
-  - Employs PostgreSQL row-level locks:
-    ```sql
-    SELECT * FROM notification_outbox 
-    WHERE delivery_status IN ('PENDING', 'FAILED') 
-    FOR UPDATE SKIP LOCKED LIMIT 20;
-    ```
-  - Multiple worker replicas process the queue concurrently with guaranteed zero duplicate dispatch.
-- **Multi-Channel Delivery Adapters**: In-App notifications, real SMTP Email relay, simulated SMS, WhatsApp Business, and Push adapters with exponential backoff retries.
-- **Rural Offline Synchronization**:
-  - Flutter `OfflineDraftService` persists challenge drafts locally with client-generated RFC-4122 v4 UUIDs and idempotency keys.
-  - When network returns, drafts sync automatically without duplicate record creation.
-
----
-
-## 📊 Executive Command Center & Analytics
-
-State administrators and department heads have access to live statewide analytics:
-
-- **24-District Geographic Heatmap**: Real-time challenge density, resolution velocity, and aspirational district tracking.
-- **Sectoral Distribution**: Live breakdown across the 11 canonical domains (*Water Resources, Agriculture, Healthcare, Education, Sanitation, etc.*).
-- **University R&D Velocity**: Track projects, milestone completion rates, and student innovations across HEIs.
-- **Corporate CSR Co-Investment**: Monitor total CSR capital pledged, disbursed tranches, and 4-way IP allocation agreements.
-- **Prometheus Telemetry**: Native `/metrics` endpoint exporting HTTP request durations, error rates, queue depths, and security events.
-
----
-
-## 🧪 Test Suite & Verification Matrix
-
-The platform is validated by **156 backend tests** and **17 Flutter frontend tests**, achieving 100% pass rates against a real PostgreSQL database:
-
-```bash
-# Run the complete backend test suite:
-PYTHONPATH=. backend/.venv/bin/pytest tests/ -v
-
-# Run the Flutter frontend test suite:
-cd frontend && flutter test
+```mermaid
+flowchart TB
+    subgraph Client["Flutter 3 · Web & Mobile"]
+        UI["8 role dashboards · Hindi/English · offline drafts · voice notes · accessibility"]
+    end
+    subgraph API["FastAPI gateway"]
+        SEC["JWT dual-token auth · RBAC + district tenancy · rate limiting · CSP/HSTS · 25 MB body cap"]
+        FSM["Workflow state machine<br/>+ hash-chained audit"]
+        AI["Explainable AI<br/>priority · dedup · matching"]
+        PRIV["DPDP privacy rights"]
+    end
+    subgraph Data["Data & infrastructure"]
+        PG[("PostgreSQL 16<br/>61 tables · Alembic")]
+        S3[("Private S3 / MinIO<br/>SSE-S3 · presigned URLs")]
+        WK["Background worker<br/>SKIP LOCKED queue · notification outbox"]
+    end
+    UI -->|HTTPS · REST · Bearer JWT| SEC
+    SEC --> FSM & AI & PRIV
+    FSM --> PG
+    AI --> PG
+    PRIV --> PG
+    SEC --> S3
+    WK --> PG
 ```
 
-### Comprehensive Test Suites:
+| Layer | Technology |
+| :--- | :--- |
+| Frontend | Flutter 3 (web + Android/iOS), Provider, custom Jharkhand government theme |
+| Backend | Python 3.12+, FastAPI, SQLAlchemy, Pydantic, Alembic |
+| Data | PostgreSQL 16, S3/MinIO object storage |
+| AI | Rule-based explainable scoring, optional Sentence-Transformers embeddings |
+| Ops | Docker Compose, GitHub Actions CI (bandit SAST, pip-audit), Prometheus `/metrics`, encrypted backups |
 
-| Test Suite File | Coverage Scope | Status |
-| :--- | :--- | :--- |
-| `tests/test_stage12_e2e_journeys.py` | 5 complete end-to-end journeys (Citizen, District Officer, University, Industry, Executive) | **PASSED (5/5)** |
-| `tests/test_stage12_security_negative_properties.py` | Privilege escalation, BOLA, cross-district tampering, path traversal, fail-closed config | **PASSED (6/6)** |
-| `tests/test_stage11_security_and_operations.py` | Security headers, HSTS, PII masking, metrics, SSE-S3, EICAR, EXIF strip, worker lock, DPDP rights | **PASSED (15/15)** |
-| `tests/test_stage10_analytics_and_dashboards.py` | Executive dashboards, district heatmaps, sectoral aggregates, CSV/JSON export | **PASSED (8/8)** |
-| `tests/test_stage9_notifications_and_outbox.py` | Multi-channel outbox, preferences, retry policies, retention cleanup | **PASSED (7/7)** |
-| `tests/test_stage8_verification_and_closure.py` | Field verification, lab test measurement deltas, citizen satisfaction, audit hash chains | **PASSED (8/8)** |
-| `tests/test_stage7_industry_csr_ip.py` | CSR grant pledges, tranche release, 4-way IP sharing contracts | **PASSED (8/8)** |
-| `tests/test_stage6_hei_collaboration.py` | Project creation, student task deliverables, faculty milestone approval | **PASSED (9/9)** |
-| `tests/test_stage5_ai_governance.py` | AI triage, priority scoring, duplicate detection, human override ledger | **PASSED (9/9)** |
-| `tests/test_stage4_workflow_state_machine.py` | 13-stage state machine transitions, illegal jump rejection, domain events | **PASSED (9/9)** |
-| `tests/test_stage3_challenge_ingestion.py` | 11 canonical domains, 24 districts, GIS bounding box, attachments, offline drafts | **PASSED (9/9)** |
-| `tests/test_stage2_access_control.py` | Dual-token JWT auth, 8-role RBAC, token revocation blacklist | **PASSED (7/7)** |
-| `tests/test_stage1_production_config.py` | Production fail-closed rules, Alembic migrations, database connection pooling | **PASSED (14/14)** |
-| `frontend/test/` | Offline sync, draft UUIDs, multi-role auth, dashboards, state views, and localization | **PASSED (17/17)** |
+<details>
+<summary><b>🔒 Security & privacy details</b></summary>
 
-*For complete requirement-to-test mapping, inspect [TRACEABILITY_MATRIX.md](TRACEABILITY_MATRIX.md).*
+<br/>
+
+- **Access control:** 8 personas across 12 role types with server-side RBAC. Vertical privilege escalation and horizontal BOLA are both tested, and district officers are confined to their own jurisdiction.
+- **Transport & headers:** CSP tuned for Flutter CanvasKit/Wasm, HSTS behind HTTPS, `X-Frame-Options: DENY`, `nosniff`, a strict `Permissions-Policy`, and `no-store` on API responses.
+- **Request limits:** 25 MB body cap, 60 s timeout, and trusted-proxy handling of `X-Forwarded-For`.
+- **Uploads:** magic-byte type checks reject disguised executables and scripts. EICAR detection, EXIF/GPS stripping on photos, UUID-safe filenames (no path traversal), a quarantine prefix, and soft delete with a 30-day restore window.
+- **Storage:** private buckets with AES-256 SSE and 15-minute presigned URLs. Production refuses to start without S3 or with default secrets (fail closed).
+- **Logging:** structured JSON with request IDs. Passwords, JWTs, OTPs, Aadhaar numbers, mobile numbers and precise GPS are redacted automatically.
+- **DPDP rights:** `GET /api/v1/privacy/notices` · `GET /api/v1/privacy/my-data` · `PUT /api/v1/privacy/correct-data` · `POST /api/v1/privacy/request-erasure`. These are technical controls, not a legal certification.
+- **Demo safety:** `DEMO_MODE` endpoints (`/demo/reset`, `/demo/accounts`) are blocked in production, and production refuses to boot with `DEMO_MODE=true`.
+
+</details>
+
+<details>
+<summary><b>🔔 Notifications & background processing</b></summary>
+
+<br/>
+
+- Notifications are written to a **transactional outbox** first, so no alert is lost during network failures.
+- Worker replicas claim jobs with `SELECT … FOR UPDATE SKIP LOCKED`, so no job is processed twice. Stuck jobs are recovered after 5 minutes. Shutdown is graceful on SIGTERM.
+- Channel adapters: in-app, SMTP email, SMS, WhatsApp Business and push. SMS, WhatsApp and push are simulated in the demo. All channels retry with exponential backoff.
+
+</details>
 
 ---
 
-## 🚀 Local Setup & Docker Deployment
+## 🧪 Tests
 
-### Prerequisites
-- Python 3.12+ (or 3.14)
-- Flutter SDK 3.x
-- Docker & Docker Compose
-- PostgreSQL 16 (or use Docker)
-
-### Option A: Running with Docker Compose (Recommended)
 ```bash
-# Clone the repository
-git clone https://github.com/kirancodes-dev/Jk.git
-cd Jk
-
-# Launch backend and PostgreSQL
-docker-compose -f docker-compose.dev.yml up -d --build
-
-# Open http://localhost:8008 in your browser
+PYTHONPATH=. backend/.venv/bin/pytest tests/ -q     # backend: 168 tests
+cd frontend && flutter test                          # frontend: 69 passed
 ```
 
-### Option B: Local Manual Setup
+| Area | Suite |
+| :--- | :--- |
+| Five end-to-end journeys: citizen, officer, university, industry, executive | [`test_stage12_e2e_journeys.py`](tests/test_stage12_e2e_journeys.py) |
+| Privilege escalation, BOLA, cross-district tampering, path traversal, fail-closed config | [`test_stage12_security_negative_properties.py`](tests/test_stage12_security_negative_properties.py) |
+| Headers, PII masking, metrics, SSE-S3, EICAR, EXIF, worker locks, DPDP | [`test_stage11_security_and_operations.py`](tests/test_stage11_security_and_operations.py) |
+| Lifecycle transitions and illegal-jump rejection | [`test_stage4_workflow_state_machine.py`](tests/test_stage4_workflow_state_machine.py) |
+| AI triage, priority, duplicates, override ledger | [`test_stage5_ai_governance.py`](tests/test_stage5_ai_governance.py) |
+| HEI projects, CSR funding and IP, field verification, notifications, analytics | [`tests/`](tests/) (stages 6–10) |
+| Offline sync, multi-role routing, dashboards, localization guard (no hard-coded English) | [`frontend/test/`](frontend/test/) |
 
-#### 1. Backend Setup
+Every requirement of PS 26043 is mapped to its models, APIs, screens and tests in the **[Traceability matrix](TRACEABILITY_MATRIX.md)**.
+
+---
+
+## 🚀 Local development
+
+**Prerequisites:** Docker, or Python 3.12+, PostgreSQL 16 and the Flutter 3 SDK.
+
 ```bash
-# Create virtual environment
-python3 -m venv backend/.venv
-source backend/.venv/bin/activate
-
-# Install dependencies
+# Backend (also serves the compiled Flutter web app)
+python3 -m venv backend/.venv && source backend/.venv/bin/activate
 pip install -r backend/requirements.txt
-
-# Apply database migrations
 alembic upgrade head
+DEMO_MODE=true PYTHONPATH=. uvicorn backend.app.main:app --port 8008 --reload
 
-# Start FastAPI backend (serves API and compiled Flutter web SPA)
-PYTHONPATH=. uvicorn backend.app.main:app --host 0.0.0.0 --port 8008 --reload
+# Frontend with hot reload (optional)
+cd frontend && flutter pub get && flutter run -d chrome --web-port 3000
 ```
 
-#### 2. Frontend Development Setup (Optional Hot-Reload)
-```bash
-cd frontend
-flutter pub get
-flutter run -d chrome --web-port 3000
-```
+With `DEMO_MODE=true`, demo data is seeded on first start. Reset it with `POST /demo/reset`. Health probes: `/health`, `/live`, `/ready`. Metrics: `/metrics`.
 
 ---
 
-## 📚 Operational Runbooks
+## 📚 Documentation
 
-Production operational procedures are documented in [docs/runbooks/](docs/runbooks/):
-
-1. **[Disaster Recovery & PITR Runbook](docs/runbooks/disaster_recovery_runbook.md)**: RPO < 15 min, RTO < 60 min, failover procedures, and automated restore verification drills.
-2. **[Deployment & Zero-Downtime Rollback](docs/runbooks/deployment_and_rollback.md)**: Blue/Green deployment protocol, canary rollouts, and backward-compatible Alembic migration rules.
-3. **[Secrets & Key Rotation](docs/runbooks/secrets_rotation.md)**: 90-day rotation procedures for JWT secrets, database credentials, S3 access keys, and OAuth2 tokens.
-4. **[Security Incident Response](docs/runbooks/incident_response.md)**: P1-P4 triage classification, data breach containment protocols, and legal notification checklists.
+| For | Read |
+| :--- | :--- |
+| Testers and evaluators | [Team testing guide](docs/JK_Portal_Team_Testing_Guide.pdf) · [Pilot acceptance pack](docs/PILOT_ACCEPTANCE_PACK.md) |
+| Architects | [ARCHITECTURE.md](ARCHITECTURE.md) · [DATABASE.md](DATABASE.md) · [API.md](API.md) · [Full system report (PDF)](docs/SIH_26043_COMPLETE_ARCHITECTURE_AND_SYSTEM_REPORT.pdf) |
+| Security reviewers | [SECURITY.md](docs/SECURITY.md) · [AI governance](docs/AI_GOVERNANCE.md) |
+| Operations | [DEPLOYMENT.md](DEPLOYMENT.md) · [Disaster recovery](docs/runbooks/disaster_recovery_runbook.md) · [Zero-downtime deploy & rollback](docs/runbooks/deployment_and_rollback.md) · [Secrets rotation](docs/runbooks/secrets_rotation.md) · [Incident response](docs/runbooks/incident_response.md) |
 
 ---
 
-## 📜 Alignment with State Policies & License
+## 🏛️ Aligned with Jharkhand state initiatives
 
-### Aligned Jharkhand State Initiatives:
-- **Jharkhand Higher Education Innovation Policy**: Connects academic engineering faculties and student researchers directly to grassroots civic challenges.
-- **Jharkhand Industrial Policy 2021**: Directs corporate CSR investments into local university R&D pipelines.
-- **Mukhyamantri Protsahan Yojana**: Recognizes student innovators with verifiable state digital credentials.
-- **Jal Jeevan Mission Jharkhand**: Provides priority routing and lab verification for rural drinking water contamination challenges.
+- **Jharkhand Higher Education Innovation Policy:** connects faculty and student researchers to real grassroots problems.
+- **Jharkhand Industrial Policy 2021:** channels CSR investment into local university R&D.
+- **Mukhyamantri Protsahan Yojana:** gives student innovators a verifiable record of their work.
+- **Jal Jeevan Mission Jharkhand:** provides priority routing and lab verification for rural drinking-water challenges.
 
-### License
-Developed for **Smart India Hackathon 2026** under the auspices of the **Department of Higher & Technical Education, Government of Jharkhand**.  
+---
+
+<div align="center">
+
+Built for **Smart India Hackathon 2026** for the **Department of Higher & Technical Education, Government of Jharkhand**.<br/>
 All rights reserved © 2026.
+
+</div>
