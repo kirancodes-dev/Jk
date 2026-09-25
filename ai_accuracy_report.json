@@ -1,0 +1,577 @@
+{
+  "model_name": "JHARKHAND_TAXONOMY_CLASSIFIER_V2",
+  "model_version": "2.2.0",
+  "total_samples": 198,
+  "correct": 135,
+  "accuracy": 0.6818,
+  "accuracy_pct": "68.2%",
+  "human_review_flagged": 21,
+  "per_domain": {
+    "Accessibility": {
+      "n": 18,
+      "correct": 11,
+      "accuracy": 0.611
+    },
+    "Agriculture": {
+      "n": 18,
+      "correct": 14,
+      "accuracy": 0.778
+    },
+    "Education": {
+      "n": 18,
+      "correct": 15,
+      "accuracy": 0.833
+    },
+    "Energy": {
+      "n": 18,
+      "correct": 12,
+      "accuracy": 0.667
+    },
+    "Environment": {
+      "n": 18,
+      "correct": 10,
+      "accuracy": 0.556
+    },
+    "Healthcare": {
+      "n": 18,
+      "correct": 10,
+      "accuracy": 0.556
+    },
+    "Public Administration": {
+      "n": 18,
+      "correct": 10,
+      "accuracy": 0.556
+    },
+    "Rural Livelihoods": {
+      "n": 18,
+      "correct": 9,
+      "accuracy": 0.5
+    },
+    "Sanitation": {
+      "n": 18,
+      "correct": 14,
+      "accuracy": 0.778
+    },
+    "Urban Infrastructure": {
+      "n": 18,
+      "correct": 12,
+      "accuracy": 0.667
+    },
+    "Water Resources": {
+      "n": 18,
+      "correct": 18,
+      "accuracy": 1.0
+    }
+  },
+  "confusion_matrix": {
+    "Water Resources": {
+      "Water Resources": 18
+    },
+    "Agriculture": {
+      "Agriculture": 14,
+      "Water Resources": 2,
+      "Unclassified": 1,
+      "Healthcare": 1
+    },
+    "Healthcare": {
+      "Healthcare": 10,
+      "Unclassified": 3,
+      "Water Resources": 2,
+      "Agriculture": 2,
+      "Public Administration": 1
+    },
+    "Education": {
+      "Education": 15,
+      "Unclassified": 2,
+      "Agriculture": 1
+    },
+    "Sanitation": {
+      "Sanitation": 14,
+      "Water Resources": 2,
+      "Education": 1,
+      "Agriculture": 1
+    },
+    "Environment": {
+      "Environment": 10,
+      "Unclassified": 5,
+      "Agriculture": 2,
+      "Water Resources": 1
+    },
+    "Energy": {
+      "Energy": 12,
+      "Water Resources": 2,
+      "Environment": 2,
+      "Education": 2
+    },
+    "Urban Infrastructure": {
+      "Urban Infrastructure": 12,
+      "Agriculture": 4,
+      "Unclassified": 1,
+      "Education": 1
+    },
+    "Rural Livelihoods": {
+      "Rural Livelihoods": 9,
+      "Unclassified": 4,
+      "Environment": 1,
+      "Public Administration": 2,
+      "Agriculture": 2
+    },
+    "Accessibility": {
+      "Accessibility": 11,
+      "Education": 4,
+      "Agriculture": 1,
+      "Water Resources": 1,
+      "Public Administration": 1
+    },
+    "Public Administration": {
+      "Public Administration": 10,
+      "Unclassified": 5,
+      "Education": 1,
+      "Accessibility": 1,
+      "Water Resources": 1
+    }
+  },
+  "misclassified_examples": [
+    {
+      "title": "Damaged Irrigation Pump Halting Vegetable Cultivation",
+      "district": "Dumka",
+      "true_domain": "Agriculture",
+      "predicted_domain": "Water Resources",
+      "confidence": 0.81
+    },
+    {
+      "title": "beej bhandaran ghar nahi hai gaon me",
+      "district": "Palamu",
+      "true_domain": "Agriculture",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Mango Orchard Affected by Unknown Fungal Disease",
+      "district": "Garhwa",
+      "true_domain": "Agriculture",
+      "predicted_domain": "Healthcare",
+      "confidence": 0.81
+    },
+    {
+      "title": "Farmers Seek Drip Irrigation Subsidy Information",
+      "district": "Latehar",
+      "true_domain": "Agriculture",
+      "predicted_domain": "Water Resources",
+      "confidence": 0.81
+    },
+    {
+      "title": "aspatal me dawai khatam ho gayi hai",
+      "district": "Bokaro",
+      "true_domain": "Healthcare",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Malaria Cases Rising Due to Stagnant Water Near Homes",
+      "district": "Giridih",
+      "true_domain": "Healthcare",
+      "predicted_domain": "Water Resources",
+      "confidence": 0.81
+    },
+    {
+      "title": "Sub-Health Centre Building in Dilapidated Condition",
+      "district": "Sahibganj",
+      "true_domain": "Healthcare",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "Frequent Waterborne Disease Outbreaks Linked to Contaminated Supply",
+      "district": "Koderma",
+      "true_domain": "Healthcare",
+      "predicted_domain": "Water Resources",
+      "confidence": 0.87
+    },
+    {
+      "title": "swasthya kendra me staff ki kami hai",
+      "district": "Palamu",
+      "true_domain": "Healthcare",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "TB Patients Struggling to Access Follow-Up Medication",
+      "district": "Garhwa",
+      "true_domain": "Healthcare",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "No Disability Screening Camp Held in Two Years",
+      "district": "Latehar",
+      "true_domain": "Healthcare",
+      "predicted_domain": "Public Administration",
+      "confidence": 0.87
+    },
+    {
+      "title": "Mobile Medical Unit Stopped Visiting Remote Hamlets",
+      "district": "Lohardaga",
+      "true_domain": "Healthcare",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "bachcho ke paas kitaben nahi hain is saal",
+      "district": "Pakur",
+      "true_domain": "Education",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "School Building Shared Unsafely With Livestock Shelter",
+      "district": "Latehar",
+      "true_domain": "Education",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "No Special Educator for Children With Learning Disabilities",
+      "district": "Lohardaga",
+      "true_domain": "Education",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Public Toilet Lacking Water Supply Rendered Unusable",
+      "district": "Sahibganj",
+      "true_domain": "Sanitation",
+      "predicted_domain": "Water Resources",
+      "confidence": 0.81
+    },
+    {
+      "title": "Slaughterhouse Waste Dumped Near Drinking Water Source",
+      "district": "Dumka",
+      "true_domain": "Sanitation",
+      "predicted_domain": "Water Resources",
+      "confidence": 0.93
+    },
+    {
+      "title": "No Sanitary Napkin Disposal Facility at Girls' School",
+      "district": "Koderma",
+      "true_domain": "Sanitation",
+      "predicted_domain": "Education",
+      "confidence": 0.87
+    },
+    {
+      "title": "Drainage Overflow Near Anganwadi During Monsoon",
+      "district": "Garhwa",
+      "true_domain": "Sanitation",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "khadaan se dhool aane se saans lene me dikkat",
+      "district": "Bokaro",
+      "true_domain": "Environment",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "जंगल में आग बार बार लग रही है इस मौसम में",
+      "district": "Deoghar",
+      "true_domain": "Environment",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "khadaan ke gaddhe me paani bhar gaya bachche gir sakte",
+      "district": "Pakur",
+      "true_domain": "Environment",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "vaayu pradushan se bachcho ko khaansi ho rahi hai",
+      "district": "Palamu",
+      "true_domain": "Environment",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Illegal Sand Mining Eroding Riverbank Near Village",
+      "district": "Garhwa",
+      "true_domain": "Environment",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "Toxic Fumes From Brick Kiln Affecting Nearby Homes",
+      "district": "Latehar",
+      "true_domain": "Environment",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Declining Groundwater Recharge Linked to Deforestation",
+      "district": "Lohardaga",
+      "true_domain": "Environment",
+      "predicted_domain": "Water Resources",
+      "confidence": 0.87
+    },
+    {
+      "title": "Chemical Foam Forming in Village Pond After Factory Runoff",
+      "district": "Gumla",
+      "true_domain": "Environment",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "18-Hour Load Shedding Disrupting Evening Study and Irrigation",
+      "district": "Dhanbad",
+      "true_domain": "Energy",
+      "predicted_domain": "Water Resources",
+      "confidence": 0.81
+    },
+    {
+      "title": "Voltage Fluctuation Damaging Household Appliances",
+      "district": "Hazaribagh",
+      "true_domain": "Energy",
+      "predicted_domain": "Water Resources",
+      "confidence": 0.81
+    },
+    {
+      "title": "Solar Streetlights Installed but Never Functional",
+      "district": "Giridih",
+      "true_domain": "Energy",
+      "predicted_domain": "Environment",
+      "confidence": 0.81
+    },
+    {
+      "title": "Frequent Blackouts During Exam Season Affecting Students",
+      "district": "Godda",
+      "true_domain": "Energy",
+      "predicted_domain": "Education",
+      "confidence": 0.81
+    },
+    {
+      "title": "inverter aur battery ka koi intezaam nahi hai school me",
+      "district": "Palamu",
+      "true_domain": "Energy",
+      "predicted_domain": "Education",
+      "confidence": 0.81
+    },
+    {
+      "title": "Streetlight Poles Without Bulbs for Over a Year",
+      "district": "Garhwa",
+      "true_domain": "Energy",
+      "predicted_domain": "Environment",
+      "confidence": 0.81
+    },
+    {
+      "title": "No Bus Stop Shelter Leaving Commuters Exposed to Rain",
+      "district": "Godda",
+      "true_domain": "Urban Infrastructure",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "pull ka nirmaan kaam adhoora chhoda gaya",
+      "district": "Pakur",
+      "true_domain": "Urban Infrastructure",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Culvert Washed Away Cutting Off Two Hamlets",
+      "district": "Koderma",
+      "true_domain": "Urban Infrastructure",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "Unpaved Road Turning to Mud Every Monsoon",
+      "district": "Chatra",
+      "true_domain": "Urban Infrastructure",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "sadak ke kinare koi footpath nahi hai school ke bachcho ke liye",
+      "district": "Palamu",
+      "true_domain": "Urban Infrastructure",
+      "predicted_domain": "Education",
+      "confidence": 0.81
+    },
+    {
+      "title": "No Footbridge Over Seasonal Stream Cutting Off School Route",
+      "district": "Gumla",
+      "true_domain": "Urban Infrastructure",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "gaon me rozgaar ka koi sadhan nahi bacha",
+      "district": "Bokaro",
+      "true_domain": "Rural Livelihoods",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "स्वयं सहायता समूह को प्रशिक्षण के बाद भी काम नहीं मिला",
+      "district": "Deoghar",
+      "true_domain": "Rural Livelihoods",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Forest Produce Collectors Facing Middleman Exploitation",
+      "district": "Godda",
+      "true_domain": "Rural Livelihoods",
+      "predicted_domain": "Environment",
+      "confidence": 0.81
+    },
+    {
+      "title": "MGNREGA Wages Delayed for Over Two Months",
+      "district": "Sahibganj",
+      "true_domain": "Rural Livelihoods",
+      "predicted_domain": "Public Administration",
+      "confidence": 0.81
+    },
+    {
+      "title": "haathkargha kaarigaro ko raw material nahi mil raha",
+      "district": "Pakur",
+      "true_domain": "Rural Livelihoods",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "No Cold Chain for Dairy Farmers Losing Milk to Spoilage",
+      "district": "Dumka",
+      "true_domain": "Rural Livelihoods",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "Handloom Cooperative Struggling to Repay Working Capital Loan",
+      "district": "Latehar",
+      "true_domain": "Rural Livelihoods",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Seasonal Migration Leaving Children Without Adult Supervision",
+      "district": "Lohardaga",
+      "true_domain": "Rural Livelihoods",
+      "predicted_domain": "Public Administration",
+      "confidence": 0.81
+    },
+    {
+      "title": "Fisherfolk Community Lacking Access to Cold Storage Boats",
+      "district": "Gumla",
+      "true_domain": "Rural Livelihoods",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "School Has No Accessible Toilet for Disabled Students",
+      "district": "Hazaribagh",
+      "true_domain": "Accessibility",
+      "predicted_domain": "Education",
+      "confidence": 0.87
+    },
+    {
+      "title": "Hearing-Impaired Students Lack Sign Language Support at School",
+      "district": "Giridih",
+      "true_domain": "Accessibility",
+      "predicted_domain": "Education",
+      "confidence": 0.87
+    },
+    {
+      "title": "दिव्यांग बच्चों के लिए स्कूल में कोई सुविधा नहीं है",
+      "district": "Deoghar",
+      "true_domain": "Accessibility",
+      "predicted_domain": "Education",
+      "confidence": 0.81
+    },
+    {
+      "title": "Visually Impaired Farmer Needs Voice-Guided Navigation Support",
+      "district": "Koderma",
+      "true_domain": "Accessibility",
+      "predicted_domain": "Agriculture",
+      "confidence": 0.81
+    },
+    {
+      "title": "sunne me dikkat wale bacho ke liye koi madad nahi",
+      "district": "Palamu",
+      "true_domain": "Accessibility",
+      "predicted_domain": "Education",
+      "confidence": 0.81
+    },
+    {
+      "title": "Water Handpump Platform Not Usable by Wheelchair Users",
+      "district": "Latehar",
+      "true_domain": "Accessibility",
+      "predicted_domain": "Water Resources",
+      "confidence": 0.87
+    },
+    {
+      "title": "Deaf Villager Unable to Access Grievance Redressal Help Desk",
+      "district": "Gumla",
+      "true_domain": "Accessibility",
+      "predicted_domain": "Public Administration",
+      "confidence": 0.81
+    },
+    {
+      "title": "aadhar card me galti sudharne me bahut samay lag raha hai",
+      "district": "Bokaro",
+      "true_domain": "Public Administration",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "जन्म प्रमाण पत्र बनवाने में महीनों लग रहे हैं",
+      "district": "Deoghar",
+      "true_domain": "Public Administration",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Caste Certificate Application Pending Without Reason for Months",
+      "district": "Sahibganj",
+      "true_domain": "Public Administration",
+      "predicted_domain": "Education",
+      "confidence": 0.81
+    },
+    {
+      "title": "MGNREGA job card banwane me rishwat maangi ja rahi hai",
+      "district": "Pakur",
+      "true_domain": "Public Administration",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Land Record Mutation Stuck Due to Alleged Bureaucratic Delay",
+      "district": "Chatra",
+      "true_domain": "Public Administration",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Old-Age Home Verification Visit Never Conducted Despite Application",
+      "district": "Garhwa",
+      "true_domain": "Public Administration",
+      "predicted_domain": "Unclassified",
+      "confidence": 0.3
+    },
+    {
+      "title": "Disability Pension File Reportedly Lost at Block Office",
+      "district": "Latehar",
+      "true_domain": "Public Administration",
+      "predicted_domain": "Accessibility",
+      "confidence": 0.81
+    },
+    {
+      "title": "RTI Application on Panchayat Spending Ignored Past Deadline",
+      "district": "Lohardaga",
+      "true_domain": "Public Administration",
+      "predicted_domain": "Water Resources",
+      "confidence": 0.81
+    }
+  ]
+}
