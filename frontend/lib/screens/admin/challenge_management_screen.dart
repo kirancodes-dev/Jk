@@ -46,6 +46,8 @@ class _ChallengeManagementScreenState extends State<ChallengeManagementScreen> {
     try {
       final chs = await ApiService.getChallenges(
         tier: _selectedTier == 'All' ? null : _selectedTier,
+        page: 1,
+        pageSize: 100,
       );
       final univs = await ApiService.getUniversities();
       if (!mounted) return;

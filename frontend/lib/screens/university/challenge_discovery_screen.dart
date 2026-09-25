@@ -41,6 +41,8 @@ class _ChallengeDiscoveryScreenState extends State<ChallengeDiscoveryScreen> {
       final list = await ApiService.getChallenges(
         category: _selectedCategory,
         district: _selectedDistrict,
+        page: 1,
+        pageSize: 100,
       );
       if (!mounted) return;
       setState(() => _challenges = list);

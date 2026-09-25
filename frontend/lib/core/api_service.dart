@@ -289,12 +289,24 @@ class ApiService {
 
   // ----------------- CHALLENGES -----------------
 
-  static Future<List<Challenge>> getChallenges({String? category, String? district, String? status, String? tier}) async {
+  static Future<List<Challenge>> getChallenges({
+    String? category,
+    String? district,
+    String? status,
+    String? tier,
+    int? page,
+    int? pageSize,
+  }) async {
     String url = '$baseUrl/challenges?';
     if (category != null && category != 'All') url += 'category=$category&';
     if (district != null && district != 'All') url += 'district=$district&';
     if (status != null && status != 'All') url += 'status=$status&';
     if (tier != null && tier != 'All') url += 'tier=$tier&';
+    // Bounds the worst-case query — without this, the endpoint returns every
+    // challenge ever created (1,330+ rows in this deployment's accumulated
+    // data), which measured ~45s under load. 100 comfortably covers a
+    // realistic pilot's active queue in one page.
+    if (page != null && pageSize != null) url += 'page=$page&page_size=$pageSize&';
 
     final res = await http.get(Uri.parse(url), headers: _headers);
     if (res.statusCode == 200) {
