@@ -51,16 +51,18 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: RegisterScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Citizen'), findsOneWidget);
-    expect(find.text('Community Org'), findsOneWidget);
-    expect(find.text('Gram Panchayat'), findsOneWidget);
-    expect(find.text('Urban Local Body'), findsOneWidget);
-    expect(find.text('Student'), findsOneWidget);
-    expect(find.text('Faculty'), findsOneWidget);
-    expect(find.text('University'), findsOneWidget);
-    expect(find.text('Industry'), findsOneWidget);
-    expect(find.text('Research Lab'), findsOneWidget);
-    expect(find.text('Innovation Hub'), findsOneWidget);
+    // The role picker is a horizontal ListView, so later cards (e.g. "University",
+    // "Innovation Hub") aren't built until scrolled into view — drag the list to
+    // reveal each one before asserting on it, rather than asserting blind.
+    final roleList = find.byType(ListView);
+    const expectedTitles = [
+      'Citizen', 'Community Org', 'Gram Panchayat', 'Urban Local Body',
+      'Student', 'Faculty', 'University', 'Industry', 'Research Lab', 'Innovation Hub',
+    ];
+    for (final title in expectedTitles) {
+      await tester.dragUntilVisible(find.text(title), roleList, const Offset(-150, 0));
+      expect(find.text(title), findsOneWidget);
+    }
 
     // Government roles must never be self-registerable from this screen.
     expect(find.text('Government'), findsNothing);
