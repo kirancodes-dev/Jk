@@ -82,7 +82,11 @@ def test_production_succeeds_with_valid_config():
         STORAGE_TYPE="s3",
         AWS_ACCESS_KEY_ID="AKIA_TEST_KEY_ID",
         AWS_SECRET_ACCESS_KEY="test-secret-access-key",
-        S3_BUCKET_NAME="jharkhand-sih-production-bucket"
+        S3_BUCKET_NAME="jharkhand-sih-production-bucket",
+        # A valid production config also requires demo mode off — pass this
+        # explicitly so the test doesn't depend on the ambient DEMO_MODE env
+        # var (CI's pytest step sets DEMO_MODE=true for the other test files).
+        DEMO_MODE=False
     )
     assert s.ENVIRONMENT == "production"
     assert len(s.ALLOWED_CORS_ORIGINS) == 2

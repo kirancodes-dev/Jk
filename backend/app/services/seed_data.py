@@ -11,7 +11,7 @@ from backend.app.models.models import (
     District, ChallengePriority, ChallengeStatus, MilestoneStatus,
     AccountStatus, GovernmentScope, IPRecord, IPRecordType, IPOwnership,
     CollaborationOfferType, AgreementStatus, OutcomeReport, OutcomeReportType,
-    ReportedOutcome, OutcomeMetric
+    ReportedOutcome, OutcomeMetric, OrganizationProfile
 )
 from backend.app.core.config import settings
 from backend.app.services.ai.priority_service import JHARKHAND_ASPIRATIONAL_DISTRICTS
@@ -163,6 +163,15 @@ def seed_database(db: Session):
     db.add(univ1)
     db.commit()
 
+    org1 = OrganizationProfile(
+        user_id=univ_user1.id, legal_name=univ1.institution_name, org_type="UNIVERSITY",
+        official_email=univ_user1.email, district_name=univ1.district_name, verification_status="VERIFIED"
+    )
+    db.add(org1)
+    db.commit()
+    univ1.organization_profile_id = org1.id
+    db.commit()
+
     # Departments & Expertise for BIT Mesra
     dept_env = Department(university_id=univ1.id, name="Department of Environmental Science & Civil Engg", head_of_department="Dr. Ananya Sharma")
     dept_cse = Department(university_id=univ1.id, name="Department of Computer Science & Engineering", head_of_department="Dr. Sandip Dutta")
@@ -204,6 +213,15 @@ def seed_database(db: Session):
     db.add(univ2)
     db.commit()
 
+    org2 = OrganizationProfile(
+        user_id=univ_user2.id, legal_name=univ2.institution_name, org_type="UNIVERSITY",
+        official_email=univ_user2.email, district_name=univ2.district_name, verification_status="VERIFIED"
+    )
+    db.add(org2)
+    db.commit()
+    univ2.organization_profile_id = org2.id
+    db.commit()
+
     db.add_all([
         UniversityExpertise(university_id=univ2.id, domain="Urban Infrastructure", department="Civil Engineering", focus_area="Durable Road Surfaces & Smart Pothole Detection", score_weight=1.5),
         UniversityExpertise(university_id=univ2.id, domain="Sanitation", department="Civil & Chemical", focus_area="Effluent Treatment & Municipal Composting", score_weight=1.3),
@@ -235,6 +253,15 @@ def seed_database(db: Session):
         nirf_ranking=24
     )
     db.add(univ3)
+    db.commit()
+
+    org3 = OrganizationProfile(
+        user_id=univ_user3.id, legal_name=univ3.institution_name, org_type="UNIVERSITY",
+        official_email=univ_user3.email, district_name=univ3.district_name, verification_status="VERIFIED"
+    )
+    db.add(org3)
+    db.commit()
+    univ3.organization_profile_id = org3.id
     db.commit()
 
     db.add_all([
@@ -755,6 +782,18 @@ def ensure_sapthagiri_seeded(db: Session):
     db.add(univ)
     db.commit()
     db.refresh(univ)
+
+    org_prof = db.query(OrganizationProfile).filter(OrganizationProfile.user_id == admin_user.id).first()
+    if not org_prof:
+        org_prof = OrganizationProfile(
+            user_id=admin_user.id, legal_name=univ.institution_name, org_type="UNIVERSITY",
+            official_email=admin_user.email, district_name=univ.district_name, verification_status="VERIFIED"
+        )
+        db.add(org_prof)
+        db.commit()
+        db.refresh(org_prof)
+    univ.organization_profile_id = org_prof.id
+    db.commit()
 
     dept_cse = Department(university_id=univ.id, name="Computer Science & Engineering", head_of_department="Dr. H. N. Suresh")
     dept_ece = Department(university_id=univ.id, name="Electronics & Communication Engg", head_of_department="Dr. Ravi Kumar")
