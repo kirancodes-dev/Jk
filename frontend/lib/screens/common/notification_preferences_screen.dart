@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
 import '../../core/theme.dart';
 import '../../core/localization/app_localizations.dart';
-import '../../models/models.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
 import '../../widgets/loading_skeleton.dart';

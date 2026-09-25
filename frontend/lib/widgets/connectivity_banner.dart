@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/theme.dart';
 import '../core/app_strings.dart';

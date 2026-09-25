@@ -15,6 +15,7 @@ import ipaddress
 from typing import List, Optional
 from fastapi import Request, Response, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.types import ASGIApp
 try:
     from backend.app.core.config import settings
 except ImportError:

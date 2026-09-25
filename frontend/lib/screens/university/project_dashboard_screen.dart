@@ -31,10 +31,8 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
   final Map<int, bool> _uploadingEvidenceForMilestone = {};
   List<Map<String, dynamic>> _testReports = [];
   bool _isLoadingTestReports = false;
-  bool _isSubmittingTestReport = false;
   List<Map<String, dynamic>> _ipRecords = [];
   bool _isLoadingIpRecords = false;
-  bool _isSubmittingIpRecord = false;
   final Map<int, List<Map<String, dynamic>>> _fundingByCollab = {};
   final Set<int> _loadingFundingCollabIds = {};
   final Set<int> _expandedFundingCollabIds = {};
@@ -1019,7 +1017,7 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
   Widget _buildMilestonesTab(List milestones, Map<String, dynamic> project) {
     final totalWeight = milestones.fold<double>(0.0, (sum, m) => sum + ((m['weight_pct'] as num?)?.toDouble() ?? 0.0));
     final locked = project['milestones_locked'] == true;
-    final userRole = context.watch<AuthProvider>().currentUser?.role?.toUpperCase();
+    final userRole = context.watch<AuthProvider>().currentUser?.role.toUpperCase();
     final canManage = userRole == 'UNIVERSITY' || userRole == 'FACULTY_MENTOR' || userRole == 'GOVERNMENT_ADMIN';
     final canReview = userRole == 'FACULTY_MENTOR' || userRole == 'GOVERNMENT_ADMIN' || userRole == 'GOVERNMENT_OFFICER' || userRole == 'UNIVERSITY';
 
@@ -1187,7 +1185,7 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
   }
 
   Widget _buildProposalsTab() {
-    final userRole = context.watch<AuthProvider>().currentUser?.role?.toUpperCase();
+    final userRole = context.watch<AuthProvider>().currentUser?.role.toUpperCase();
     if (_isLoadingExtras) {
       return const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen));
     }
@@ -1441,7 +1439,7 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
   }
 
   Widget _buildTeamTasksTab(List members, List tasks) {
-    final userRole = context.watch<AuthProvider>().currentUser?.role?.toUpperCase();
+    final userRole = context.watch<AuthProvider>().currentUser?.role.toUpperCase();
     final canInvite = userRole == 'UNIVERSITY' || userRole == 'FACULTY_MENTOR';
     final pendingInvites = _invitations.where((i) => i['status'] == 'PENDING').toList();
 
@@ -1570,7 +1568,7 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
   }
 
   Widget _buildTasksTab(List tasks) {
-    final userRole = context.watch<AuthProvider>().currentUser?.role?.toUpperCase();
+    final userRole = context.watch<AuthProvider>().currentUser?.role.toUpperCase();
     final currentFullName = context.watch<AuthProvider>().currentUser?.fullName;
     final canReview = userRole == 'FACULTY_MENTOR' || userRole == 'UNIVERSITY' || userRole == 'GOVERNMENT_ADMIN';
 
@@ -1719,7 +1717,7 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
   }
 
   Widget _buildIndustryTab(List collabs) {
-    final userRole = context.watch<AuthProvider>().currentUser?.role?.toUpperCase();
+    final userRole = context.watch<AuthProvider>().currentUser?.role.toUpperCase();
     final canReview = userRole == 'UNIVERSITY' || userRole == 'GOVERNMENT_ADMIN' || userRole == 'GOVERNMENT_OFFICER';
 
     if (collabs.isEmpty) {
@@ -2429,7 +2427,7 @@ class _ProjectDashboardScreenState extends State<ProjectDashboardScreen> with Si
                       const Divider(height: 16),
                       Builder(
                         builder: (context) {
-                          final userRole = context.watch<AuthProvider>().currentUser?.role?.toUpperCase();
+                          final userRole = context.watch<AuthProvider>().currentUser?.role.toUpperCase();
                           final isGov = userRole == 'GOVERNMENT_ADMIN';
                           if (isGov) {
                             return Row(

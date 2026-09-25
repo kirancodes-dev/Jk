@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/auth_provider.dart';
 import 'package:frontend/screens/common/login_screen.dart';
 import 'package:frontend/screens/common/university_role_selection_screen.dart';
-import 'package:frontend/screens/common/university_selection_screen.dart';
 
 void main() {
   setUp(() {

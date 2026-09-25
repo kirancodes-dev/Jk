@@ -25,7 +25,6 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   int? _selectedMentorId;
   final List<int> _selectedStudents = [];
   bool _isCreating = false;
-  bool _isLoadingRoster = true;
 
   List<Map<String, dynamic>> _facultyMentors = [];
   List<Map<String, dynamic>> _studentsPool = [];
@@ -51,11 +50,8 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
         _selectedMentorId = null;
         // Invitations require explicit selection — never pre-select a default team.
         _selectedStudents.clear();
-        _isLoadingRoster = false;
       });
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingRoster = false);
-    }
+    } catch (_) {}
   }
 
   Future<void> _handleCreate() async {
