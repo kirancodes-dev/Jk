@@ -178,7 +178,12 @@ def test_multi_stakeholder_creation_and_submitter_metadata(client, db):
     roles_to_test = [
         ("pri_user@jharkhand.gov.in", UserRole.PRI, "Panchayat Mukhiya", "WEB_PORTAL"),
         ("ulb_user@jharkhand.gov.in", UserRole.ULB, "Ward Commissioner", "FIELD_VISIT"),
-        ("citizen_actor@example.com", UserRole.CITIZEN, "Citizen Submitter", "MOBILE_APP")
+        ("citizen_actor@example.com", UserRole.CITIZEN, "Citizen Submitter", "MOBILE_APP"),
+        # Government officer/admin "Report Challenge" path on the admin dashboard —
+        # submitter_role must record the actual government role, never fall back to
+        # a generic/citizen default.
+        ("gov_officer_reporter@jharkhand.gov.in", UserRole.GOVERNMENT_OFFICER, "District Officer", "FIELD_VISIT"),
+        ("gov_admin_reporter@jharkhand.gov.in", UserRole.GOVERNMENT_ADMIN, "State Admin", "WEB_PORTAL"),
     ]
 
     for email, role, full_name, src_type in roles_to_test:

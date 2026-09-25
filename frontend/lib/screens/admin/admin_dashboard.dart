@@ -11,6 +11,7 @@ import 'impact_dashboard_screen.dart';
 import 'analytics_screen.dart';
 import '../common/notifications_screen.dart';
 import '../common/profile_screen.dart';
+import '../citizen/report_challenge_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -484,6 +485,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
               // Command Center Navigation Modules
               const SectionHeader(title: 'State Administration Modules'),
+              const SizedBox(height: 10),
+
+              _adminNavCard(
+                icon: Icons.add_location_alt_rounded,
+                title: 'Report a Societal Challenge',
+                desc: 'Field visit or desk-reported problem — recorded under your government role',
+                color: const Color(0xFFB91C1C),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReportChallengeScreen())),
+              ),
               const SizedBox(height: 10),
 
               _adminNavCard(
