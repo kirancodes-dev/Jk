@@ -37,6 +37,11 @@ class _LoginScreenState extends State<LoginScreen> {
   // Selected Account Type: CITIZEN, UNIVERSITY, INDUSTRY, GOVERNMENT_ADMIN
   String _selectedAccountType = 'CITIZEN';
 
+  // The public entry point defaults to Citizen-only; officials/institutions
+  // reach their login via a separate, less prominent link rather than being
+  // shown side-by-side with the citizen option.
+  bool _showOfficialLogin = false;
+
   // University-specific context
   Map<String, dynamic>? _selectedUniversity;
   String? _selectedUniversityRole;
@@ -73,6 +78,9 @@ class _LoginScreenState extends State<LoginScreen> {
     },
   ];
 
+  List<Map<String, dynamic>> _officialAccountTypes(AppLocalizations loc) =>
+      _accountTypes(loc).where((a) => a['key'] != 'CITIZEN').toList();
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +89,9 @@ class _LoginScreenState extends State<LoginScreen> {
       _selectedUniversity = widget.initialUniversity;
       _selectedUniversityRole = widget.initialRole;
       _selectedUniversityRoleLabel = widget.initialRoleLabel;
+      if (_selectedAccountType != 'CITIZEN') {
+        _showOfficialLogin = true;
+      }
     }
 
     if (BuildConfig.isEvaluatorBuild) {
@@ -174,6 +185,39 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  void _toggleOfficialLogin() {
+    setState(() {
+      _showOfficialLogin = !_showOfficialLogin;
+      if (_showOfficialLogin) {
+        // Default to the first official option (University) rather than
+        // leaving no tile visually selected.
+        _selectedAccountType = 'UNIVERSITY';
+        if (_selectedUniversity != null && _selectedUniversityRole != null && BuildConfig.isEvaluatorBuild) {
+          _emailController.text = AuthProvider.getUniversityDemoEmail(
+            _selectedUniversityRole!,
+            _selectedUniversity?['institution_name'],
+          );
+          _passwordController.text = 'password123';
+        } else {
+          _emailController.text = '';
+          _passwordController.text = BuildConfig.isEvaluatorBuild ? 'password123' : '';
+        }
+      } else {
+        _selectedAccountType = 'CITIZEN';
+        _selectedUniversity = null;
+        _selectedUniversityRole = null;
+        _selectedUniversityRoleLabel = null;
+        if (BuildConfig.isEvaluatorBuild) {
+          _emailController.text = 'citizen@jharkhand.gov.in';
+          _passwordController.text = 'password123';
+        } else {
+          _emailController.text = '';
+          _passwordController.text = '';
+        }
+      }
+    });
+  }
+
   void _selectAccountType(Map<String, dynamic> acc) {
     final key = acc['key'] as String;
     if (key == 'UNIVERSITY') {
@@ -249,7 +293,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final loc = AppLocalizations.current;
-    final accountTypes = _accountTypes(loc);
+    final accountTypes = _showOfficialLogin ? _officialAccountTypes(loc) : _accountTypes(loc);
 
     return Scaffold(
       backgroundColor: AppTheme.surfaceLight,
@@ -310,7 +354,31 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 10),
+
+                  // Officials/institutions reach their login separately from the
+                  // public citizen entry point — a small, tucked-away toggle
+                  // rather than an equal-weight option on the main screen.
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _toggleOfficialLogin,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: Icon(
+                        _showOfficialLogin ? Icons.person_outline : Icons.shield_outlined,
+                        size: 16,
+                      ),
+                      label: Text(
+                        _showOfficialLogin ? loc.backToCitizenLogin : loc.officialLoginLink,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
 
                   if (BuildConfig.isEvaluatorBuild) ...[
                     Container(
@@ -370,7 +438,30 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Section: Choose Account Type (4 Top-level Cards)
+                  // Section: Choose Account Type — officials/institutions only;
+                  // the public default is Citizen, shown via the confirmation
+                  // chip below instead of a grid of equal-weight options.
+                  if (!_showOfficialLogin) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryGreen.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.primaryGreen.withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.person_outline, size: 20, color: AppTheme.primaryGreen),
+                          const SizedBox(width: 10),
+                          Text(
+                            loc.citizenLoginDefault,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppTheme.primaryGreen),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ] else ...[
                   Text(
                     loc.chooseAccountType,
                     style: const TextStyle(
@@ -465,6 +556,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                   ),
                   const SizedBox(height: 20),
+                  ],
 
                   // Active Context Banner for University Flow
                   if (_selectedAccountType == 'UNIVERSITY' &&
@@ -527,6 +619,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             labelText: loc.password,
                             prefixIcon: const Icon(Icons.lock_outline, size: 20),
                             suffixIcon: IconButton(
+                              tooltip: _obscurePassword ? 'Show password' : 'Hide password',
                               icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
                               onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                             ),

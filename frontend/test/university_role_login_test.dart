@@ -11,7 +11,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('Login screen shows 4 top-level account types and no top-level student/faculty', (WidgetTester tester) async {
+  testWidgets('Login screen defaults to Citizen-only, with officials/institutions behind a separate link', (WidgetTester tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
         create: (_) => AuthProvider(),
@@ -23,18 +23,48 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Verify top-level 4 account cards exist
-    expect(find.text('Citizen'), findsOneWidget);
+    // Public default: no account-type grid, just a citizen confirmation chip.
+    expect(find.text('Citizen'), findsNothing);
+    expect(find.text('University'), findsNothing);
+    expect(find.text('Industry'), findsNothing);
+    expect(find.text('Government'), findsNothing);
+    expect(find.text('Signing in as a Citizen'), findsOneWidget);
+
+    // The officials/institutions login is a separate, tucked-away link.
+    expect(find.text('Government / Institution Login'), findsOneWidget);
+  });
+
+  testWidgets('Officials login link reveals University/Industry/Government, never Citizen again', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ChangeNotifierProvider(
+        create: (_) => AuthProvider(),
+        child: const MaterialApp(
+          home: LoginScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Government / Institution Login'));
+    await tester.pumpAndSettle();
+
     expect(find.text('University'), findsOneWidget);
     expect(find.text('Industry'), findsOneWidget);
     expect(find.text('Government'), findsOneWidget);
-
-    // Verify Student and Faculty are NOT top-level account cards on default screen
-    // They should not be in the initial account cards
-    expect(find.text('Civic Reporter'), findsOneWidget);
     expect(find.text('Institutions & Roles'), findsOneWidget);
     expect(find.text('CSR & Innovation'), findsOneWidget);
     expect(find.text('Command Center'), findsOneWidget);
+
+    // Citizen is not offered again in the officials grid.
+    expect(find.text('Citizen'), findsNothing);
+    expect(find.text('Civic Reporter'), findsNothing);
+
+    // Toggle can switch back to the citizen-only default.
+    expect(find.text('← Back to Citizen Login'), findsOneWidget);
+    await tester.tap(find.text('← Back to Citizen Login'));
+    await tester.pumpAndSettle();
+    expect(find.text('Signing in as a Citizen'), findsOneWidget);
+    expect(find.text('University'), findsNothing);
   });
 
   testWidgets('Login screen displays university and role context when configured', (WidgetTester tester) async {

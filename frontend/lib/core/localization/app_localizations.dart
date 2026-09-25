@@ -167,6 +167,9 @@ class AppLocalizations extends ChangeNotifier {
   String get changeRole => text('change_role');
   String get studentLabel => text('student_label');
   String get pleaseSelectUniversityAndRole => text('please_select_university_and_role');
+  String get officialLoginLink => text('official_login_link');
+  String get backToCitizenLogin => text('back_to_citizen_login');
+  String get citizenLoginDefault => text('citizen_login_default');
 
   // Citizen Dashboard
   String get welcomeBack => text('welcome_back');
@@ -764,6 +767,9 @@ class AppLocalizations extends ChangeNotifier {
       'account_type_industry_sub': 'CSR & Innovation',
       'account_type_government': 'Government',
       'account_type_government_sub': 'Command Center',
+      'official_login_link': 'Government / Institution Login',
+      'back_to_citizen_login': '← Back to Citizen Login',
+      'citizen_login_default': 'Signing in as a Citizen',
 
       // Citizen Dashboard
       'welcome_back': 'Welcome back',
@@ -1244,6 +1250,9 @@ class AppLocalizations extends ChangeNotifier {
       'account_type_industry_sub': 'सीएसआर एवं नवाचार',
       'account_type_government': 'सरकार',
       'account_type_government_sub': 'कमांड सेंटर',
+      'official_login_link': 'सरकारी / संस्थान लॉगिन',
+      'back_to_citizen_login': '← नागरिक लॉगिन पर वापस जाएं',
+      'citizen_login_default': 'नागरिक के रूप में साइन इन कर रहे हैं',
 
       // Citizen Dashboard
       'welcome_back': 'वापसी पर स्वागत है',
