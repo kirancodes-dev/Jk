@@ -24,16 +24,16 @@ The platform establishes an end-to-end bridge between:
 
 | Persona / Stakeholder | Demo Email | Role in Platform | Jurisdiction / Affiliation |
 | :--- | :--- | :--- | :--- |
-| **State Government Admin** | `admin.state@jharkhand.gov.in` | Statewide Governance, System Admin, KPI Audit | State Tier (All 24 Districts) |
+| **State Government Admin** | `admin@jharkhand.gov.in` | Statewide Governance, System Admin, KPI Audit | State Tier (All 24 Districts) |
 | **District Officer (Ranchi)** | `officer.ranchi@jharkhand.gov.in` | Challenge Validation, District Review, SLA Monitor | Ranchi District |
-| **Panchayati Raj Rep (PRI)** | `pri.ormanjhi@jharkhand.gov.in` | Local Citizen Problem Crowdsourcing & Ground Check | Ormanjhi Block, Ranchi |
-| **University Dean / Nodal** | `nodal.bit@bitmesra.ac.in` | Institution Portfolio, Department Collaboration | BIT Mesra |
-| **Faculty Mentor** | `mentor.cs@bitmesra.ac.in` | Student Team Guidance, Deliverable Verification | Dept of CSE, BIT Mesra |
-| **Student Innovator Lead** | `student.lead@bitmesra.ac.in` | Proposal Submission, Deliverable Uploads, Workspace | B.Tech Innovation Cell |
-| **Industry Partner Lead** | `csr.tata@tatasteel.com` | CSR Grants, Technical Mentorship, IP Agreements | Tata Steel CSR Division |
-| **Citizen (Rural / Urban)** | `citizen.ranchi@jharkhand.gov.in` | Challenge Crowdsourcing, Status Tracking | Bero Block, Ranchi |
+| **Panchayati Raj Rep (PRI)** | `pri.angara@jharkhand.gov.in` | Local Citizen Problem Crowdsourcing & Ground Check | Angara Block, Ranchi |
+| **University Dean / Nodal** | `university@bitmesra.ac.in` | Institution Portfolio, Department Collaboration | BIT Mesra |
+| **Faculty Mentor** | `faculty@bitmesra.ac.in` | Student Team Guidance, Deliverable Verification | Dept of CSE, BIT Mesra |
+| **Student Innovator Lead** | `student@bitmesra.ac.in` | Proposal Submission, Deliverable Uploads, Workspace | B.Tech Innovation Cell |
+| **Industry Partner Lead** | `industry@tatasteel.com` | CSR Grants, Technical Mentorship, IP Agreements | Tata Steel CSR Division |
+| **Citizen (Rural / Urban)** | `citizen@jharkhand.gov.in` | Challenge Crowdsourcing, Status Tracking | Angara Block, Ranchi |
 
-*Default Evaluator Passphrase for Demo Persona Accounts*: `Demo@123456` (Configured solely in quarantined `DEMO_MODE=true` builds).
+*Password for every demo account*: `password123` (seeded only when `DEMO_MODE=true`; production refuses to start in demo mode). The District Officer and PRI accounts are added by the flagship seed: `python -m backend.app.services.seed_flagship_demo`.
 
 ---
 
@@ -42,7 +42,7 @@ The platform establishes an end-to-end bridge between:
 ### Test Scenario 1: Citizen Challenge Crowdsourcing & Multilingual Usability
 1. Open Portal at root URL (`http://localhost:8008` or deployed pilot URL).
 2. Switch language to **Hindi (हिन्दी)** via top-bar locale selector; observe typed localization without layout distortion.
-3. Login as Citizen (`citizen.ranchi@jharkhand.gov.in`).
+3. Login as Citizen (`citizen@jharkhand.gov.in`).
 4. Navigate to **Post a Challenge** (`/challenges/submit`):
    - Enter title: *"Solar Micro-Grid Failure in Bero Tribal Hamlet"*.
    - Select District: **Ranchi**, Block: **Bero**.
@@ -71,13 +71,13 @@ The platform establishes an end-to-end bridge between:
 ---
 
 ### Test Scenario 3: University Proposal Submission & Faculty Verification
-1. Login as Student Lead (`student.lead@bitmesra.ac.in`).
+1. Login as Student Lead (`student@bitmesra.ac.in`).
 2. Browse **Validated Challenges**; select the Bero Solar Micro-Grid challenge.
 3. Click **Submit Solution Proposal**:
    - Detail proposed technical solution (IoT-based inverter monitoring).
-   - Nominate Faculty Mentor (`mentor.cs@bitmesra.ac.in`).
+   - Nominate Faculty Mentor (`faculty@bitmesra.ac.in`).
    - Submit proposal.
-4. Login as Faculty Mentor (`mentor.cs@bitmesra.ac.in`):
+4. Login as Faculty Mentor (`faculty@bitmesra.ac.in`):
    - Review proposal and endorse student project team.
 5. **Expected Result**:
    - Proposal transitions to `APPROVED` project workspace.
@@ -86,7 +86,7 @@ The platform establishes an end-to-end bridge between:
 ---
 
 ### Test Scenario 4: Industry CSR Grant & Escrow Ledger
-1. Login as Industry Partner (`csr.tata@tatasteel.com`).
+1. Login as Industry Partner (`industry@tatasteel.com`).
 2. Navigate to **Industry Hub** -> browse active innovation projects.
 3. Select Bero Solar project workspace:
    - Click **Offer CSR Grant**: Enter INR `2,50,000`, equipment support, and mentorship agreement.
@@ -97,7 +97,7 @@ The platform establishes an end-to-end bridge between:
 ---
 
 ### Test Scenario 5: Statewide Executive Governance & Verifiable Analytics
-1. Login as State Government Admin (`admin.state@jharkhand.gov.in`).
+1. Login as State Government Admin (`admin@jharkhand.gov.in`).
 2. Navigate to **Executive Analytics Dashboard**:
    - Inspect State KPIs: Total Crowdsourced, Validated, Active HEI Projects, Resolved.
    - Click on any KPI card; click **"Why this number"**:

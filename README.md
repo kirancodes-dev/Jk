@@ -2,12 +2,12 @@
 
 <sub>GOVERNMENT OF JHARKHAND · DEPARTMENT OF HIGHER & TECHNICAL EDUCATION · SMART INDIA HACKATHON 2026 · PS 26043</sub>
 
-# Jharkhand Societal Innovation & Collaboration Platform
+# SamadhanSetu<br/><sub>Jharkhand Societal Innovation & Collaboration Platform</sub>
 
 ### A village reports a broken hand pump. A university builds the fix. A CSR partner funds it. A field inspector proves it works.<br/>One platform runs that whole journey, across all 24 districts, with a human signing off every step.
 
 [![CI/CD Pipeline](https://github.com/kirancodes-dev/Jk/actions/workflows/ci.yml/badge.svg)](https://github.com/kirancodes-dev/Jk/actions/workflows/ci.yml)
-[![Backend tests](https://img.shields.io/badge/backend%20tests-168-blue.svg)](tests/)
+[![Backend tests](https://img.shields.io/badge/backend%20tests-172%20passing-brightgreen.svg)](tests/)
 [![Flutter tests](https://img.shields.io/badge/flutter%20tests-69%20passed-brightgreen.svg)](frontend/test/)
 [![AI benchmark](https://img.shields.io/badge/AI%20benchmark-published-blueviolet.svg)](ai_accuracy_report.json)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
@@ -222,7 +222,7 @@ flowchart TB
 ## 🧪 Tests
 
 ```bash
-PYTHONPATH=. backend/.venv/bin/pytest tests/ -q     # backend: 168 tests
+PYTHONPATH=. backend/.venv/bin/pytest tests/ -q     # backend: 172 passed (CI)
 cd frontend && flutter test                          # frontend: 69 passed
 ```
 
@@ -281,7 +281,7 @@ With `DEMO_MODE=true`, demo data is seeded on first start. Reset it with `POST /
 
 <div align="center">
 
-Built for **Smart India Hackathon 2026** for the **Department of Higher & Technical Education, Government of Jharkhand**.<br/>
+Built by **Team Que Sera** (Team ID 141039) for **Smart India Hackathon 2026**, PS 26043, **Department of Higher & Technical Education, Government of Jharkhand**.<br/>
 All rights reserved © 2026.
 
 </div>
