@@ -29,14 +29,28 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> _loadUserFromPrefs() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-    final userData = prefs.getString('user_data');
-    if (token != null && userData != null) {
-      ApiService.setToken(token);
-      _currentUser = User.fromJson(jsonDecode(userData));
-      _currentRole = _currentUser!.role;
-      notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final userData = prefs.getString('user_data');
+      if (token != null && userData != null && userData.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(userData);
+          if (decoded is Map<String, dynamic>) {
+            ApiService.setToken(token);
+            _currentUser = User.fromJson(decoded);
+            _currentRole = _currentUser!.role;
+            notifyListeners();
+          }
+        } catch (e) {
+          debugPrint('Invalid cached user session: $e');
+          await prefs.remove('user_data');
+          await prefs.remove('auth_token');
+          ApiService.setToken(null);
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to load user preferences: $e');
     }
   }
 

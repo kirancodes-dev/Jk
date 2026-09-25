@@ -97,6 +97,49 @@ class ApiService {
     }
   }
 
+  // ----------------- HELPERS -----------------
+
+  static dynamic _safeJsonDecode(http.Response res, {String fallbackAction = 'process request'}) {
+    final raw = res.body.trim();
+    if (raw.isEmpty) {
+      throw Exception('Server returned empty response (${res.statusCode}) while attempting to $fallbackAction.');
+    }
+    if (raw.startsWith('<')) {
+      throw Exception('Server returned HTML instead of JSON (${res.statusCode}). Please check server health or tunnel status.');
+    }
+    try {
+      return jsonDecode(raw);
+    } catch (e) {
+      throw Exception('Invalid JSON response (${res.statusCode}) while attempting to $fallbackAction.');
+    }
+  }
+
+  static String _extractError(http.Response res, [String fallback = 'Operation failed']) {
+    final raw = res.body.trim();
+    if (raw.isEmpty) {
+      return '$fallback (Status: ${res.statusCode})';
+    }
+    if (raw.startsWith('<')) {
+      return 'Server error (${res.statusCode}): Received HTML response instead of JSON.';
+    }
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map) {
+        final detail = decoded['detail'] ?? decoded['message'] ?? decoded['error'];
+        if (detail != null) {
+          if (detail is String) return detail;
+          if (detail is List) {
+            return detail.map((e) => e is Map ? (e['msg'] ?? e.toString()) : e.toString()).join('\n');
+          }
+          return detail.toString();
+        }
+      }
+      return '$fallback (Status: ${res.statusCode})';
+    } catch (_) {
+      return '$fallback (Status: ${res.statusCode}): ${raw.length > 100 ? raw.substring(0, 100) : raw}';
+    }
+  }
+
   // ----------------- AUTH -----------------
 
   static Future<Map<String, dynamic>> login(
@@ -106,88 +149,116 @@ class ApiService {
     int? universityId,
   }) async {
     final Map<String, dynamic> body = {
-      'email': email,
+      'email': email.trim(),
       'password': password,
     };
     if (role != null) body['role'] = role;
     if (universityId != null) body['university_id'] = universityId;
 
-    final res = await http.post(
-      Uri.parse('$baseUrl/auth/login'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(body),
-    );
+    final http.Response res;
+    try {
+      res = await http.post(
+        Uri.parse('$baseUrl/auth/login'),
+        headers: _headers,
+        body: jsonEncode(body),
+      );
+    } catch (e) {
+      throw Exception('Network connection failed. Please ensure backend is reachable: $e');
+    }
+
     if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      _token = data['access_token'];
-      return data;
+      final decoded = _safeJsonDecode(res, fallbackAction: 'log in');
+      if (decoded is Map<String, dynamic>) {
+        _token = decoded['access_token'];
+        return decoded;
+      }
+      throw Exception('Unexpected login response format from server');
     } else {
-      final err = jsonDecode(res.body);
-      throw Exception(err['detail'] ?? 'Login failed');
+      throw Exception(_extractError(res, 'Login failed'));
     }
   }
 
   static Future<Map<String, dynamic>> register(Map<String, dynamic> payload) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/auth/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(payload),
-    );
-    if (res.statusCode == 201) {
-      final data = jsonDecode(res.body);
-      _token = data['access_token'];
-      return data;
+    final http.Response res;
+    try {
+      res = await http.post(
+        Uri.parse('$baseUrl/auth/register'),
+        headers: _headers,
+        body: jsonEncode(payload),
+      );
+    } catch (e) {
+      throw Exception('Network connection failed during registration: $e');
+    }
+
+    if (res.statusCode == 201 || res.statusCode == 200) {
+      final decoded = _safeJsonDecode(res, fallbackAction: 'register');
+      if (decoded is Map<String, dynamic>) {
+        _token = decoded['access_token'];
+        return decoded;
+      }
+      throw Exception('Unexpected registration response format');
     } else {
-      final err = jsonDecode(res.body);
-      throw Exception(err['detail'] ?? 'Registration failed');
+      throw Exception(_extractError(res, 'Registration failed'));
     }
   }
 
   static Future<Map<String, dynamic>> sendForgotPasswordOtp(String email) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/auth/forgot-password'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email}),
-    );
-    if (res.statusCode == 200) {
-      return jsonDecode(res.body);
-    }
+    final http.Response res;
     try {
-      final err = jsonDecode(res.body);
-      throw Exception(err['detail'] ?? 'Failed to send OTP');
-    } catch (_) {
-      throw Exception('Failed to send OTP: ${res.body}');
+      res = await http.post(
+        Uri.parse('$baseUrl/auth/forgot-password'),
+        headers: _headers,
+        body: jsonEncode({'email': email.trim()}),
+      );
+    } catch (e) {
+      throw Exception('Network connection failed: $e');
     }
+
+    if (res.statusCode == 200) {
+      final decoded = _safeJsonDecode(res, fallbackAction: 'send password reset OTP');
+      if (decoded is Map<String, dynamic>) return decoded;
+      return {'message': 'OTP sent successfully'};
+    }
+    throw Exception(_extractError(res, 'Failed to send OTP'));
   }
 
   static Future<void> resetPassword(String email, String otp, String newPassword) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/auth/reset-password'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'otp': otp, 'new_password': newPassword}),
-    );
+    final http.Response res;
+    try {
+      res = await http.post(
+        Uri.parse('$baseUrl/auth/reset-password'),
+        headers: _headers,
+        body: jsonEncode({'email': email.trim(), 'otp': otp.trim(), 'new_password': newPassword}),
+      );
+    } catch (e) {
+      throw Exception('Network connection failed: $e');
+    }
+
     if (res.statusCode != 200) {
-      try {
-        final err = jsonDecode(res.body);
-        throw Exception(err['detail'] ?? 'Reset password failed');
-      } catch (_) {
-        throw Exception('Reset password failed');
-      }
+      throw Exception(_extractError(res, 'Password reset failed'));
     }
   }
 
   static Future<Map<String, dynamic>> refreshToken(String rToken) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl/auth/refresh'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'refresh_token': rToken}),
-    );
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      _token = data['access_token'];
-      return data;
+    final http.Response res;
+    try {
+      res = await http.post(
+        Uri.parse('$baseUrl/auth/refresh'),
+        headers: _headers,
+        body: jsonEncode({'refresh_token': rToken}),
+      );
+    } catch (e) {
+      throw Exception('Network connection failed while refreshing token: $e');
     }
-    throw Exception('Failed to refresh token');
+
+    if (res.statusCode == 200) {
+      final decoded = _safeJsonDecode(res, fallbackAction: 'refresh authentication token');
+      if (decoded is Map<String, dynamic>) {
+        _token = decoded['access_token'];
+        return decoded;
+      }
+    }
+    throw Exception(_extractError(res, 'Failed to refresh token'));
   }
 
   static Future<void> logout([String? rToken]) async {
@@ -202,11 +273,18 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getMe() async {
-    final res = await http.get(Uri.parse('$baseUrl/auth/me'), headers: _headers);
-    if (res.statusCode == 200) {
-      return jsonDecode(res.body);
+    final http.Response res;
+    try {
+      res = await http.get(Uri.parse('$baseUrl/auth/me'), headers: _headers);
+    } catch (e) {
+      throw Exception('Network connection failed while fetching profile: $e');
     }
-    throw Exception('Failed to fetch user profile');
+
+    if (res.statusCode == 200) {
+      final decoded = _safeJsonDecode(res, fallbackAction: 'fetch user profile');
+      if (decoded is Map<String, dynamic>) return decoded;
+    }
+    throw Exception(_extractError(res, 'Failed to fetch user profile'));
   }
 
   // ----------------- CHALLENGES -----------------
@@ -259,10 +337,9 @@ class ApiService {
       body: jsonEncode(payload),
     );
     if (res.statusCode == 201 || res.statusCode == 200) {
-      return jsonDecode(res.body);
+      return _safeJsonDecode(res, fallbackAction: 'report challenge');
     }
-    final err = jsonDecode(res.body);
-    throw Exception(err['detail'] ?? 'Challenge reporting failed');
+    throw Exception(_extractError(res, 'Challenge reporting failed'));
   }
 
   static Future<List<Map<String, dynamic>>> getTaxonomy() async {
@@ -281,10 +358,9 @@ class ApiService {
       body: jsonEncode(payload),
     );
     if (res.statusCode == 200 || res.statusCode == 201) {
-      return jsonDecode(res.body);
+      return _safeJsonDecode(res, fallbackAction: 'save server draft');
     }
-    final err = jsonDecode(res.body);
-    throw Exception(err['detail'] ?? 'Failed to save draft to server');
+    throw Exception(_extractError(res, 'Failed to save draft to server'));
   }
 
   static Future<List<Map<String, dynamic>>> getServerDrafts() async {
@@ -347,8 +423,7 @@ class ApiService {
       }),
     );
     if (res.statusCode != 200) {
-      final err = jsonDecode(res.body);
-      throw Exception(err['detail'] ?? 'Failed to mark duplicate');
+      throw Exception(_extractError(res, 'Failed to mark duplicate'));
     }
   }
 
@@ -359,8 +434,7 @@ class ApiService {
       body: jsonEncode({'reason': reason}),
     );
     if (res.statusCode != 200) {
-      final err = jsonDecode(res.body);
-      throw Exception(err['detail'] ?? 'Failed to reject challenge');
+      throw Exception(_extractError(res, 'Failed to reject challenge'));
     }
   }
 
