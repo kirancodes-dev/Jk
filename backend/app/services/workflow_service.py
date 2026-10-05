@@ -4,7 +4,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional, List, Dict, Any, Tuple, Set
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, text
 
 from backend.app.models.models import (
     Challenge, ChallengeStatus, User, UserRole, Project, ProjectMilestone, MilestoneStatus,
@@ -18,6 +18,9 @@ from backend.app.models.models import (
 )
 from backend.app.services.finance_integration_service import finance_integration_service
 from backend.app.routers.deps import verify_challenge_jurisdiction
+
+# pg_advisory_xact_lock key that serialises appends to the domain audit hash chain.
+AUDIT_CHAIN_LOCK_KEY = 26043_0001
 
 VALID_REJECTION_REASONS = {
     "OUT_OF_JURISDICTION",
@@ -456,7 +459,14 @@ class WorkflowService:
         """
         # Flush any pending events in the session so sequence number and hash chaining are exact
         db.flush()
-        last_event = db.query(DomainAuditEvent).order_by(desc(DomainAuditEvent.sequence_number)).first()
+        # Serialise appends: concurrent transactions would otherwise read the same chain
+        # head and compute the same sequence number, failing the unique constraint (an
+        # HTTP 500 on submit under load) or, without it, forking the chain. The lock is
+        # transaction-scoped, so it is released on commit or rollback, and a waiter then
+        # reads the committed head. SQLite already serialises writers.
+        if db.get_bind().dialect.name == "postgresql":
+            db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": AUDIT_CHAIN_LOCK_KEY})
+        last_event =db.query(DomainAuditEvent).order_by(desc(DomainAuditEvent.sequence_number)).first()
         prev_event_hash = last_event.event_hash if last_event else ("0" * 64)
         new_seq = (last_event.sequence_number + 1) if last_event else 1
 
