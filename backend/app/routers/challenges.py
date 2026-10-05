@@ -2,7 +2,7 @@ import json
 import uuid
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query, status, BackgroundTasks, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 from backend.app.core.database import get_db
 from backend.app.models.models import (
@@ -211,6 +211,10 @@ def delete_draft(
     return {"status": "success", "message": "Draft deleted successfully"}
 
 
+# Relationships every list response reads per row (district and university names).
+_LIST_EAGER_LOADS = (joinedload(Challenge.location), joinedload(Challenge.assigned_university))
+
+
 @router.get("", response_model=List[ChallengeOut])
 def list_challenges(
     response: Response,
@@ -243,7 +247,9 @@ def list_challenges(
     total_count = query.count()
     response.headers["X-Total-Count"] = str(total_count)
 
-    query = query.order_by(Challenge.created_at.desc())
+    # Load each row's location and university in the same query; lazily loading
+    # them per row cost two extra queries per challenge (201 for a 100-item page).
+    query = query.options(*_LIST_EAGER_LOADS).order_by(Challenge.created_at.desc())
     if page and page_size:
         response.headers["X-Page"] = str(page)
         response.headers["X-Page-Size"] = str(page_size)
@@ -504,7 +510,13 @@ def get_my_challenges(
     citizen = db.query(Citizen).filter(Citizen.user_id == current_user.id).first()
     if not citizen:
         return []
-    challenges = db.query(Challenge).filter(Challenge.citizen_id == citizen.id).order_by(Challenge.created_at.desc()).all()
+    challenges = (
+        db.query(Challenge)
+        .options(*_LIST_EAGER_LOADS)
+        .filter(Challenge.citizen_id == citizen.id)
+        .order_by(Challenge.created_at.desc())
+        .all()
+    )
     result = []
     for ch in challenges:
         dist_name = ch.location.district_name if ch.location else None
@@ -533,7 +545,7 @@ def get_nearby_challenges(
     query = db.query(Challenge).join(ChallengeLocation).filter(
         ChallengeLocation.district_name.ilike(f"%{district}%")
     )
-    challenges = query.order_by(Challenge.created_at.desc()).limit(20).all()
+    challenges = query.options(*_LIST_EAGER_LOADS).order_by(Challenge.created_at.desc()).limit(20).all()
     result = []
     for ch in challenges:
         dist_name = ch.location.district_name if ch.location else None
