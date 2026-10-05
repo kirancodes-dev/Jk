@@ -1,0 +1,11 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,GET /challenges?page=1&page_size=100 (review queue),CatchResponseError('list 500'),4,2026-10-05T12:06:44Z,2026-10-05T12:08:14Z
+GET,GET /challenges?page=[n],CatchResponseError('list 500'),66,2026-10-05T12:06:44Z,2026-10-05T12:08:44Z
+GET,GET /challenges/[id],HTTPError('500 Server Error: Internal Server Error for url: GET /challenges/[id]'),18,2026-10-05T12:07:14Z,2026-10-05T12:08:44Z
+POST,POST /challenges,HTTPError('500 Server Error: Internal Server Error for url: POST /challenges'),256,2026-10-05T12:06:08Z,2026-10-05T12:09:02Z
+GET,GET /challenges?page=[n],CatchResponseError('list 0'),8,2026-10-05T12:06:44Z,2026-10-05T12:07:13Z
+POST,POST /auth/login,CatchResponseError('login 500'),12,2026-10-05T12:06:44Z,2026-10-05T12:08:44Z
+GET,GET /challenges/my,"ConnectionResetError(54, 'Connection reset by peer')",1,2026-10-05T12:06:46Z,2026-10-05T12:06:46Z
+GET,GET /challenges/my,HTTPError('500 Server Error: Internal Server Error for url: GET /challenges/my'),24,2026-10-05T12:06:43Z,2026-10-05T12:08:44Z
+POST,POST /challenges,HTTPError('401 Client Error: Unauthorized for url: POST /challenges'),10,2026-10-05T12:06:45Z,2026-10-05T12:08:57Z
+GET,GET /challenges/my,HTTPError('401 Client Error: Unauthorized for url: GET /challenges/my'),19,2026-10-05T12:06:48Z,2026-10-05T12:08:59Z

@@ -1,0 +1,2 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+POST,POST /challenges,HTTPError('500 Server Error: Internal Server Error for url: POST /challenges'),25,2026-10-05T12:00:17Z,2026-10-05T12:03:02Z

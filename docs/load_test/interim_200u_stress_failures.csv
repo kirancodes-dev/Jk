@@ -1,0 +1,9 @@
+Method,Name,Error,Occurrences,First Seen,Last Seen
+GET,GET /challenges?page=[n],CatchResponseError('list 500'),4,2026-10-05T12:17:17Z,2026-10-05T12:17:18Z
+POST,POST /challenges,HTTPError('500 Server Error: Internal Server Error for url: POST /challenges'),1,2026-10-05T12:17:17Z,2026-10-05T12:17:17Z
+GET,GET /challenges?page=[n],CatchResponseError('list 0'),5,2026-10-05T12:17:17Z,2026-10-05T12:17:19Z
+GET,GET /challenges?page=1&page_size=100 (review queue),CatchResponseError('list 0'),1,2026-10-05T12:17:17Z,2026-10-05T12:17:17Z
+POST,POST /auth/login,CatchResponseError('login 500'),6,2026-10-05T12:17:17Z,2026-10-05T12:17:19Z
+GET,GET /challenges/my,HTTPError('500 Server Error: Internal Server Error for url: GET /challenges/my'),1,2026-10-05T12:18:53Z,2026-10-05T12:18:53Z
+POST,POST /challenges,HTTPError('401 Client Error: Unauthorized for url: POST /challenges'),2,2026-10-05T12:17:19Z,2026-10-05T12:17:19Z
+GET,GET /challenges/my,HTTPError('401 Client Error: Unauthorized for url: GET /challenges/my'),3,2026-10-05T12:17:21Z,2026-10-05T12:17:23Z
