@@ -16,7 +16,7 @@ never imported at module load time, only inside `_ensure_loaded`.
 """
 
 import math
-from typing import Optional
+from typing import List, Optional
 
 from backend.app.core.config import settings
 
@@ -51,6 +51,19 @@ class EmbeddingService:
     def is_available(self) -> bool:
         """True only when AI_EMBEDDINGS_ENABLED=true AND the model loaded successfully."""
         return self._ensure_loaded()
+
+    def embed(self, texts: List[str]) -> Optional[List[List[float]]]:
+        """
+        Returns one embedding vector per text, or None if embeddings are
+        disabled/unavailable/fail for any reason; callers must then fall back
+        to their keyword-only path.
+        """
+        if not self._ensure_loaded():
+            return None
+        try:
+            return [list(map(float, v)) for v in self._model.encode(list(texts))]
+        except Exception:
+            return None
 
     def semantic_similarity(self, text1: str, text2: str) -> Optional[float]:
         """

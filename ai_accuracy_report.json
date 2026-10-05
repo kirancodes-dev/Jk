@@ -1,577 +1,672 @@
 {
-  "model_name": "JHARKHAND_TAXONOMY_CLASSIFIER_V2",
-  "model_version": "2.2.0",
+  "model_name": "JHARKHAND_TAXONOMY_CLASSIFIER_V3",
+  "model_version": "3.0.0",
+  "method": "keywords",
+  "review_threshold": 0.7,
+  "splits": {
+    "test": "198 held-out reports in scripts/ai_accuracy_benchmark.py (never used for tuning)",
+    "train": "330 reports from scripts/ai_eval/train_dev.jsonl",
+    "dev": "110 reports from scripts/ai_eval/train_dev.jsonl (every 4th per domain)"
+  },
+  "test_set_sha256": "567427daf2523b6d0ca8451d36bb0704af3731c3d0ccc788583823e8081577a1",
   "total_samples": 198,
-  "correct": 135,
-  "accuracy": 0.6818,
-  "accuracy_pct": "68.2%",
-  "human_review_flagged": 21,
+  "correct": 178,
+  "accuracy": 0.899,
+  "accuracy_pct": "89.9%",
+  "human_review_flagged": 17,
+  "auto_accepted_accuracy": 0.9337,
+  "flagged_accuracy": 0.5294,
   "per_domain": {
     "Accessibility": {
-      "n": 18,
-      "correct": 11,
-      "accuracy": 0.611
-    },
-    "Agriculture": {
-      "n": 18,
-      "correct": 14,
-      "accuracy": 0.778
-    },
-    "Education": {
       "n": 18,
       "correct": 15,
       "accuracy": 0.833
     },
-    "Energy": {
+    "Agriculture": {
       "n": 18,
-      "correct": 12,
-      "accuracy": 0.667
+      "correct": 18,
+      "accuracy": 1.0
     },
-    "Environment": {
-      "n": 18,
-      "correct": 10,
-      "accuracy": 0.556
-    },
-    "Healthcare": {
-      "n": 18,
-      "correct": 10,
-      "accuracy": 0.556
-    },
-    "Public Administration": {
-      "n": 18,
-      "correct": 10,
-      "accuracy": 0.556
-    },
-    "Rural Livelihoods": {
-      "n": 18,
-      "correct": 9,
-      "accuracy": 0.5
-    },
-    "Sanitation": {
+    "Education": {
       "n": 18,
       "correct": 14,
       "accuracy": 0.778
     },
+    "Energy": {
+      "n": 18,
+      "correct": 16,
+      "accuracy": 0.889
+    },
+    "Environment": {
+      "n": 18,
+      "correct": 17,
+      "accuracy": 0.944
+    },
+    "Healthcare": {
+      "n": 18,
+      "correct": 17,
+      "accuracy": 0.944
+    },
+    "Public Administration": {
+      "n": 18,
+      "correct": 16,
+      "accuracy": 0.889
+    },
+    "Rural Livelihoods": {
+      "n": 18,
+      "correct": 14,
+      "accuracy": 0.778
+    },
+    "Sanitation": {
+      "n": 18,
+      "correct": 17,
+      "accuracy": 0.944
+    },
     "Urban Infrastructure": {
       "n": 18,
-      "correct": 12,
-      "accuracy": 0.667
+      "correct": 17,
+      "accuracy": 0.944
     },
     "Water Resources": {
       "n": 18,
-      "correct": 18,
-      "accuracy": 1.0
+      "correct": 17,
+      "accuracy": 0.944
     }
   },
   "confusion_matrix": {
-    "Water Resources": {
-      "Water Resources": 18
+    "Accessibility": {
+      "Accessibility": 15,
+      "Public Administration": 1,
+      "Education": 1,
+      "Water Resources": 1
     },
     "Agriculture": {
-      "Agriculture": 14,
-      "Water Resources": 2,
-      "Unclassified": 1,
-      "Healthcare": 1
-    },
-    "Healthcare": {
-      "Healthcare": 10,
-      "Unclassified": 3,
-      "Water Resources": 2,
-      "Agriculture": 2,
-      "Public Administration": 1
+      "Agriculture": 18
     },
     "Education": {
-      "Education": 15,
-      "Unclassified": 2,
-      "Agriculture": 1
-    },
-    "Sanitation": {
-      "Sanitation": 14,
-      "Water Resources": 2,
-      "Education": 1,
-      "Agriculture": 1
-    },
-    "Environment": {
-      "Environment": 10,
-      "Unclassified": 5,
-      "Agriculture": 2,
-      "Water Resources": 1
+      "Education": 14,
+      "Sanitation": 1,
+      "Energy": 1,
+      "Agriculture": 1,
+      "Accessibility": 1
     },
     "Energy": {
-      "Energy": 12,
-      "Water Resources": 2,
-      "Environment": 2,
-      "Education": 2
+      "Energy": 16,
+      "Education": 1,
+      "Urban Infrastructure": 1
     },
-    "Urban Infrastructure": {
-      "Urban Infrastructure": 12,
-      "Agriculture": 4,
-      "Unclassified": 1,
-      "Education": 1
+    "Environment": {
+      "Environment": 17,
+      "Water Resources": 1
     },
-    "Rural Livelihoods": {
-      "Rural Livelihoods": 9,
-      "Unclassified": 4,
-      "Environment": 1,
-      "Public Administration": 2,
-      "Agriculture": 2
-    },
-    "Accessibility": {
-      "Accessibility": 11,
-      "Education": 4,
-      "Agriculture": 1,
-      "Water Resources": 1,
-      "Public Administration": 1
+    "Healthcare": {
+      "Healthcare": 17,
+      "Accessibility": 1
     },
     "Public Administration": {
-      "Public Administration": 10,
-      "Unclassified": 5,
-      "Education": 1,
-      "Accessibility": 1,
+      "Public Administration": 16,
+      "Rural Livelihoods": 1,
+      "Unclassified": 1
+    },
+    "Rural Livelihoods": {
+      "Rural Livelihoods": 14,
+      "Unclassified": 1,
+      "Agriculture": 3
+    },
+    "Sanitation": {
+      "Sanitation": 17,
       "Water Resources": 1
+    },
+    "Urban Infrastructure": {
+      "Urban Infrastructure": 17,
+      "Healthcare": 1
+    },
+    "Water Resources": {
+      "Water Resources": 17,
+      "Agriculture": 1
     }
   },
   "misclassified_examples": [
     {
-      "title": "Damaged Irrigation Pump Halting Vegetable Cultivation",
-      "district": "Dumka",
-      "true_domain": "Agriculture",
-      "predicted_domain": "Water Resources",
-      "confidence": 0.81
-    },
-    {
-      "title": "beej bhandaran ghar nahi hai gaon me",
-      "district": "Palamu",
-      "true_domain": "Agriculture",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "Mango Orchard Affected by Unknown Fungal Disease",
-      "district": "Garhwa",
-      "true_domain": "Agriculture",
-      "predicted_domain": "Healthcare",
-      "confidence": 0.81
-    },
-    {
-      "title": "Farmers Seek Drip Irrigation Subsidy Information",
-      "district": "Latehar",
-      "true_domain": "Agriculture",
-      "predicted_domain": "Water Resources",
-      "confidence": 0.81
-    },
-    {
-      "title": "aspatal me dawai khatam ho gayi hai",
-      "district": "Bokaro",
-      "true_domain": "Healthcare",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "Malaria Cases Rising Due to Stagnant Water Near Homes",
-      "district": "Giridih",
-      "true_domain": "Healthcare",
-      "predicted_domain": "Water Resources",
-      "confidence": 0.81
-    },
-    {
-      "title": "Sub-Health Centre Building in Dilapidated Condition",
-      "district": "Sahibganj",
-      "true_domain": "Healthcare",
+      "title": "Irrigation Canal Blocked by Silt Before Monsoon",
+      "true_domain": "Water Resources",
       "predicted_domain": "Agriculture",
-      "confidence": 0.81
-    },
-    {
-      "title": "Frequent Waterborne Disease Outbreaks Linked to Contaminated Supply",
-      "district": "Koderma",
-      "true_domain": "Healthcare",
-      "predicted_domain": "Water Resources",
-      "confidence": 0.87
-    },
-    {
-      "title": "swasthya kendra me staff ki kami hai",
-      "district": "Palamu",
-      "true_domain": "Healthcare",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "TB Patients Struggling to Access Follow-Up Medication",
-      "district": "Garhwa",
-      "true_domain": "Healthcare",
-      "predicted_domain": "Agriculture",
-      "confidence": 0.81
+      "runner_up_domain": "Water Resources",
+      "confidence": 0.58,
+      "requires_human_review": true,
+      "matched_keywords": [
+        "irrigation",
+        "paddy"
+      ]
     },
     {
       "title": "No Disability Screening Camp Held in Two Years",
-      "district": "Latehar",
       "true_domain": "Healthcare",
-      "predicted_domain": "Public Administration",
-      "confidence": 0.87
+      "predicted_domain": "Accessibility",
+      "runner_up_domain": "Healthcare",
+      "confidence": 0.69,
+      "requires_human_review": true,
+      "matched_keywords": [
+        "disability",
+        "disabilities"
+      ]
     },
     {
-      "title": "Mobile Medical Unit Stopped Visiting Remote Hamlets",
-      "district": "Lohardaga",
-      "true_domain": "Healthcare",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "bachcho ke paas kitaben nahi hain is saal",
-      "district": "Pakur",
+      "title": "Lack of Girls' Toilet Discouraging Secondary Attendance",
       "true_domain": "Education",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
+      "predicted_domain": "Sanitation",
+      "runner_up_domain": "Education",
+      "confidence": 0.82,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "toilet"
+      ]
+    },
+    {
+      "title": "vidyalaya me bijli nahi hai pankha bhi nahi chalta",
+      "true_domain": "Education",
+      "predicted_domain": "Energy",
+      "runner_up_domain": "Education",
+      "confidence": 0.78,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "pankha",
+        "bijli"
+      ]
     },
     {
       "title": "School Building Shared Unsafely With Livestock Shelter",
-      "district": "Latehar",
       "true_domain": "Education",
       "predicted_domain": "Agriculture",
-      "confidence": 0.81
+      "runner_up_domain": "Education",
+      "confidence": 0.6,
+      "requires_human_review": true,
+      "matched_keywords": [
+        "livestock"
+      ]
     },
     {
       "title": "No Special Educator for Children With Learning Disabilities",
-      "district": "Lohardaga",
       "true_domain": "Education",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "Public Toilet Lacking Water Supply Rendered Unusable",
-      "district": "Sahibganj",
-      "true_domain": "Sanitation",
-      "predicted_domain": "Water Resources",
-      "confidence": 0.81
+      "predicted_domain": "Accessibility",
+      "runner_up_domain": "Education",
+      "confidence": 0.74,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "special educator",
+        "disabilities"
+      ]
     },
     {
       "title": "Slaughterhouse Waste Dumped Near Drinking Water Source",
-      "district": "Dumka",
       "true_domain": "Sanitation",
       "predicted_domain": "Water Resources",
-      "confidence": 0.93
-    },
-    {
-      "title": "No Sanitary Napkin Disposal Facility at Girls' School",
-      "district": "Koderma",
-      "true_domain": "Sanitation",
-      "predicted_domain": "Education",
-      "confidence": 0.87
-    },
-    {
-      "title": "Drainage Overflow Near Anganwadi During Monsoon",
-      "district": "Garhwa",
-      "true_domain": "Sanitation",
-      "predicted_domain": "Agriculture",
-      "confidence": 0.81
-    },
-    {
-      "title": "khadaan se dhool aane se saans lene me dikkat",
-      "district": "Bokaro",
-      "true_domain": "Environment",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "जंगल में आग बार बार लग रही है इस मौसम में",
-      "district": "Deoghar",
-      "true_domain": "Environment",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "khadaan ke gaddhe me paani bhar gaya bachche gir sakte",
-      "district": "Pakur",
-      "true_domain": "Environment",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "vaayu pradushan se bachcho ko khaansi ho rahi hai",
-      "district": "Palamu",
-      "true_domain": "Environment",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "Illegal Sand Mining Eroding Riverbank Near Village",
-      "district": "Garhwa",
-      "true_domain": "Environment",
-      "predicted_domain": "Agriculture",
-      "confidence": 0.81
-    },
-    {
-      "title": "Toxic Fumes From Brick Kiln Affecting Nearby Homes",
-      "district": "Latehar",
-      "true_domain": "Environment",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
+      "runner_up_domain": "Sanitation",
+      "confidence": 0.76,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "drinking water",
+        "water source",
+        "contamination"
+      ]
     },
     {
       "title": "Declining Groundwater Recharge Linked to Deforestation",
-      "district": "Lohardaga",
       "true_domain": "Environment",
       "predicted_domain": "Water Resources",
-      "confidence": 0.87
-    },
-    {
-      "title": "Chemical Foam Forming in Village Pond After Factory Runoff",
-      "district": "Gumla",
-      "true_domain": "Environment",
-      "predicted_domain": "Agriculture",
-      "confidence": 0.81
-    },
-    {
-      "title": "18-Hour Load Shedding Disrupting Evening Study and Irrigation",
-      "district": "Dhanbad",
-      "true_domain": "Energy",
-      "predicted_domain": "Water Resources",
-      "confidence": 0.81
-    },
-    {
-      "title": "Voltage Fluctuation Damaging Household Appliances",
-      "district": "Hazaribagh",
-      "true_domain": "Energy",
-      "predicted_domain": "Water Resources",
-      "confidence": 0.81
-    },
-    {
-      "title": "Solar Streetlights Installed but Never Functional",
-      "district": "Giridih",
-      "true_domain": "Energy",
-      "predicted_domain": "Environment",
-      "confidence": 0.81
+      "runner_up_domain": "Environment",
+      "confidence": 0.58,
+      "requires_human_review": true,
+      "matched_keywords": [
+        "groundwater"
+      ]
     },
     {
       "title": "Frequent Blackouts During Exam Season Affecting Students",
-      "district": "Godda",
       "true_domain": "Energy",
       "predicted_domain": "Education",
-      "confidence": 0.81
+      "runner_up_domain": "Energy",
+      "confidence": 0.82,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "students",
+        "exam",
+        "exams"
+      ]
     },
     {
-      "title": "inverter aur battery ka koi intezaam nahi hai school me",
-      "district": "Palamu",
+      "title": "Damaged Power Lines Hanging Low Over Village Road",
       "true_domain": "Energy",
-      "predicted_domain": "Education",
-      "confidence": 0.81
+      "predicted_domain": "Urban Infrastructure",
+      "runner_up_domain": "Energy",
+      "confidence": 0.63,
+      "requires_human_review": true,
+      "matched_keywords": [
+        "road"
+      ]
     },
     {
-      "title": "Streetlight Poles Without Bulbs for Over a Year",
-      "district": "Garhwa",
-      "true_domain": "Energy",
-      "predicted_domain": "Environment",
-      "confidence": 0.81
-    },
-    {
-      "title": "No Bus Stop Shelter Leaving Commuters Exposed to Rain",
-      "district": "Godda",
+      "title": "Narrow Village Road Blocking Ambulance Access",
       "true_domain": "Urban Infrastructure",
-      "predicted_domain": "Agriculture",
-      "confidence": 0.81
-    },
-    {
-      "title": "pull ka nirmaan kaam adhoora chhoda gaya",
-      "district": "Pakur",
-      "true_domain": "Urban Infrastructure",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "Culvert Washed Away Cutting Off Two Hamlets",
-      "district": "Koderma",
-      "true_domain": "Urban Infrastructure",
-      "predicted_domain": "Agriculture",
-      "confidence": 0.81
-    },
-    {
-      "title": "Unpaved Road Turning to Mud Every Monsoon",
-      "district": "Chatra",
-      "true_domain": "Urban Infrastructure",
-      "predicted_domain": "Agriculture",
-      "confidence": 0.81
-    },
-    {
-      "title": "sadak ke kinare koi footpath nahi hai school ke bachcho ke liye",
-      "district": "Palamu",
-      "true_domain": "Urban Infrastructure",
-      "predicted_domain": "Education",
-      "confidence": 0.81
-    },
-    {
-      "title": "No Footbridge Over Seasonal Stream Cutting Off School Route",
-      "district": "Gumla",
-      "true_domain": "Urban Infrastructure",
-      "predicted_domain": "Agriculture",
-      "confidence": 0.81
-    },
-    {
-      "title": "gaon me rozgaar ka koi sadhan nahi bacha",
-      "district": "Bokaro",
-      "true_domain": "Rural Livelihoods",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "स्वयं सहायता समूह को प्रशिक्षण के बाद भी काम नहीं मिला",
-      "district": "Deoghar",
-      "true_domain": "Rural Livelihoods",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "Forest Produce Collectors Facing Middleman Exploitation",
-      "district": "Godda",
-      "true_domain": "Rural Livelihoods",
-      "predicted_domain": "Environment",
-      "confidence": 0.81
-    },
-    {
-      "title": "MGNREGA Wages Delayed for Over Two Months",
-      "district": "Sahibganj",
-      "true_domain": "Rural Livelihoods",
-      "predicted_domain": "Public Administration",
-      "confidence": 0.81
+      "predicted_domain": "Healthcare",
+      "runner_up_domain": "Urban Infrastructure",
+      "confidence": 0.73,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "ambulance",
+        "medical"
+      ]
     },
     {
       "title": "haathkargha kaarigaro ko raw material nahi mil raha",
-      "district": "Pakur",
       "true_domain": "Rural Livelihoods",
       "predicted_domain": "Unclassified",
-      "confidence": 0.3
+      "runner_up_domain": null,
+      "confidence": 0.3,
+      "requires_human_review": true,
+      "matched_keywords": []
     },
     {
       "title": "No Cold Chain for Dairy Farmers Losing Milk to Spoilage",
-      "district": "Dumka",
       "true_domain": "Rural Livelihoods",
       "predicted_domain": "Agriculture",
-      "confidence": 0.81
+      "runner_up_domain": "Rural Livelihoods",
+      "confidence": 0.81,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "farmers",
+        "dairy"
+      ]
     },
     {
-      "title": "Handloom Cooperative Struggling to Repay Working Capital Loan",
-      "district": "Latehar",
+      "title": "Poultry Farming SHG Struggling Without Veterinary Support",
       "true_domain": "Rural Livelihoods",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "Seasonal Migration Leaving Children Without Adult Supervision",
-      "district": "Lohardaga",
-      "true_domain": "Rural Livelihoods",
-      "predicted_domain": "Public Administration",
-      "confidence": 0.81
+      "predicted_domain": "Agriculture",
+      "runner_up_domain": "Rural Livelihoods",
+      "confidence": 0.74,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "veterinary",
+        "farming",
+        "poultry"
+      ]
     },
     {
       "title": "Fisherfolk Community Lacking Access to Cold Storage Boats",
-      "district": "Gumla",
       "true_domain": "Rural Livelihoods",
       "predicted_domain": "Agriculture",
-      "confidence": 0.81
+      "runner_up_domain": null,
+      "confidence": 0.87,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "cold storage"
+      ]
     },
     {
-      "title": "School Has No Accessible Toilet for Disabled Students",
-      "district": "Hazaribagh",
+      "title": "viklang vyakti ko pension milne me bahut dikkat ho rahi",
       "true_domain": "Accessibility",
-      "predicted_domain": "Education",
-      "confidence": 0.87
-    },
-    {
-      "title": "Hearing-Impaired Students Lack Sign Language Support at School",
-      "district": "Giridih",
-      "true_domain": "Accessibility",
-      "predicted_domain": "Education",
-      "confidence": 0.87
-    },
-    {
-      "title": "दिव्यांग बच्चों के लिए स्कूल में कोई सुविधा नहीं है",
-      "district": "Deoghar",
-      "true_domain": "Accessibility",
-      "predicted_domain": "Education",
-      "confidence": 0.81
-    },
-    {
-      "title": "Visually Impaired Farmer Needs Voice-Guided Navigation Support",
-      "district": "Koderma",
-      "true_domain": "Accessibility",
-      "predicted_domain": "Agriculture",
-      "confidence": 0.81
+      "predicted_domain": "Public Administration",
+      "runner_up_domain": "Accessibility",
+      "confidence": 0.67,
+      "requires_human_review": true,
+      "matched_keywords": [
+        "pension",
+        "block office"
+      ]
     },
     {
       "title": "sunne me dikkat wale bacho ke liye koi madad nahi",
-      "district": "Palamu",
       "true_domain": "Accessibility",
       "predicted_domain": "Education",
-      "confidence": 0.81
+      "runner_up_domain": null,
+      "confidence": 0.76,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "school"
+      ]
     },
     {
       "title": "Water Handpump Platform Not Usable by Wheelchair Users",
-      "district": "Latehar",
       "true_domain": "Accessibility",
       "predicted_domain": "Water Resources",
-      "confidence": 0.87
-    },
-    {
-      "title": "Deaf Villager Unable to Access Grievance Redressal Help Desk",
-      "district": "Gumla",
-      "true_domain": "Accessibility",
-      "predicted_domain": "Public Administration",
-      "confidence": 0.81
-    },
-    {
-      "title": "aadhar card me galti sudharne me bahut samay lag raha hai",
-      "district": "Bokaro",
-      "true_domain": "Public Administration",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "जन्म प्रमाण पत्र बनवाने में महीनों लग रहे हैं",
-      "district": "Deoghar",
-      "true_domain": "Public Administration",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "Caste Certificate Application Pending Without Reason for Months",
-      "district": "Sahibganj",
-      "true_domain": "Public Administration",
-      "predicted_domain": "Education",
-      "confidence": 0.81
+      "runner_up_domain": "Accessibility",
+      "confidence": 0.72,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "handpump",
+        "water"
+      ]
     },
     {
       "title": "MGNREGA job card banwane me rishwat maangi ja rahi hai",
-      "district": "Pakur",
+      "true_domain": "Public Administration",
+      "predicted_domain": "Rural Livelihoods",
+      "runner_up_domain": "Public Administration",
+      "confidence": 0.81,
+      "requires_human_review": false,
+      "matched_keywords": [
+        "job card",
+        "mgnrega",
+        "kaam"
+      ]
+    },
+    {
+      "title": "panchayat se milne wali suvidha ki jaankari nahi milti",
       "true_domain": "Public Administration",
       "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "Land Record Mutation Stuck Due to Alleged Bureaucratic Delay",
-      "district": "Chatra",
-      "true_domain": "Public Administration",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "Old-Age Home Verification Visit Never Conducted Despite Application",
-      "district": "Garhwa",
-      "true_domain": "Public Administration",
-      "predicted_domain": "Unclassified",
-      "confidence": 0.3
-    },
-    {
-      "title": "Disability Pension File Reportedly Lost at Block Office",
-      "district": "Latehar",
-      "true_domain": "Public Administration",
-      "predicted_domain": "Accessibility",
-      "confidence": 0.81
-    },
-    {
-      "title": "RTI Application on Panchayat Spending Ignored Past Deadline",
-      "district": "Lohardaga",
-      "true_domain": "Public Administration",
-      "predicted_domain": "Water Resources",
-      "confidence": 0.81
+      "runner_up_domain": null,
+      "confidence": 0.3,
+      "requires_human_review": true,
+      "matched_keywords": []
     }
-  ]
+  ],
+  "dev": {
+    "total_samples": 110,
+    "correct": 107,
+    "accuracy": 0.9727,
+    "accuracy_pct": "97.3%",
+    "human_review_flagged": 9,
+    "auto_accepted_accuracy": 0.9901,
+    "flagged_accuracy": 0.7778,
+    "per_domain": {
+      "Accessibility": {
+        "n": 10,
+        "correct": 9,
+        "accuracy": 0.9
+      },
+      "Agriculture": {
+        "n": 10,
+        "correct": 10,
+        "accuracy": 1.0
+      },
+      "Education": {
+        "n": 10,
+        "correct": 10,
+        "accuracy": 1.0
+      },
+      "Energy": {
+        "n": 10,
+        "correct": 10,
+        "accuracy": 1.0
+      },
+      "Environment": {
+        "n": 10,
+        "correct": 10,
+        "accuracy": 1.0
+      },
+      "Healthcare": {
+        "n": 10,
+        "correct": 10,
+        "accuracy": 1.0
+      },
+      "Public Administration": {
+        "n": 10,
+        "correct": 10,
+        "accuracy": 1.0
+      },
+      "Rural Livelihoods": {
+        "n": 10,
+        "correct": 9,
+        "accuracy": 0.9
+      },
+      "Sanitation": {
+        "n": 10,
+        "correct": 9,
+        "accuracy": 0.9
+      },
+      "Urban Infrastructure": {
+        "n": 10,
+        "correct": 10,
+        "accuracy": 1.0
+      },
+      "Water Resources": {
+        "n": 10,
+        "correct": 10,
+        "accuracy": 1.0
+      }
+    },
+    "per_language": {
+      "en": {
+        "n": 55,
+        "accuracy": 0.945
+      },
+      "en-sms": {
+        "n": 22,
+        "accuracy": 1.0
+      },
+      "hi": {
+        "n": 22,
+        "accuracy": 1.0
+      },
+      "hi-Latn": {
+        "n": 11,
+        "accuracy": 1.0
+      }
+    },
+    "misclassified_examples": [
+      {
+        "title": "Clinic syringes thrown in municipal bin",
+        "true_domain": "Sanitation",
+        "predicted_domain": "Healthcare",
+        "runner_up_domain": "Sanitation",
+        "confidence": 0.67,
+        "requires_human_review": true,
+        "matched_keywords": [
+          "clinic"
+        ]
+      },
+      {
+        "title": "Brick kiln workers trapped by advance payments",
+        "true_domain": "Rural Livelihoods",
+        "predicted_domain": "Environment",
+        "runner_up_domain": "Rural Livelihoods",
+        "confidence": 0.73,
+        "requires_human_review": false,
+        "matched_keywords": [
+          "brick kiln"
+        ]
+      },
+      {
+        "title": "Blind students need braille books",
+        "true_domain": "Accessibility",
+        "predicted_domain": "Education",
+        "runner_up_domain": "Accessibility",
+        "confidence": 0.69,
+        "requires_human_review": true,
+        "matched_keywords": [
+          "students",
+          "books",
+          "textbooks",
+          "syllabus",
+          "school"
+        ]
+      }
+    ]
+  },
+  "train": {
+    "total_samples": 330,
+    "correct": 323,
+    "accuracy": 0.9788,
+    "accuracy_pct": "97.9%",
+    "human_review_flagged": 27,
+    "auto_accepted_accuracy": 0.9934,
+    "flagged_accuracy": 0.8148,
+    "per_domain": {
+      "Accessibility": {
+        "n": 30,
+        "correct": 27,
+        "accuracy": 0.9
+      },
+      "Agriculture": {
+        "n": 30,
+        "correct": 29,
+        "accuracy": 0.967
+      },
+      "Education": {
+        "n": 30,
+        "correct": 30,
+        "accuracy": 1.0
+      },
+      "Energy": {
+        "n": 30,
+        "correct": 30,
+        "accuracy": 1.0
+      },
+      "Environment": {
+        "n": 30,
+        "correct": 29,
+        "accuracy": 0.967
+      },
+      "Healthcare": {
+        "n": 30,
+        "correct": 30,
+        "accuracy": 1.0
+      },
+      "Public Administration": {
+        "n": 30,
+        "correct": 30,
+        "accuracy": 1.0
+      },
+      "Rural Livelihoods": {
+        "n": 30,
+        "correct": 29,
+        "accuracy": 0.967
+      },
+      "Sanitation": {
+        "n": 30,
+        "correct": 30,
+        "accuracy": 1.0
+      },
+      "Urban Infrastructure": {
+        "n": 30,
+        "correct": 29,
+        "accuracy": 0.967
+      },
+      "Water Resources": {
+        "n": 30,
+        "correct": 30,
+        "accuracy": 1.0
+      }
+    },
+    "per_language": {
+      "en": {
+        "n": 154,
+        "accuracy": 0.974
+      },
+      "en-sms": {
+        "n": 44,
+        "accuracy": 0.955
+      },
+      "hi": {
+        "n": 66,
+        "accuracy": 0.985
+      },
+      "hi-Latn": {
+        "n": 66,
+        "accuracy": 1.0
+      }
+    }
+  },
+  "ablation": [
+    {
+      "variant": "V2 keyword counter (commit cc2bbfc)",
+      "dev_accuracy": 0.6364,
+      "test_accuracy": 0.6818
+    },
+    {
+      "variant": "a. expanded multilingual lexicon, uniform weights",
+      "dev_accuracy": 0.9364,
+      "test_accuracy": 0.899
+    },
+    {
+      "variant": "b. + weighted phrases and title boost",
+      "dev_accuracy": 0.9636,
+      "test_accuracy": 0.899
+    },
+    {
+      "variant": "c. + topic-negation handling",
+      "dev_accuracy": 0.9727,
+      "test_accuracy": 0.899
+    },
+    {
+      "variant": "d. + runner-up margin tie-break (released, keywords-only)",
+      "dev_accuracy": 0.9727,
+      "test_accuracy": 0.899
+    },
+    {
+      "variant": "e. + 0.6/0.4 sentence-embedding blend",
+      "dev_accuracy": 0.9727,
+      "test_accuracy": 0.8838
+    }
+  ],
+  "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
+  "leakage_audit": {
+    "description": "Released classifier re-run on TEST with every lexicon term removed that fires only on TEST reports and was not in the V2 taxonomy.",
+    "terms_removed": [
+      "Accessibility: assistive",
+      "Accessibility: divyang praman patra",
+      "Accessibility: hearing impaired",
+      "Accessibility: inaccessible",
+      "Accessibility: special educator",
+      "Agriculture: cold storage",
+      "Agriculture: dairy",
+      "Agriculture: foot and mouth",
+      "Agriculture: orchard",
+      "Agriculture: rainfall",
+      "Education: computer lab",
+      "Education: drop out",
+      "Education: library",
+      "Energy: generator",
+      "Energy: inverter",
+      "Energy: khambha",
+      "Energy: micro-grid",
+      "Environment: erosion",
+      "Environment: pradushan",
+      "Environment: tree felling",
+      "Healthcare: blood bank",
+      "Healthcare: illness",
+      "Healthcare: neonatal",
+      "Healthcare: tuberculosis",
+      "Healthcare: typhoid",
+      "Public Administration: aadhar",
+      "Public Administration: direct benefit transfer",
+      "Public Administration: helpline",
+      "Rural Livelihoods: craft",
+      "Rural Livelihoods: daily wage",
+      "Rural Livelihoods: dairy",
+      "Rural Livelihoods: livelihood",
+      "Rural Livelihoods: market access",
+      "Rural Livelihoods: middleman",
+      "Rural Livelihoods: middlemen",
+      "Rural Livelihoods: rozgaar",
+      "Rural Livelihoods: tendu",
+      "Sanitation: kachre",
+      "Sanitation: naali jaam",
+      "Sanitation: कचरे",
+      "Urban Infrastructure: gaadiyon",
+      "Urban Infrastructure: guard rail",
+      "Urban Infrastructure: storm drain",
+      "Urban Infrastructure: unpaved",
+      "Urban Infrastructure: waterlogging",
+      "Water Resources: contaminat*",
+      "Water Resources: sukh gaya",
+      "Water Resources: water table",
+      "Water Resources: water tank",
+      "Water Resources: बोरवेल"
+    ],
+    "test_accuracy": 0.8939,
+    "per_domain": {
+      "Accessibility": 0.778,
+      "Agriculture": 1.0,
+      "Education": 0.833,
+      "Energy": 0.889,
+      "Environment": 0.944,
+      "Healthcare": 0.944,
+      "Public Administration": 0.833,
+      "Rural Livelihoods": 0.778,
+      "Sanitation": 0.944,
+      "Urban Infrastructure": 0.944,
+      "Water Resources": 0.944
+    }
+  }
 }

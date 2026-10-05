@@ -1,23 +1,54 @@
 """
 AI domain-classification accuracy benchmark for SIH 26043.
 
-Generates a ~200-item labeled evaluation set of realistic Jharkhand citizen
-problem reports (English + Hindi/Hinglish, varied phrasing, one label per
-item drawn from the same 11-domain controlled taxonomy the production
-classifier uses), runs every item through the real
-backend.app.services.ai.classification_service.classify() function (no
-mocking), and reports accuracy, a per-domain breakdown, and the confusion
-matrix. Results are also written to ai_accuracy_report.json for the record.
+Data splits (fixed; never tune on TEST)
+---------------------------------------
+* TEST  - the 198 labelled reports below (11 domains x 18; English, Hindi,
+          Hinglish). Frozen since commit cc2bbfc: their SHA-256 fingerprint is
+          checked in CI, so they cannot be edited to inflate the score. They
+          are held out: no keyword, weight or threshold is chosen by looking
+          at TEST results.
+* TRAIN - scripts/ai_eval/train_dev.jsonl, every item whose position within
+          its domain is not a multiple of 4 (330 items). Used to build and
+          debug the lexicon.
+* DEV   - the remaining quarter of train_dev.jsonl (110 items, every 4th item
+          per domain). Used to decide which changes to keep and to calibrate
+          the human-review confidence threshold.
 
-Run: PYTHONPATH=. python scripts/ai_accuracy_benchmark.py
+TRAIN/DEV were written separately from TEST (different scenarios, more
+SMS-style and Devanagari text) and CI checks that no report appears in both.
+
+Every item runs through the real
+backend.app.services.ai.classification_service classifier (no mocking).
+The run reports accuracy per split, a per-domain breakdown, the confusion
+matrix, an ablation table and the review-threshold calibration, and writes
+ai_accuracy_report.json.
+
+Run:        PYTHONPATH=. python scripts/ai_accuracy_benchmark.py
+Calibrate:  PYTHONPATH=. python scripts/ai_accuracy_benchmark.py --calibrate
 """
+import argparse
+import hashlib
 import json
+import subprocess
 import sys
-from collections import defaultdict
+import types
+from collections import Counter, defaultdict
+from pathlib import Path
 
 sys.path.insert(0, ".")
 
-from backend.app.services.ai.classification_service import classification_service  # noqa: E402
+from backend.app.core.config import settings  # noqa: E402
+from backend.app.services.ai.embedding_service import embedding_service  # noqa: E402
+from backend.app.services.ai.classification_service import (  # noqa: E402
+    _COMPILED_LEXICON, _normalise,
+    AIClassificationService, REVIEW_CONFIDENCE_THRESHOLD,
+)
+
+TRAIN_DEV_PATH = Path(__file__).resolve().parent / "ai_eval" / "train_dev.jsonl"
+DEV_EVERY = 4
+# Commit whose classifier produced the previous published figure (68.2% on TEST).
+V2_REFERENCE_COMMIT = "cc2bbfc"
 
 # ---------------------------------------------------------------------------
 # Labeled evaluation set. Each domain gets ~18 items: varied villages/districts,
@@ -270,82 +301,270 @@ add("Public Administration", "Disability Pension File Reportedly Lost at Block O
 add("Public Administration", "RTI Application on Panchayat Spending Ignored Past Deadline", "An RTI application seeking details of panchayat fund utilization was filed well past the statutory reply deadline with no response.", 16)
 add("Public Administration", "Grievance Redressal Helpline Never Answers Calls", "The district grievance redressal helpline number listed on official posters rings unanswered on every attempt over the past two weeks.", 17)
 
+
 TOTAL_EXPECTED = 11 * 18  # 198
+TEST_SAMPLES = SAMPLES
+
+# The deployed default: keywords only (AI_EMBEDDINGS_ENABLED is off by default).
+# Pinned here so enabling embeddings locally cannot change the headline figure.
+RELEASED = AIClassificationService(embeddings=False)
+
+ABLATIONS = [
+    ("a. expanded multilingual lexicon, uniform weights",
+     dict(weighted=False, negation=False, tie_break=False, embeddings=False)),
+    ("b. + weighted phrases and title boost",
+     dict(weighted=True, negation=False, tie_break=False, embeddings=False)),
+    ("c. + topic-negation handling",
+     dict(weighted=True, negation=True, tie_break=False, embeddings=False)),
+    ("d. + runner-up margin tie-break (released, keywords-only)",
+     dict(weighted=True, negation=True, tie_break=True, embeddings=False)),
+]
+
+
+def fingerprint_test_set(samples=SAMPLES) -> str:
+    canonical = json.dumps(
+        [[s["true_domain"], s["title"], s["description"]] for s in samples], ensure_ascii=False
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def load_train_dev():
+    """Returns (train, dev): every DEV_EVERY-th report per domain is DEV."""
+    train, dev = [], []
+    position = Counter()
+    for line in TRAIN_DEV_PATH.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        item = {
+            "title": row["title"],
+            "description": row["description"],
+            "true_domain": row["domain"],
+            "lang": row["lang"],
+        }
+        is_dev = position[row["domain"]] % DEV_EVERY == DEV_EVERY - 1
+        (dev if is_dev else train).append(item)
+        position[row["domain"]] += 1
+    return train, dev
+
+
+def _predict(samples, classifier):
+    for item in samples:
+        out = classifier.classify(title=item["title"], description=item["description"]).output
+        yield item, out
+
+
+def evaluate(samples, classifier=RELEASED) -> dict:
+    per_total, per_correct = Counter(), Counter()
+    lang_total, lang_correct = Counter(), Counter()
+    confusion = defaultdict(Counter)
+    flagged = flagged_correct = 0
+    misclassified = []
+
+    for item, out in _predict(samples, classifier):
+        pred, true = out["domain"], item["true_domain"]
+        ok = pred == true
+        per_total[true] += 1
+        per_correct[true] += ok
+        confusion[true][pred] += 1
+        if "lang" in item:
+            lang_total[item["lang"]] += 1
+            lang_correct[item["lang"]] += ok
+        if out["requires_human_review"]:
+            flagged += 1
+            flagged_correct += ok
+        if not ok:
+            misclassified.append({
+                "title": item["title"],
+                "true_domain": true,
+                "predicted_domain": pred,
+                "runner_up_domain": out.get("runner_up_domain"),
+                "confidence": out.get("confidence"),
+                "requires_human_review": out["requires_human_review"],
+                "matched_keywords": out.get("matched_keywords", []),
+            })
+
+    total = len(samples)
+    correct = sum(per_correct.values())
+    auto = total - flagged
+    result = {
+        "total_samples": total,
+        "correct": correct,
+        "accuracy": round(correct / total, 4),
+        "accuracy_pct": f"{correct / total * 100:.1f}%",
+        "human_review_flagged": flagged,
+        "auto_accepted_accuracy": round((correct - flagged_correct) / auto, 4) if auto else None,
+        "flagged_accuracy": round(flagged_correct / flagged, 4) if flagged else None,
+        "per_domain": {
+            dom: {
+                "n": per_total[dom],
+                "correct": per_correct[dom],
+                "accuracy": round(per_correct[dom] / per_total[dom], 3),
+            }
+            for dom in sorted(per_total)
+        },
+        "confusion_matrix": {t: dict(v) for t, v in sorted(confusion.items())},
+        "misclassified_examples": misclassified,
+    }
+    if lang_total:
+        result["per_language"] = {
+            lang: {"n": lang_total[lang], "accuracy": round(lang_correct[lang] / lang_total[lang], 3)}
+            for lang in sorted(lang_total)
+        }
+    return result
+
+
+def load_v2_module():
+    """The classifier module at V2_REFERENCE_COMMIT, loaded from git history for comparison."""
+    try:
+        source = subprocess.run(
+            ["git", "show", f"{V2_REFERENCE_COMMIT}:backend/app/services/ai/classification_service.py"],
+            capture_output=True, text=True, check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    module = types.ModuleType("classification_service_v2")
+    exec(compile(source, "classification_service_v2.py", "exec"), module.__dict__)
+    return module
+
+
+def _lexicon_hits(samples) -> set:
+    hits = set()
+    for s in samples:
+        text = _normalise(f"{s['title']} . {s['description']}")
+        for domain, term, _weight, pattern in _COMPILED_LEXICON:
+            if pattern.search(text):
+                hits.add((domain, term))
+    return hits
+
+
+def audit_test_only_terms(train, dev, v2_module) -> list:
+    """
+    Leakage audit: lexicon entries that fire on some TEST report but on no
+    TRAIN/DEV report and were not already in the V2 taxonomy. These are the
+    terms most likely to have been added after reading the TEST set.
+    """
+    v2_terms = set()
+    if v2_module is not None:
+        v2_terms = {t for terms in v2_module.CONTROLLED_TAXONOMY.values() for t in terms}
+    candidates = _lexicon_hits(SAMPLES) - _lexicon_hits(train + dev)
+    return sorted((d, t) for d, t in candidates if t.rstrip("*") not in v2_terms)
+
+
+def calibrate(dev) -> None:
+    """Prints DEV-only accuracy above/below candidate review thresholds."""
+    rows = [(out["confidence"], out["domain"] == item["true_domain"])
+            for item, out in _predict(dev, RELEASED)]
+    print(f"Review-threshold calibration on DEV ({len(rows)} items)")
+    print(f"{'threshold':>10}{'flagged':>10}{'auto acc':>10}{'flagged acc':>13}")
+    for step in range(8, 17):
+        t = step * 0.05
+        auto = [ok for conf, ok in rows if conf >= t]
+        low = [ok for conf, ok in rows if conf < t]
+        auto_acc = f"{sum(auto) / len(auto) * 100:.1f}%" if auto else "-"
+        low_acc = f"{sum(low) / len(low) * 100:.1f}%" if low else "-"
+        print(f"{t:>10.2f}{len(low):>10}{auto_acc:>10}{low_acc:>13}")
+
+
+def _summary(result: dict) -> dict:
+    keep = ("total_samples", "correct", "accuracy", "accuracy_pct", "human_review_flagged",
+            "auto_accepted_accuracy", "flagged_accuracy", "per_domain", "per_language")
+    return {k: result[k] for k in keep if k in result}
+
+
+def _print_domain_table(dev: dict, test: dict) -> None:
+    print(f"{'Domain':<24}{'DEV':>12}{'TEST':>12}")
+    for dom in test["per_domain"]:
+        d, t = dev["per_domain"][dom], test["per_domain"][dom]
+        print(f"{dom:<24}{d['correct']:>4}/{d['n']:<3}{d['accuracy'] * 100:>4.0f}%"
+              f"{t['correct']:>4}/{t['n']:<3}{t['accuracy'] * 100:>4.0f}%")
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[1])
+    parser.add_argument("--calibrate", action="store_true", help="print DEV review-threshold table and exit")
+    parser.add_argument("--no-write", action="store_true", help="do not rewrite ai_accuracy_report.json")
+    args = parser.parse_args()
+
     assert len(SAMPLES) == TOTAL_EXPECTED, f"Expected {TOTAL_EXPECTED} samples, got {len(SAMPLES)}"
+    train, dev = load_train_dev()
+    if args.calibrate:
+        calibrate(dev)
+        return
 
-    correct = 0
-    per_domain_total = defaultdict(int)
-    per_domain_correct = defaultdict(int)
-    confusion = defaultdict(lambda: defaultdict(int))
-    review_flagged = 0
-    misclassified = []
+    results = {name: evaluate(split) for name, split in (("train", train), ("dev", dev), ("test", SAMPLES))}
+    test = results["test"]
 
-    for item in SAMPLES:
-        result = classification_service.classify(
-            title=item["title"],
-            description=item["description"],
-        )
-        pred = result.output.get("domain")
-        true = item["true_domain"]
-        per_domain_total[true] += 1
-        confusion[true][pred] += 1
-        if result.output.get("requires_human_review"):
-            review_flagged += 1
-        if pred == true:
-            correct += 1
-            per_domain_correct[true] += 1
-        else:
-            misclassified.append({
-                "title": item["title"],
-                "district": item["district"],
-                "true_domain": true,
-                "predicted_domain": pred,
-                "confidence": result.output.get("confidence"),
-            })
+    ablation = []
+    variants = list(ABLATIONS)
+    if embedding_service.is_available():
+        variants.append(("e. + 0.6/0.4 sentence-embedding blend",
+                         dict(weighted=True, negation=True, tie_break=True, embeddings=True)))
+    v2_module = load_v2_module()
+    if v2_module is not None:
+        v2 = v2_module.AIClassificationService()
+        ablation.append({
+            "variant": f"V2 keyword counter (commit {V2_REFERENCE_COMMIT})",
+            "dev_accuracy": evaluate(dev, v2)["accuracy"],
+            "test_accuracy": evaluate(SAMPLES, v2)["accuracy"],
+        })
+    for label, options in variants:
+        variant = AIClassificationService(**options)
+        ablation.append({
+            "variant": label,
+            "dev_accuracy": evaluate(dev, variant)["accuracy"],
+            "test_accuracy": evaluate(SAMPLES, variant)["accuracy"],
+        })
 
-    total = len(SAMPLES)
-    accuracy = correct / total
+    audit_terms = audit_test_only_terms(train, dev, v2_module)
+    audited = evaluate(SAMPLES, AIClassificationService(embeddings=False, exclude_terms=set(audit_terms)))
 
     report = {
-        "model_name": classification_service.MODEL_NAME,
-        "model_version": classification_service.MODEL_VERSION,
-        "total_samples": total,
-        "correct": correct,
-        "accuracy": round(accuracy, 4),
-        "accuracy_pct": f"{accuracy * 100:.1f}%",
-        "human_review_flagged": review_flagged,
-        "per_domain": {
-            dom: {
-                "n": per_domain_total[dom],
-                "correct": per_domain_correct[dom],
-                "accuracy": round(per_domain_correct[dom] / per_domain_total[dom], 3),
-            }
-            for dom in sorted(per_domain_total)
+        "model_name": RELEASED.MODEL_NAME,
+        "model_version": RELEASED.MODEL_VERSION,
+        "method": "keywords",
+        "review_threshold": REVIEW_CONFIDENCE_THRESHOLD,
+        "splits": {
+            "test": f"{len(SAMPLES)} held-out reports in scripts/ai_accuracy_benchmark.py (never used for tuning)",
+            "train": f"{len(train)} reports from scripts/ai_eval/train_dev.jsonl",
+            "dev": f"{len(dev)} reports from scripts/ai_eval/train_dev.jsonl (every {DEV_EVERY}th per domain)",
         },
-        "confusion_matrix": {t: dict(v) for t, v in confusion.items()},
-        "misclassified_examples": misclassified,
+        "test_set_sha256": fingerprint_test_set(),
+        **test,
+        "dev": {**_summary(results["dev"]), "misclassified_examples": results["dev"]["misclassified_examples"]},
+        "train": _summary(results["train"]),
+        "ablation": ablation,
+        "embedding_model": settings.AI_EMBEDDINGS_MODEL_NAME if embedding_service.is_available() else None,
+        "leakage_audit": {
+            "description": "Released classifier re-run on TEST with every lexicon term removed that "
+                           "fires only on TEST reports and was not in the V2 taxonomy.",
+            "terms_removed": [f"{d}: {t}" for d, t in audit_terms],
+            "test_accuracy": audited["accuracy"],
+            "per_domain": {d: v["accuracy"] for d, v in audited["per_domain"].items()},
+        },
     }
 
-    with open("ai_accuracy_report.json", "w") as f:
-        json.dump(report, f, indent=2, ensure_ascii=False)
+    if not args.no_write:
+        with open("ai_accuracy_report.json", "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, ensure_ascii=False)
+            f.write("\n")
 
-    print(f"Model: {report['model_name']} v{report['model_version']}")
-    print(f"Samples: {total}  |  Correct: {correct}  |  Accuracy: {report['accuracy_pct']}")
-    print(f"Flagged for human review (no confident domain match): {review_flagged}")
+    print(f"Model: {report['model_name']} v{report['model_version']} ({report['method']})")
+    for name in ("train", "dev", "test"):
+        r = results[name]
+        print(f"{name.upper():<6} n={r['total_samples']:<4} accuracy {r['accuracy_pct']:>6}  "
+              f"flagged for review {r['human_review_flagged']:>3}  "
+              f"auto-accepted accuracy {(r['auto_accepted_accuracy'] or 0) * 100:.1f}%")
     print()
-    print(f"{'Domain':<24}{'N':>5}{'Correct':>10}{'Accuracy':>12}")
-    for dom, stats in report["per_domain"].items():
-        print(f"{dom:<24}{stats['n']:>5}{stats['correct']:>10}{stats['accuracy']*100:>11.1f}%")
+    _print_domain_table(results["dev"], test)
     print()
-    if misclassified:
-        print(f"{len(misclassified)} misclassified examples (see ai_accuracy_report.json for full list):")
-        for m in misclassified[:10]:
-            print(f"  - [{m['true_domain']} -> {m['predicted_domain']}] {m['title']}")
-    print()
-    print("Full report written to ai_accuracy_report.json")
+    print("Ablation (accuracy):")
+    for row in ablation:
+        print(f"  {row['variant']:<62} DEV {row['dev_accuracy'] * 100:5.1f}%  TEST {row['test_accuracy'] * 100:5.1f}%")
+    print(f"Leakage audit: {len(audit_terms)} TEST-only terms removed -> TEST {audited['accuracy_pct']}")
+    if not args.no_write:
+        print()
+        print("Full report written to ai_accuracy_report.json")
 
 
 if __name__ == "__main__":

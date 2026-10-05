@@ -85,8 +85,8 @@ def test_classifier_metadata_and_fallback_label():
         title="Contaminated borewell water causing sickness",
         description="Villagers are facing severe water shortage and diarrhea from fluoride contamination."
     )
-    assert result.model_name == "JHARKHAND_TAXONOMY_CLASSIFIER_V2"
-    assert result.model_version == "2.2.0"
+    assert result.model_name == "JHARKHAND_TAXONOMY_CLASSIFIER_V3"
+    assert result.model_version == "3.0.0"
     assert result.provider_name == "LOCAL_DETERMINISTIC_ENGINE"
     assert result.is_fallback is True
     assert "safe local baseline" in result.fallback_reason.lower()
@@ -544,10 +544,14 @@ def test_embedding_service_enabled_without_package_still_fails_safe(monkeypatch)
     service must fail safe to None rather than raising — callers keep using
     the deterministic bag-of-words similarity in that case.
     """
+    import sys
     from backend.app.core.config import settings
     monkeypatch.setattr(settings, "AI_EMBEDDINGS_ENABLED", True)
+    # Simulate the package being absent even where the optional extra is installed.
+    monkeypatch.setitem(sys.modules, "sentence_transformers", None)
     fresh_service = EmbeddingService()
     assert fresh_service.semantic_similarity("water shortage", "water crisis") is None
+    assert fresh_service.embed(["water shortage"]) is None
 
 
 def test_deduplication_uses_rule_based_similarity_method_by_default(db_session: Session, test_reviewer: User):

@@ -632,7 +632,7 @@ class AIAnalysis(Base):
     priority_breakdown_json = Column(Text, nullable=True)
     translated_title = Column(Text, nullable=True)
     translated_description = Column(Text, nullable=True)
-    requires_human_review = Column(Boolean, default=False, nullable=False)  # set when classifier found no signal (domain="Unclassified")
+    requires_human_review = Column(Boolean, default=False, nullable=False)  # set for "Unclassified" or classifier confidence < 0.70
 
     challenge = relationship("Challenge", back_populates="ai_analysis")
     overrides = relationship("AIHumanOverride", back_populates="ai_analysis", cascade="all, delete-orphan")
