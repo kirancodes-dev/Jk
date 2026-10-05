@@ -161,15 +161,20 @@ if os.path.exists(frontend_web_dir):
     async def serve_spa():
         return FileResponse(os.path.join(frontend_web_dir, "index.html"))
 
+    web_root = os.path.realpath(frontend_web_dir)
+
     @app.get("/{filename:path}")
     async def serve_static_or_spa(filename: str):
         # Don't intercept API endpoints, docs or openapi
         if filename.startswith("api") or filename in ["docs", "redoc", "openapi.json"]:
             raise HTTPException(status_code=404, detail="Not Found")
-        file_path = os.path.join(frontend_web_dir, filename)
-        if os.path.isfile(file_path):
+        # Resolve the path and refuse anything outside the web build: without this,
+        # "/%2E%2E/%2E%2E/..." walked out of the directory and served any readable
+        # file (source, .env, /proc/self/environ).
+        file_path = os.path.realpath(os.path.join(web_root, filename))
+        if file_path.startswith(web_root + os.sep) and os.path.isfile(file_path):
             return FileResponse(file_path)
-        return FileResponse(os.path.join(frontend_web_dir, "index.html"))
+        return FileResponse(os.path.join(web_root, "index.html"))
 else:
     @app.get("/")
     async def serve_root_api():
