@@ -16,15 +16,36 @@ class User {
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
+    int parsedId = 0;
+    if (json['user_id'] is int) {
+      parsedId = json['user_id'] as int;
+    } else if (json['id'] is int) {
+      parsedId = json['id'] as int;
+    } else if (json['user_id'] != null) {
+      parsedId = int.tryParse(json['user_id'].toString()) ?? 0;
+    } else if (json['id'] != null) {
+      parsedId = int.tryParse(json['id'].toString()) ?? 0;
+    }
+
     return User(
-      id: json['user_id'] ?? json['id'] ?? 0,
-      email: json['email'] ?? '',
-      fullName: json['full_name'] ?? 'User',
-      phoneNumber: json['phone_number'],
-      role: json['role'] ?? 'CITIZEN',
-      districtName: json['district_name'] ?? json['district'] ?? 'Jharkhand',
+      id: parsedId,
+      email: json['email']?.toString() ?? '',
+      fullName: json['full_name']?.toString() ?? json['name']?.toString() ?? 'User',
+      phoneNumber: json['phone_number']?.toString(),
+      role: json['role']?.toString() ?? 'CITIZEN',
+      districtName: json['district_name']?.toString() ?? json['district']?.toString() ?? 'Jharkhand',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'user_id': id,
+    'id': id,
+    'email': email,
+    'full_name': fullName,
+    'phone_number': phoneNumber,
+    'role': role,
+    'district_name': districtName,
+  };
 }
 
 class Challenge {

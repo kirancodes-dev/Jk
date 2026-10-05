@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
+import '../../widgets/language_switcher.dart';
 import 'login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -38,7 +40,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     },
   ];
 
-  void _finishOnboarding() {
+  Future<void> _finishOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('has_seen_onboarding', true);
+    if (!mounted) return;
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(
@@ -77,6 +82,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ],
         ),
         actions: [
+          const LanguageMenuButton(),
           TextButton(
             onPressed: _finishOnboarding,
             child: Text(
@@ -88,7 +94,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        // Keep the slides and the Next button at phone-like width on
+        // desktop instead of stretching across the whole screen.
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Column(
           children: [
             Expanded(
               child: PageView.builder(
@@ -240,6 +251,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ],
+        ),
+          ),
         ),
       ),
     );

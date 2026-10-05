@@ -21,8 +21,30 @@ class ApiService {
   }
 
   static String? _token;
-  static void setToken(String? token) => _token = token;
+  static void setToken(String? token) {
+    _token = token;
+    if (token != null) _sessionExpiryReported = false;
+  }
   static String? get token => _token;
+
+  /// Called once when an authenticated request comes back 401 (expired or
+  /// revoked session), so the app can send the user to sign-in instead of
+  /// leaving dashboards silently empty. Registered by the app shell.
+  static void Function()? onSessionExpired;
+  static bool _sessionExpiryReported = false;
+
+  static void _reportSessionExpired() {
+    if (_sessionExpiryReported || _token == null) return;
+    _sessionExpiryReported = true;
+    onSessionExpired?.call();
+  }
+
+  static http.Client _client = _SessionAwareClient();
+
+  /// Lets widget tests supply canned responses (e.g. `MockClient` from
+  /// `package:http/testing.dart`); session-expiry detection stays active.
+  @visibleForTesting
+  static set httpClientForTesting(http.Client? client) => _client = _SessionAwareClient(client);
 
   static Map<String, String> get _headers => {
         'Content-Type': 'application/json',
@@ -59,7 +81,7 @@ class ApiService {
       filename: filename,
     ));
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await _client.send(request);
     final response = await http.Response.fromStream(streamedResponse);
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body);
@@ -83,7 +105,7 @@ class ApiService {
       filename: filename,
     ));
 
-    final streamedResponse = await request.send();
+    final streamedResponse = await _client.send(request);
     final response = await http.Response.fromStream(streamedResponse);
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body);
@@ -157,7 +179,7 @@ class ApiService {
 
     final http.Response res;
     try {
-      res = await http.post(
+      res = await _client.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: _headers,
         body: jsonEncode(body),
@@ -178,10 +200,23 @@ class ApiService {
     }
   }
 
+  /// Demo personas published by the backend in DEMO_MODE (403 otherwise).
+  /// Returns null when the endpoint is unavailable so callers can fall back.
+  static Future<Map<String, dynamic>?> getDemoAccounts() async {
+    try {
+      final res = await _client.get(Uri.parse('$baseUrl/demo/accounts'), headers: _headers);
+      if (res.statusCode != 200) return null;
+      final decoded = _safeJsonDecode(res, fallbackAction: 'load demo accounts');
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<Map<String, dynamic>> register(Map<String, dynamic> payload) async {
     final http.Response res;
     try {
-      res = await http.post(
+      res = await _client.post(
         Uri.parse('$baseUrl/auth/register'),
         headers: _headers,
         body: jsonEncode(payload),
@@ -205,7 +240,7 @@ class ApiService {
   static Future<Map<String, dynamic>> sendForgotPasswordOtp(String email) async {
     final http.Response res;
     try {
-      res = await http.post(
+      res = await _client.post(
         Uri.parse('$baseUrl/auth/forgot-password'),
         headers: _headers,
         body: jsonEncode({'email': email.trim()}),
@@ -225,7 +260,7 @@ class ApiService {
   static Future<void> resetPassword(String email, String otp, String newPassword) async {
     final http.Response res;
     try {
-      res = await http.post(
+      res = await _client.post(
         Uri.parse('$baseUrl/auth/reset-password'),
         headers: _headers,
         body: jsonEncode({'email': email.trim(), 'otp': otp.trim(), 'new_password': newPassword}),
@@ -242,7 +277,7 @@ class ApiService {
   static Future<Map<String, dynamic>> refreshToken(String rToken) async {
     final http.Response res;
     try {
-      res = await http.post(
+      res = await _client.post(
         Uri.parse('$baseUrl/auth/refresh'),
         headers: _headers,
         body: jsonEncode({'refresh_token': rToken}),
@@ -263,7 +298,7 @@ class ApiService {
 
   static Future<void> logout([String? rToken]) async {
     try {
-      await http.post(
+      await _client.post(
         Uri.parse('$baseUrl/auth/logout'),
         headers: _headers,
         body: jsonEncode({if (rToken != null) 'token': rToken}),
@@ -275,7 +310,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getMe() async {
     final http.Response res;
     try {
-      res = await http.get(Uri.parse('$baseUrl/auth/me'), headers: _headers);
+      res = await _client.get(Uri.parse('$baseUrl/auth/me'), headers: _headers);
     } catch (e) {
       throw Exception('Network connection failed while fetching profile: $e');
     }
@@ -308,7 +343,7 @@ class ApiService {
     // realistic pilot's active queue in one page.
     if (page != null && pageSize != null) url += 'page=$page&page_size=$pageSize&';
 
-    final res = await http.get(Uri.parse(url), headers: _headers);
+    final res = await _client.get(Uri.parse(url), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.map((e) => Challenge.fromJson(e)).toList();
@@ -317,16 +352,17 @@ class ApiService {
   }
 
   static Future<List<Challenge>> getMyChallenges() async {
-    final res = await http.get(Uri.parse('$baseUrl/challenges/my'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/challenges/my'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.map((e) => Challenge.fromJson(e)).toList();
     }
-    return [];
+    // Surface failures so screens can show a retry state instead of zeros.
+    throw Exception(_extractError(res, 'Could not load data'));
   }
 
   static Future<List<Challenge>> getNearbyChallenges(String district) async {
-    final res = await http.get(Uri.parse('$baseUrl/challenges/nearby?district=$district'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/challenges/nearby?district=$district'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.map((e) => Challenge.fromJson(e)).toList();
@@ -335,7 +371,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getChallengeDetail(int challengeId) async {
-    final res = await http.get(Uri.parse('$baseUrl/challenges/$challengeId'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/challenges/$challengeId'), headers: _headers);
     if (res.statusCode == 200) {
       return jsonDecode(res.body);
     }
@@ -343,7 +379,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> reportChallenge(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/challenges'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -355,7 +391,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getTaxonomy() async {
-    final res = await http.get(Uri.parse('$baseUrl/challenges/taxonomy'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/challenges/taxonomy'), headers: _headers);
     if (res.statusCode == 200) {
       final list = jsonDecode(res.body) as List;
       return list.map((item) => Map<String, dynamic>.from(item)).toList();
@@ -364,7 +400,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> saveServerDraft(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/challenges/drafts'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -376,7 +412,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getServerDrafts() async {
-    final res = await http.get(Uri.parse('$baseUrl/challenges/drafts'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/challenges/drafts'), headers: _headers);
     if (res.statusCode == 200) {
       final list = jsonDecode(res.body) as List;
       return list.map((item) => Map<String, dynamic>.from(item)).toList();
@@ -385,14 +421,14 @@ class ApiService {
   }
 
   static Future<void> deleteServerDraft(String draftId) async {
-    final res = await http.delete(Uri.parse('$baseUrl/challenges/drafts/$draftId'), headers: _headers);
+    final res = await _client.delete(Uri.parse('$baseUrl/challenges/drafts/$draftId'), headers: _headers);
     if (res.statusCode != 200) {
       throw Exception('Failed to delete server draft');
     }
   }
 
   static Future<void> updateChallengeStatus(int challengeId, String status, {String? remarks}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/challenges/$challengeId/status'),
       headers: _headers,
       body: jsonEncode({'status': status, 'remarks': remarks}),
@@ -403,7 +439,7 @@ class ApiService {
   }
 
   static Future<void> assignUniversity(int challengeId, int universityId) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/challenges/$challengeId/assign'),
       headers: _headers,
       body: jsonEncode({'university_id': universityId}),
@@ -414,7 +450,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getChallengeHistory(int challengeId) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$baseUrl/challenges/$challengeId/history'),
       headers: _headers,
     );
@@ -426,7 +462,7 @@ class ApiService {
   }
 
   static Future<void> markChallengeDuplicate(int challengeId, int canonicalChallengeId, {String? remarks}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/challenges/$challengeId/duplicate'),
       headers: _headers,
       body: jsonEncode({
@@ -440,7 +476,7 @@ class ApiService {
   }
 
   static Future<void> rejectChallenge(int challengeId, String reason) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/challenges/$challengeId/reject'),
       headers: _headers,
       body: jsonEncode({'reason': reason}),
@@ -451,7 +487,7 @@ class ApiService {
   }
 
   static Future<void> addComment(int challengeId, String content) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/challenges/$challengeId/comments'),
       headers: _headers,
       body: jsonEncode({'content': content}),
@@ -470,7 +506,7 @@ class ApiService {
     String? urgencyHint,
     String? districtName,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/ai/analyze-text'),
       headers: _headers,
       body: jsonEncode({
@@ -490,16 +526,17 @@ class ApiService {
   // ----------------- UNIVERSITY & PROJECTS -----------------
 
   static Future<Map<String, dynamic>> getUniversityDashboard() async {
-    final res = await http.get(Uri.parse('$baseUrl/universities/dashboard'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/universities/dashboard'), headers: _headers);
     if (res.statusCode == 200) {
       return jsonDecode(res.body);
     }
-    return {};
+    // Surface failures so screens can show a retry state instead of zeros.
+    throw Exception(_extractError(res, 'Could not load data'));
   }
 
   static Future<List<Map<String, dynamic>>> getUniversities() async {
     try {
-      final res = await http.get(Uri.parse('$baseUrl/universities'), headers: _headers);
+      final res = await _client.get(Uri.parse('$baseUrl/universities'), headers: _headers);
       if (res.statusCode == 200) {
         final bodyStr = res.body.trim();
         if (bodyStr.startsWith('<')) {
@@ -515,7 +552,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getUniversityRoster(int universityId) async {
-    final res = await http.get(Uri.parse('$baseUrl/universities/$universityId/roster'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/universities/$universityId/roster'), headers: _headers);
     if (res.statusCode == 200) {
       return jsonDecode(res.body);
     }
@@ -523,7 +560,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getRecommendedFaculty(int universityId, int challengeId) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$baseUrl/universities/$universityId/recommended-faculty?challenge_id=$challengeId'),
       headers: _headers,
     );
@@ -536,17 +573,17 @@ class ApiService {
   }
 
   static Future<void> acceptChallenge(int challengeId) async {
-    final res = await http.post(Uri.parse('$baseUrl/universities/accept-challenge/$challengeId'), headers: _headers);
+    final res = await _client.post(Uri.parse('$baseUrl/universities/accept-challenge/$challengeId'), headers: _headers);
     if (res.statusCode != 200) throw Exception('Accept failed');
   }
 
   static Future<void> universityRejectChallenge(int challengeId) async {
-    final res = await http.post(Uri.parse('$baseUrl/universities/reject-challenge/$challengeId'), headers: _headers);
+    final res = await _client.post(Uri.parse('$baseUrl/universities/reject-challenge/$challengeId'), headers: _headers);
     if (res.statusCode != 200) throw Exception('Reject failed');
   }
 
   static Future<List<ProjectItem>> getProjects() async {
-    final res = await http.get(Uri.parse('$baseUrl/projects'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/projects'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.map((e) => ProjectItem.fromJson(e)).toList();
@@ -555,7 +592,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getProjectDetail(int projectId) async {
-    final res = await http.get(Uri.parse('$baseUrl/projects/$projectId'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/projects/$projectId'), headers: _headers);
     if (res.statusCode == 200) {
       return jsonDecode(res.body);
     }
@@ -563,7 +600,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> createProject(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -575,7 +612,7 @@ class ApiService {
   }
 
   static Future<void> addTask(int projectId, String title, {int? studentId, int? milestoneId}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/tasks'),
       headers: _headers,
       body: jsonEncode({
@@ -590,7 +627,7 @@ class ApiService {
   }
 
   static Future<void> updateTask(int projectId, int taskId, {String? submissionNotes}) async {
-    final res = await http.patch(
+    final res = await _client.patch(
       Uri.parse('$baseUrl/projects/$projectId/tasks/$taskId'),
       headers: _headers,
       body: jsonEncode({if (submissionNotes != null) 'submission_notes': submissionNotes}),
@@ -605,7 +642,7 @@ class ApiService {
   }
 
   static Future<void> reviewTask(int projectId, int taskId, String decision, {String? notes}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/tasks/$taskId/review'),
       headers: _headers,
       body: jsonEncode({'decision': decision, 'notes': notes}),
@@ -619,7 +656,7 @@ class ApiService {
   // ----------------- WEIGHTED MILESTONES -----------------
 
   static Future<Map<String, dynamic>> addMilestone(int projectId, String title, double weightPct, {String? description}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/milestones'),
       headers: _headers,
       body: jsonEncode({'title': title, 'weight_pct': weightPct, 'description': description}),
@@ -630,7 +667,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> finalizeMilestones(int projectId) async {
-    final res = await http.post(Uri.parse('$baseUrl/projects/$projectId/milestones/finalize'), headers: _headers);
+    final res = await _client.post(Uri.parse('$baseUrl/projects/$projectId/milestones/finalize'), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
     final err = _tryDecode(res.body);
     throw Exception(err?['detail'] ?? 'Failed to finalize milestone plan');
@@ -641,7 +678,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getMilestoneEvidence(int projectId, int milestoneId) async {
-    final res = await http.get(Uri.parse('$baseUrl/projects/$projectId/milestones/$milestoneId/evidence'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/projects/$projectId/milestones/$milestoneId/evidence'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -650,7 +687,7 @@ class ApiService {
   }
 
   static Future<void> submitMilestone(int projectId, int milestoneId, {String? notes}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/milestones/$milestoneId/submit'),
       headers: _headers,
       body: jsonEncode({'notes': notes}),
@@ -662,7 +699,7 @@ class ApiService {
   }
 
   static Future<void> reviewMilestone(int projectId, int milestoneId, String decision, String notes) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/milestones/$milestoneId/review'),
       headers: _headers,
       body: jsonEncode({'decision': decision, 'notes': notes}),
@@ -686,7 +723,7 @@ class ApiService {
     final request = http.MultipartRequest('POST', uri);
     if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
     request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
-    final streamedResponse = await request.send();
+    final streamedResponse = await _client.send(request);
     final response = await http.Response.fromStream(streamedResponse);
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body);
@@ -703,7 +740,7 @@ class ApiService {
     int? facultyId,
     String roleInTeam = 'Researcher & Developer',
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/team-invitations'),
       headers: _headers,
       body: jsonEncode({
@@ -718,7 +755,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getProjectInvitations(int projectId) async {
-    final res = await http.get(Uri.parse('$baseUrl/projects/$projectId/team-invitations'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/projects/$projectId/team-invitations'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -728,7 +765,7 @@ class ApiService {
 
   static Future<List<Map<String, dynamic>>> getMyTeamInvitations({required bool isStudent}) async {
     final path = isStudent ? 'students' : 'faculty';
-    final res = await http.get(Uri.parse('$baseUrl/$path/team-invitations'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/$path/team-invitations'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -737,7 +774,7 @@ class ApiService {
   }
 
   static Future<void> respondToInvitation(int invitationId, String decision, {bool conflictDeclared = false, String? conflictNotes, String? responseNotes}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/team-invitations/$invitationId/respond'),
       headers: _headers,
       body: jsonEncode({
@@ -754,7 +791,7 @@ class ApiService {
   }
 
   static Future<void> removeProjectMember(int projectId, int memberId, String reason, {int? replacementStudentId}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/members/$memberId/remove'),
       headers: _headers,
       body: jsonEncode({'reason': reason, if (replacementStudentId != null) 'replacement_student_id': replacementStudentId}),
@@ -771,7 +808,7 @@ class ApiService {
   // backend/app/services/workflow_service.py::transition_challenge.
 
   static Future<Map<String, dynamic>> createTestReport(int projectId, Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/test-reports'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -784,7 +821,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getTestReports(int projectId) async {
-    final res = await http.get(Uri.parse('$baseUrl/projects/$projectId/test-reports'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/projects/$projectId/test-reports'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -797,7 +834,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getTestReportEvidence(int projectId, int reportId) async {
-    final res = await http.get(Uri.parse('$baseUrl/projects/$projectId/test-reports/$reportId/evidence'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/projects/$projectId/test-reports/$reportId/evidence'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -808,7 +845,7 @@ class ApiService {
   // ----------------- VERSIONED SOLUTION PROPOSALS -----------------
 
   static Future<List<Map<String, dynamic>>> getProposals(int projectId) async {
-    final res = await http.get(Uri.parse('$baseUrl/projects/$projectId/proposals'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/projects/$projectId/proposals'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -817,7 +854,7 @@ class ApiService {
   }
 
   static Future<void> submitProposal(int projectId, Map<String, dynamic> payload, {bool submit = true}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/proposals?submit=$submit'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -829,7 +866,7 @@ class ApiService {
   }
 
   static Future<void> reviewProposal(int projectId, int proposalId, String decision, String notes) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/proposals/$proposalId/review'),
       headers: _headers,
       body: jsonEncode({'decision': decision, 'notes': notes}),
@@ -841,7 +878,7 @@ class ApiService {
   }
 
   static Future<void> industryFeedbackOnProposal(int projectId, int proposalId, String notes) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/proposals/$proposalId/industry-feedback'),
       headers: _headers,
       body: jsonEncode({'notes': notes}),
@@ -858,7 +895,7 @@ class ApiService {
     String url = '$baseUrl/projects/$projectId/comments?';
     if (entityType != null) url += 'entity_type=$entityType&';
     if (entityId != null) url += 'entity_id=$entityId&';
-    final res = await http.get(Uri.parse(url), headers: _headers);
+    final res = await _client.get(Uri.parse(url), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -867,7 +904,7 @@ class ApiService {
   }
 
   static Future<void> addProjectComment(int projectId, String entityType, int entityId, String content) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/comments'),
       headers: _headers,
       body: jsonEncode({'entity_type': entityType, 'entity_id': entityId, 'content': content}),
@@ -879,7 +916,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> offerCollaboration(int projectId, Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/collaborations'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -890,7 +927,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getCollaborations(int projectId) async {
-    final res = await http.get(Uri.parse('$baseUrl/projects/$projectId/collaborations'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/projects/$projectId/collaborations'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -899,7 +936,7 @@ class ApiService {
   }
 
   static Future<void> reviewCollaboration(int projectId, int collabId, String decision, String notes, {bool? conflictDeclared, String? mouEvidenceObjectId}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/collaborations/$collabId/review'),
       headers: _headers,
       body: jsonEncode({
@@ -919,7 +956,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> createFundingRecord(int projectId, int collabId, Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/collaborations/$collabId/funding'),
       headers: _headers,
       body: jsonEncode({...payload, 'collaboration_id': collabId}),
@@ -930,7 +967,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getFundingRecords(int projectId, int collabId) async {
-    final res = await http.get(Uri.parse('$baseUrl/projects/$projectId/collaborations/$collabId/funding'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/projects/$projectId/collaborations/$collabId/funding'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -939,7 +976,7 @@ class ApiService {
   }
 
   static Future<void> actOnFunding(int projectId, int fundingId, String action, {String? notes, String? receiptEvidenceObjectId}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/funding/$fundingId/action'),
       headers: _headers,
       body: jsonEncode({'action': action, 'notes': notes, if (receiptEvidenceObjectId != null) 'receipt_evidence_object_id': receiptEvidenceObjectId}),
@@ -957,7 +994,7 @@ class ApiService {
   // ----------------- IP & TECHNOLOGY TRANSFER -----------------
 
   static Future<Map<String, dynamic>> createIpRecord(int projectId, Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/ip-records'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -968,7 +1005,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getIpRecords(int projectId) async {
-    final res = await http.get(Uri.parse('$baseUrl/projects/$projectId/ip-records'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/projects/$projectId/ip-records'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -977,7 +1014,7 @@ class ApiService {
   }
 
   static Future<void> respondIpConsent(int projectId, int ipId, String decision, {String? notes}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/ip-records/$ipId/consent'),
       headers: _headers,
       body: jsonEncode({'status': decision, 'notes': notes}),
@@ -989,7 +1026,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getMyPendingIpConsents() async {
-    final res = await http.get(Uri.parse('$baseUrl/projects/ip-consents/mine'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/projects/ip-consents/mine'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -998,7 +1035,7 @@ class ApiService {
   }
 
   static Future<void> moderateComment(int projectId, int commentId, String action, {String? notes}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/projects/$projectId/comments/$commentId/moderate'),
       headers: _headers,
       body: jsonEncode({'action': action, 'notes': notes}),
@@ -1012,13 +1049,13 @@ class ApiService {
   // ----------------- INDUSTRY PARTNER CAPABILITY PROFILE -----------------
 
   static Future<Map<String, dynamic>> getMyPartnerProfile() async {
-    final res = await http.get(Uri.parse('$baseUrl/industry/profile/me'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/industry/profile/me'), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load partner capability profile');
   }
 
   static Future<void> updateMyPartnerProfile(Map<String, dynamic> payload) async {
-    final res = await http.put(
+    final res = await _client.put(
       Uri.parse('$baseUrl/industry/profile/me'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -1033,7 +1070,7 @@ class ApiService {
     String url = '$baseUrl/industry/discovery?';
     if (domain != null && domain != 'All') url += 'domain=$domain&';
     if (district != null && district != 'All') url += 'district=$district&';
-    final res = await http.get(Uri.parse(url), headers: _headers);
+    final res = await _client.get(Uri.parse(url), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -1048,7 +1085,7 @@ class ApiService {
     request.fields['title'] = title;
     request.fields['doc_type'] = docType ?? 'Report';
     request.files.add(http.MultipartFile.fromBytes('file', bytes, filename: filename));
-    final streamedResponse = await request.send();
+    final streamedResponse = await _client.send(request);
     final response = await http.Response.fromStream(streamedResponse);
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body);
@@ -1060,13 +1097,13 @@ class ApiService {
   // ----------------- UNIVERSITY CAPABILITY PROFILE & ASSIGNMENTS -----------------
 
   static Future<Map<String, dynamic>> getMyUniversityProfile() async {
-    final res = await http.get(Uri.parse('$baseUrl/universities/profile/me'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/universities/profile/me'), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load university capability profile');
   }
 
   static Future<void> updateMyUniversityProfile(Map<String, dynamic> payload) async {
-    final res = await http.put(
+    final res = await _client.put(
       Uri.parse('$baseUrl/universities/profile/me'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -1078,7 +1115,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getAssignmentInbox() async {
-    final res = await http.get(Uri.parse('$baseUrl/universities/assignments'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/universities/assignments'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -1087,7 +1124,7 @@ class ApiService {
   }
 
   static Future<void> respondToAssignment(int allocationId, String decision, {String? notes, bool coiDeclared = false}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/universities/assignments/$allocationId/respond'),
       headers: _headers,
       body: jsonEncode({'decision': decision, 'notes': notes, 'coi_declared': coiDeclared}),
@@ -1101,13 +1138,14 @@ class ApiService {
   // ----------------- STUDENT & FACULTY -----------------
 
   static Future<Map<String, dynamic>> getStudentDashboard() async {
-    final res = await http.get(Uri.parse('$baseUrl/students/dashboard'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/students/dashboard'), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
-    return {};
+    // Surface failures so screens can show a retry state instead of zeros.
+    throw Exception(_extractError(res, 'Could not load data'));
   }
 
   static Future<void> submitTaskWork(int taskId, String notes) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/students/submit-task/$taskId'),
       headers: _headers,
       body: jsonEncode({'submission_notes': notes}),
@@ -1119,22 +1157,24 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getFacultyDashboard() async {
-    final res = await http.get(Uri.parse('$baseUrl/faculty/dashboard'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/faculty/dashboard'), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
-    return {};
+    // Surface failures so screens can show a retry state instead of zeros.
+    throw Exception(_extractError(res, 'Could not load data'));
   }
 
   static Future<void> approveMilestone(int milestoneId) async {
-    final res = await http.post(Uri.parse('$baseUrl/faculty/approve-milestone/$milestoneId'), headers: _headers);
+    final res = await _client.post(Uri.parse('$baseUrl/faculty/approve-milestone/$milestoneId'), headers: _headers);
     if (res.statusCode != 200) throw Exception('Approval failed');
   }
 
   // ----------------- INDUSTRY & ADMIN -----------------
 
   static Future<Map<String, dynamic>> getIndustryDashboard() async {
-    final res = await http.get(Uri.parse('$baseUrl/industry/dashboard'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/industry/dashboard'), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
-    return {};
+    // Surface failures so screens can show a retry state instead of zeros.
+    throw Exception(_extractError(res, 'Could not load data'));
   }
 
   static Future<List<ProjectItem>> browseIndustryProjects({String? domain, String? stage, String? district}) async {
@@ -1143,7 +1183,7 @@ class ApiService {
     if (stage != null && stage != 'All') url += 'stage=$stage&';
     if (district != null && district != 'All') url += 'district=$district&';
 
-    final res = await http.get(Uri.parse(url), headers: _headers);
+    final res = await _client.get(Uri.parse(url), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.map((e) => ProjectItem.fromJson(e)).toList();
@@ -1157,7 +1197,7 @@ class ApiService {
     String? sponsorshipType,
     String? notes,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/industry/sponsor'),
       headers: _headers,
       body: jsonEncode({
@@ -1175,13 +1215,14 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getAdminDashboard() async {
-    final res = await http.get(Uri.parse('$baseUrl/admin/dashboard'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/admin/dashboard'), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
-    return {};
+    // Surface failures so screens can show a retry state instead of zeros.
+    throw Exception(_extractError(res, 'Could not load data'));
   }
 
   static Future<List<Map<String, dynamic>>> getJharkhandMap() async {
-    final res = await http.get(Uri.parse('$baseUrl/admin/jharkhand-map'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/admin/jharkhand-map'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -1190,13 +1231,13 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getAdminAnalytics() async {
-    final res = await http.get(Uri.parse('$baseUrl/admin/analytics'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/admin/analytics'), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
     return {};
   }
 
   static Future<List<Map<String, dynamic>>> getImpactMetrics() async {
-    final res = await http.get(Uri.parse('$baseUrl/admin/impact'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/admin/impact'), headers: _headers);
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       final List list = data['metrics'] ?? [];
@@ -1206,7 +1247,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getDistrictsDrillDown() async {
-    final res = await http.get(Uri.parse('$baseUrl/admin/drill-down/districts'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/admin/drill-down/districts'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -1215,7 +1256,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getBlocksDrillDown(String districtName) async {
-    final res = await http.get(Uri.parse('$baseUrl/admin/drill-down/districts/$districtName/blocks'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/admin/drill-down/districts/$districtName/blocks'), headers: _headers);
     if (res.statusCode == 200) {
       final List list = jsonDecode(res.body);
       return list.cast<Map<String, dynamic>>();
@@ -1224,7 +1265,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getKpiDrillDown({String metric = 'submissions', int limit = 50, int offset = 0}) async {
-    final res = await http.get(Uri.parse('$baseUrl/admin/analytics/drill-down?metric=$metric&limit=$limit&offset=$offset'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/admin/analytics/drill-down?metric=$metric&limit=$limit&offset=$offset'), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to load drill-down records: ${res.statusCode}');
   }
@@ -1234,7 +1275,7 @@ class ApiService {
     String exportFormat = 'CSV',
     Map<String, dynamic>? filters,
   }) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/admin/exports'),
       headers: _headers,
       body: jsonEncode({
@@ -1248,18 +1289,18 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getExportJob(int jobId) async {
-    final res = await http.get(Uri.parse('$baseUrl/admin/exports/$jobId'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/admin/exports/$jobId'), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
     throw Exception('Failed to fetch export job: ${res.statusCode}');
   }
 
   static Future<void> validateChallenge(int challengeId) async {
-    final res = await http.post(Uri.parse('$baseUrl/admin/challenges/$challengeId/validate'), headers: _headers);
+    final res = await _client.post(Uri.parse('$baseUrl/admin/challenges/$challengeId/validate'), headers: _headers);
     if (res.statusCode != 200) throw Exception('Validation failed');
   }
 
   static Future<void> escalateChallenge(int challengeId, String targetTier, String remarks) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/admin/challenges/$challengeId/escalate'),
       headers: _headers,
       body: jsonEncode({
@@ -1280,7 +1321,7 @@ class ApiService {
   // ----------------- FIELD & DELIVERABLE VERIFICATION -----------------
 
   static Future<Map<String, dynamic>> submitVerificationRecord(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/verification/records'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -1293,7 +1334,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getProjectVerifications(int projectId) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$baseUrl/verification/records/project/$projectId'),
       headers: _headers,
     );
@@ -1305,7 +1346,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> reviewVerificationRecord(int recordId, String decision, {String? remarks}) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/verification/records/$recordId/review'),
       headers: _headers,
       body: jsonEncode({'decision': decision, 'remarks': remarks}),
@@ -1320,7 +1361,7 @@ class ApiService {
   // ----------------- IMPACT & CITIZEN FEEDBACK -----------------
 
   static Future<Map<String, dynamic>> submitCitizenFeedback(Map<String, dynamic> payload) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/impact/feedback'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -1333,7 +1374,7 @@ class ApiService {
   }
 
   static Future<List<Map<String, dynamic>>> getChallengeFeedback(int challengeId) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$baseUrl/impact/feedback/challenge/$challengeId'),
       headers: _headers,
     );
@@ -1345,7 +1386,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getDynamicImpactMetrics() async {
-    final res = await http.get(Uri.parse('$baseUrl/impact/metrics'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/impact/metrics'), headers: _headers);
     if (res.statusCode == 200) return jsonDecode(res.body);
     return {};
   }
@@ -1353,7 +1394,7 @@ class ApiService {
   // ----------------- AUDIT LOGS -----------------
 
   static Future<List<Map<String, dynamic>>> getAuditLogs({int limit = 50, int offset = 0}) async {
-    final res = await http.get(
+    final res = await _client.get(
       Uri.parse('$baseUrl/admin/audit-logs?limit=$limit&offset=$offset'),
       headers: _headers,
     );
@@ -1365,7 +1406,7 @@ class ApiService {
   }
 
   static Future<Uint8List> exportAdminReportCsvBytes() async {
-    final res = await http.get(Uri.parse('$baseUrl/admin/reports/csv'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/admin/reports/csv'), headers: _headers);
     if (res.statusCode == 200) {
       return res.bodyBytes;
     }
@@ -1383,7 +1424,7 @@ class ApiService {
       queryParams['is_read'] = isRead.toString();
     }
     final uri = Uri.parse('$baseUrl/notifications').replace(queryParameters: queryParams.isEmpty ? null : queryParams);
-    final res = await http.get(uri, headers: _headers);
+    final res = await _client.get(uri, headers: _headers);
     if (res.statusCode == 200) {
       final dynamic decoded = jsonDecode(res.body);
       if (decoded is List) {
@@ -1413,7 +1454,7 @@ class ApiService {
       queryParams['is_read'] = isRead.toString();
     }
     final uri = Uri.parse('$baseUrl/notifications').replace(queryParameters: queryParams);
-    final res = await http.get(uri, headers: _headers);
+    final res = await _client.get(uri, headers: _headers);
     if (res.statusCode == 200) {
       final Map<String, dynamic> data = jsonDecode(res.body);
       final List itemsRaw = data['items'] ?? [];
@@ -1430,21 +1471,21 @@ class ApiService {
   }
 
   static Future<void> markNotificationRead(int id) async {
-    final res = await http.patch(Uri.parse('$baseUrl/notifications/$id/read'), headers: _headers);
+    final res = await _client.patch(Uri.parse('$baseUrl/notifications/$id/read'), headers: _headers);
     if (res.statusCode != 200) {
       throw Exception('Failed to mark notification read (${res.statusCode})');
     }
   }
 
   static Future<void> markAllNotificationsRead() async {
-    final res = await http.post(Uri.parse('$baseUrl/notifications/read-all'), headers: _headers);
+    final res = await _client.post(Uri.parse('$baseUrl/notifications/read-all'), headers: _headers);
     if (res.statusCode != 200) {
       throw Exception('Failed to mark all notifications read (${res.statusCode})');
     }
   }
 
   static Future<UserNotificationPreferenceModel> getNotificationPreferences() async {
-    final res = await http.get(Uri.parse('$baseUrl/notifications/preferences'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/notifications/preferences'), headers: _headers);
     if (res.statusCode == 200) {
       return UserNotificationPreferenceModel.fromJson(jsonDecode(res.body));
     }
@@ -1452,7 +1493,7 @@ class ApiService {
   }
 
   static Future<UserNotificationPreferenceModel> updateNotificationPreferences(Map<String, dynamic> payload) async {
-    final res = await http.put(
+    final res = await _client.put(
       Uri.parse('$baseUrl/notifications/preferences'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -1464,7 +1505,7 @@ class ApiService {
   }
 
   static Future<int> cleanupOldNotifications() async {
-    final res = await http.delete(Uri.parse('$baseUrl/notifications/cleanup'), headers: _headers);
+    final res = await _client.delete(Uri.parse('$baseUrl/notifications/cleanup'), headers: _headers);
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       return data['archived_count'] ?? 0;
@@ -1475,7 +1516,7 @@ class ApiService {
   // ---------------- DPDP Privacy & Citizen Data Rights ----------------
 
   static Future<Map<String, dynamic>> getPrivacyNotices() async {
-    final res = await http.get(Uri.parse('$baseUrl/privacy/notices'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/privacy/notices'), headers: _headers);
     if (res.statusCode == 200) {
       return jsonDecode(res.body) as Map<String, dynamic>;
     }
@@ -1483,7 +1524,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> exportMyData() async {
-    final res = await http.get(Uri.parse('$baseUrl/privacy/my-data'), headers: _headers);
+    final res = await _client.get(Uri.parse('$baseUrl/privacy/my-data'), headers: _headers);
     if (res.statusCode == 200) {
       return jsonDecode(res.body) as Map<String, dynamic>;
     }
@@ -1491,7 +1532,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> correctMyData(Map<String, dynamic> payload) async {
-    final res = await http.put(
+    final res = await _client.put(
       Uri.parse('$baseUrl/privacy/correct-data'),
       headers: _headers,
       body: jsonEncode(payload),
@@ -1503,7 +1544,7 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> requestDataErasure(String reason, bool confirmation) async {
-    final res = await http.post(
+    final res = await _client.post(
       Uri.parse('$baseUrl/privacy/request-erasure'),
       headers: _headers,
       body: jsonEncode({'reason': reason, 'confirmation': confirmation}),
@@ -1512,5 +1553,24 @@ class ApiService {
       return jsonDecode(res.body) as Map<String, dynamic>;
     }
     throw Exception(jsonDecode(res.body)['detail']?.toString() ?? 'Failed to request data erasure (${res.statusCode})');
+  }
+}
+
+/// Wraps the default client so any authenticated 401 is reported to
+/// [ApiService.onSessionExpired]. Requests and responses pass through unchanged.
+class _SessionAwareClient extends http.BaseClient {
+  final http.Client _inner;
+
+  _SessionAwareClient([http.Client? inner]) : _inner = inner ?? http.Client();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final response = await _inner.send(request);
+    if (response.statusCode == 401 &&
+        request.headers.containsKey('Authorization') &&
+        !request.url.path.endsWith('/auth/login')) {
+      ApiService._reportSessionExpired();
+    }
+    return response;
   }
 }

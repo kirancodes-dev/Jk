@@ -10,6 +10,7 @@ import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/empty_state_view.dart';
+import '../../widgets/state_views.dart';
 import '../../widgets/loading_skeleton.dart';
 import '../../widgets/section_header.dart';
 import 'report_challenge_screen.dart';
@@ -28,6 +29,7 @@ class CitizenDashboard extends StatefulWidget {
 class _CitizenDashboardState extends State<CitizenDashboard> {
   List<Challenge> _challenges = [];
   bool _isLoading = true;
+  bool _loadFailed = false;
 
   int _total = 0;
   int _underReview = 0;
@@ -41,7 +43,10 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
   }
 
   Future<void> _loadDashboardData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
     try {
       final list = await ApiService.getMyChallenges();
       if (!mounted) return;
@@ -53,9 +58,19 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
         _resolved = list.where((c) => c.status == 'RESOLVED').length;
       });
     } catch (_) {
+      // Show a retry state instead of zeros that look like "no challenges".
+      if (mounted) setState(() => _loadFailed = true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _openReport() async {
+    final res = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ReportChallengeScreen()),
+    );
+    if (res == true) _loadDashboardData();
   }
 
   @override
@@ -78,20 +93,17 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
         subtitle: loc.govOfJharkhandTitleCase,
         showLeading: false,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTheme.primaryGreen,
-        foregroundColor: Colors.white,
-        elevation: 3,
-        icon: const Icon(Icons.add_a_photo_outlined, size: 20),
-        label: Text(loc.reportChallengeButton, style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2)),
-        onPressed: () async {
-          final res = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ReportChallengeScreen()),
-          );
-          if (res == true) _loadDashboardData();
-        },
-      ),
+      // Hidden on the empty state, which already offers the same action.
+      floatingActionButton: (!_isLoading && !_loadFailed && _challenges.isEmpty)
+          ? null
+          : FloatingActionButton.extended(
+              backgroundColor: AppTheme.primaryGreen,
+              foregroundColor: Colors.white,
+              elevation: 3,
+              icon: const Icon(Icons.add_a_photo_outlined, size: 20),
+              label: Text(loc.reportChallengeButton, style: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.2)),
+              onPressed: _openReport,
+            ),
       body: RefreshIndicator(
         onRefresh: _loadDashboardData,
         color: AppTheme.primaryGreen,
@@ -261,16 +273,20 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
               if (_isLoading) ...[
                 const LoadingSkeleton(height: 80),
                 const LoadingSkeleton(height: 80),
-              ] else if (_challenges.isEmpty)
+              ] else if (_loadFailed)
+                ErrorStateView(
+                  title: loc.dashboardLoadErrorTitle,
+                  message: loc.dashboardLoadErrorMessage,
+                  icon: Icons.cloud_off_outlined,
+                  onRetry: _loadDashboardData,
+                )
+              else if (_challenges.isEmpty)
                 EmptyStateView(
                   icon: Icons.campaign_outlined,
                   title: loc.emptyChallengesTitle,
                   description: loc.emptyChallengesDescription,
                   actionLabel: loc.reportChallengeButton,
-                  onAction: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ReportChallengeScreen()),
-                  ),
+                  onAction: _openReport,
                 )
               else
                 ListView.builder(
@@ -282,7 +298,7 @@ class _CitizenDashboardState extends State<CitizenDashboard> {
                     return _challengeTile(ch);
                   },
                 ),
-              const SizedBox(height: 70),
+              const SizedBox(height: 96),
             ],
           ),
         ),

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/auth_provider.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/role_routing.dart';
 import '../../core/theme.dart';
+import 'login_screen.dart';
 import 'onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  final bool skipNavigation;
+  const SplashScreen({super.key, this.skipNavigation = false});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -26,7 +29,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     );
     _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeIn);
     _fadeController.forward();
-    _navigate();
+    if (!widget.skipNavigation) {
+      _navigate();
+    }
   }
 
   @override
@@ -36,11 +41,33 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(const Duration(milliseconds: 2000));
-    if (!mounted) return;
     final auth = context.read<AuthProvider>();
+    if (!auth.isInitialized) {
+      await auth.init();
+    }
+    if (!mounted) return;
+
     if (auth.isAuthenticated) {
       _redirectToRoleDashboard(auth.currentRole);
+      return;
+    }
+
+    // Wait a brief moment for the splash branding on cold start
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenOnboarding = prefs.getBool('has_seen_onboarding') ?? false;
+
+    if (hasSeenOnboarding) {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const LoginScreen(),
+          transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      );
     } else {
       Navigator.pushReplacement(
         context,

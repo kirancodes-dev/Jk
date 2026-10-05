@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../core/theme.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
@@ -243,21 +244,45 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  /// Title follows the jurisdiction the backend reports for this account
+  /// (a district officer sees "District Command Center").
+  String get _commandCenterTitle {
+    final loc = AppLocalizations.current;
+    final jurisdiction = _stats?['jurisdiction'];
+    final tier = jurisdiction is Map ? jurisdiction['tier']?.toString().toUpperCase() : null;
+    switch (tier) {
+      case 'DISTRICT':
+        return loc.districtCommandCenter;
+      case 'BLOCK':
+        return loc.blockCommandCenter;
+      case 'PANCHAYAT':
+        return loc.panchayatCommandCenter;
+      default:
+        return loc.stateCommandCenter;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppTheme.background,
-        appBar: SIPAppBar(title: 'State Command Center'),
-        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+        appBar: SIPAppBar(title: _commandCenterTitle),
+        body: const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
       );
     }
 
     if (_errorMessage != null && _stats == null) {
+      final loc = AppLocalizations.current;
       return Scaffold(
         backgroundColor: AppTheme.background,
-        appBar: const SIPAppBar(title: 'State Command Center'),
-        body: ErrorStateView(message: _errorMessage!, onRetry: _loadStats),
+        appBar: SIPAppBar(title: _commandCenterTitle),
+        body: ErrorStateView(
+          title: loc.dashboardLoadErrorTitle,
+          message: loc.dashboardLoadErrorMessage,
+          icon: Icons.cloud_off_outlined,
+          onRetry: _loadStats,
+        ),
       );
     }
 
@@ -267,7 +292,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: SIPAppBar(
-        title: 'State Command Center',
+        title: _commandCenterTitle,
         subtitle: 'Government of Jharkhand • Higher & Technical Education',
         showEmblem: true,
         actions: [

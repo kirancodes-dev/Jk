@@ -602,29 +602,36 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          const OfflineSyncBanner(onSyncAction: ApiService.reportChallenge),
-          // Step Progress Bar
-          _buildStepHeader(),
+      // Form-width column on desktop so fields and buttons stay readable.
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Column(
+            children: [
+              const OfflineSyncBanner(onSyncAction: ApiService.reportChallenge),
+              // Step Progress Bar
+              _buildStepHeader(),
 
-          // Scrollable Active Step Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: _buildCurrentStepView(),
-            ),
+              // Scrollable Active Step Content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: _buildCurrentStepView(),
+                ),
+              ),
+
+              // Bottom Step Navigation Bar
+              _buildBottomNav(),
+            ],
           ),
-
-          // Bottom Step Navigation Bar
-          _buildBottomNav(),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildStepHeader() {
-    final stepTitles = ['Problem', 'Location', 'Evidence', 'Impact', 'Review'];
+    final loc = AppLocalizations.current;
+    final stepTitles = [loc.reportStepProblem, loc.reportStepLocation, loc.reportStepEvidence, loc.reportStepImpact, loc.reportStepReview];
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: const BoxDecoration(
@@ -730,8 +737,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInfoBanner('Step 1 of 5: Core Problem Formulation',
-            'Select a controlled problem statement domain and provide an exact, descriptive ground title.'),
+        _buildInfoBanner(AppLocalizations.current.reportStep1Title, AppLocalizations.current.reportStep1Sub),
         const SizedBox(height: 12),
         AppCard(
           child: Column(
@@ -833,8 +839,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInfoBanner('Step 2 of 5: Administrative Jurisdiction & Privacy-Preserving GPS',
-            'Select Jharkhand district and block. Exact coordinates are protected by privacy filters (rounded for public view).'),
+        _buildInfoBanner(AppLocalizations.current.reportStep2Title, AppLocalizations.current.reportStep2Sub),
         const SizedBox(height: 12),
         AppCard(
           child: Column(
@@ -973,8 +978,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInfoBanner('Step 3 of 5: Ground Evidence & Technical Reports',
-            'Upload photographic proof, lab reports, or short videos. Files are inspected for magic bytes and private object security.'),
+        _buildInfoBanner(AppLocalizations.current.reportStep3Title, AppLocalizations.current.reportStep3Sub),
         const SizedBox(height: 12),
         AppCard(
           child: Column(
@@ -1126,8 +1130,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInfoBanner('Step 4 of 5: Impact Scope & Submitter Identity Options',
-            'Quantify the affected population and configure contact preferences, data sharing choices, and accessibility.'),
+        _buildInfoBanner(AppLocalizations.current.reportStep4Title, AppLocalizations.current.reportStep4Sub),
         const SizedBox(height: 12),
         AppCard(
           child: Column(
@@ -1244,8 +1247,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildInfoBanner('Step 5 of 5: Formal Review & Government Submission',
-            'Please verify all details. Idempotent delivery protects your submission against duplicate network requests.'),
+        _buildInfoBanner(AppLocalizations.current.reportStep5Title, AppLocalizations.current.reportStep5Sub),
         const SizedBox(height: 12),
         AppCard(
           child: Column(

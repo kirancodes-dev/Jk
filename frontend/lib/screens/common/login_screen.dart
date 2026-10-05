@@ -5,6 +5,8 @@ import '../../core/build_config.dart';
 import '../../core/localization/app_localizations.dart';
 import '../../core/role_routing.dart';
 import '../../core/theme.dart';
+import '../../widgets/demo_persona_picker.dart';
+import '../../widgets/language_switcher.dart';
 import '../../widgets/sip_card.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
@@ -265,9 +267,11 @@ class _LoginScreenState extends State<LoginScreen> {
         }
         role = _selectedUniversityRole;
         universityId = _selectedUniversity?['id'] as int?;
-      } else {
-        role = _selectedAccountType;
       }
+      // Other account types send no role: the backend rejects a mismatched
+      // role (e.g. a District Officer under "Government" is GOVERNMENT_OFFICER,
+      // not GOVERNMENT_ADMIN; a PRI member is not CITIZEN), and the dashboard
+      // is chosen from the role it returns.
 
       await auth.login(
         _emailController.text.trim(),
@@ -276,6 +280,25 @@ class _LoginScreenState extends State<LoginScreen> {
         universityId: universityId,
       );
 
+      if (!mounted) return;
+      _navigateToDashboard(auth.currentRole);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceAll('Exception: ', '')),
+          backgroundColor: AppTheme.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _signInAsPersona(String email, String password) async {
+    final auth = context.read<AuthProvider>();
+    _emailController.text = email;
+    _passwordController.text = password;
+    try {
+      await auth.login(email, password);
       if (!mounted) return;
       _navigateToDashboard(auth.currentRole);
     } catch (e) {
@@ -342,7 +365,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                             Text(
-                              '${loc.societalInnovationPortal} (SIP)',
+                              '${loc.appBrandName} · ${loc.societalInnovationPortal}',
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -359,9 +382,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Officials/institutions reach their login separately from the
                   // public citizen entry point — a small, tucked-away toggle
                   // rather than an equal-weight option on the main screen.
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
+                  // Wraps onto two lines at large text sizes instead of overflowing.
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const LanguageMenuButton(),
+                      TextButton.icon(
                       onPressed: _toggleOfficialLogin,
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -377,6 +404,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                       ),
                     ),
+                    ],
                   ),
                   const SizedBox(height: 14),
 
@@ -419,6 +447,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
+                    DemoPersonaPicker(onSelect: _signInAsPersona),
+                    const SizedBox(height: 24),
                   ],
 
                   // Main Title
@@ -433,7 +463,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    loc.portalSignInSubtitle,
+                    _showOfficialLogin ? loc.portalSignInSubtitle : loc.portalSignInSubtitleCitizen,
                     style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                   ),
                   const SizedBox(height: 20),

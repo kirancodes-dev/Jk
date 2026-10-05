@@ -45,16 +45,22 @@ class SIPAppBar extends StatelessWidget implements PreferredSizeWidget {
                 child: const Icon(Icons.shield, size: 14, color: AppTheme.accentGoldLight),
               ),
               const SizedBox(width: 6),
+              // Shrink long role titles to fit narrow phones instead of
+              // truncating them ("State Command…").
               Flexible(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.2,
-                    color: Colors.white,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.2,
+                      color: Colors.white,
+                    ),
+                    maxLines: 1,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/api_service.dart';
 import '../../core/theme.dart';
+import '../../widgets/state_views.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
 import '../../widgets/section_header.dart';
@@ -20,6 +22,7 @@ class IndustryDashboard extends StatefulWidget {
 class _IndustryDashboardState extends State<IndustryDashboard> {
   Map<String, dynamic>? _data;
   bool _isLoading = true;
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -28,14 +31,19 @@ class _IndustryDashboardState extends State<IndustryDashboard> {
   }
 
   Future<void> _loadDashboard() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
     try {
       final res = await ApiService.getIndustryDashboard();
       if (!mounted) return;
       setState(() => _data = res);
     } catch (_) {
+      // Show a retry state instead of zeros that look like real data.
+      if (mounted) setState(() => _loadFailed = true);
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -46,6 +54,19 @@ class _IndustryDashboardState extends State<IndustryDashboard> {
         backgroundColor: AppTheme.background,
         appBar: SIPAppBar(title: 'Industry Partner Portal'),
         body: Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+      );
+    }
+    if (_loadFailed) {
+      final loc = AppLocalizations.current;
+      return Scaffold(
+        backgroundColor: AppTheme.background,
+        appBar: const SIPAppBar(title: 'Industry Partner Portal'),
+        body: ErrorStateView(
+          title: loc.dashboardLoadErrorTitle,
+          message: loc.dashboardLoadErrorMessage,
+          icon: Icons.cloud_off_outlined,
+          onRetry: _loadDashboard,
+        ),
       );
     }
 
@@ -190,10 +211,11 @@ class _IndustryDashboardState extends State<IndustryDashboard> {
               ),
               const SizedBox(height: 26),
 
-              // Active Supported Collaborations
+              // All collaborations (offered, active and completed). The
+              // "Active Partnerships" tile above counts only ACTIVE ones.
               SectionHeader(
-                title: 'Active Supported Collaborations',
-                trailing: Text('${collabs.length} active', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
+                title: AppLocalizations.current.yourCollaborations,
+                trailing: Text('${collabs.length} ${AppLocalizations.current.totalSuffix}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
               ),
               const SizedBox(height: 10),
               if (collabs.isEmpty)

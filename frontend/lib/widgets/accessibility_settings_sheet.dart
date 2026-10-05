@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/accessibility_provider.dart';
 import '../core/theme.dart';
+import 'language_switcher.dart';
 
 /// Opens the shared text-size + high-contrast control as a modal bottom
 /// sheet, reachable from the app bar (via [AccessibilityMenuButton]) and
@@ -145,6 +146,8 @@ class AccessibilitySettingsSheet extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+            const LanguageSelector(),
           ],
         ),
       ),

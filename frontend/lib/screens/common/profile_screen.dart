@@ -7,6 +7,7 @@ import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/accessibility_settings_sheet.dart';
+import '../../core/role_routing.dart';
 import 'login_screen.dart';
 import '../citizen/citizen_dashboard.dart';
 import '../university/university_dashboard.dart';
@@ -21,32 +22,20 @@ class ProfileScreen extends StatelessWidget {
 
   void _switchRole(BuildContext context, String role) async {
     final auth = context.read<AuthProvider>();
-    await auth.quickSwitchRole(role);
-    if (!context.mounted) return;
-
-    Widget target;
-    switch (role) {
-      case 'UNIVERSITY':
-        target = const UniversityDashboard();
-        break;
-      case 'STUDENT':
-        target = const StudentDashboard();
-        break;
-      case 'FACULTY_MENTOR':
-        target = const FacultyDashboard();
-        break;
-      case 'INDUSTRY':
-        target = const IndustryDashboard();
-        break;
-      case 'GOVERNMENT_ADMIN':
-        target = const AdminDashboard();
-        break;
-      case 'CITIZEN':
-      default:
-        target = const CitizenDashboard();
-        break;
+    try {
+      await auth.quickSwitchRole(role);
+      if (!context.mounted) return;
+      final target = resolveDashboardForRole(role);
+      Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => target), (r) => false);
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to switch role: ${e.toString().replaceAll("Exception: ", "")}'),
+          backgroundColor: AppTheme.error,
+        ),
+      );
     }
-    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => target), (r) => false);
   }
 
   @override

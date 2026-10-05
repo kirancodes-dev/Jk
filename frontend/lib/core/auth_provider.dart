@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
@@ -8,12 +9,16 @@ import 'build_config.dart';
 class AuthProvider extends ChangeNotifier {
   User? _currentUser;
   bool _isLoading = false;
+  bool _isInitialized = false;
   String _currentRole = 'CITIZEN';
+  Future<void>? _initFuture;
 
   User? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
+  bool get isInitialized => _isInitialized;
   bool get isAuthenticated => _currentUser != null;
   String get currentRole => _currentUser?.role ?? _currentRole;
+  Future<void>? get initFuture => _initFuture;
 
   static const Map<String, String> demoEmails = {
     'CITIZEN': 'citizen@jharkhand.gov.in',
@@ -25,7 +30,14 @@ class AuthProvider extends ChangeNotifier {
   };
 
   AuthProvider() {
-    _loadUserFromPrefs();
+    _initFuture = init();
+  }
+
+  Future<void> init() async {
+    if (_isInitialized) return;
+    await _loadUserFromPrefs();
+    _isInitialized = true;
+    notifyListeners();
   }
 
   Future<void> _loadUserFromPrefs() async {
@@ -33,6 +45,12 @@ class AuthProvider extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('auth_token');
       final userData = prefs.getString('user_data');
+      final savedRole = prefs.getString('user_role');
+
+      if (savedRole != null && savedRole.isNotEmpty) {
+        _currentRole = savedRole;
+      }
+
       if (token != null && userData != null && userData.trim().isNotEmpty) {
         try {
           final decoded = jsonDecode(userData);
@@ -46,7 +64,9 @@ class AuthProvider extends ChangeNotifier {
           debugPrint('Invalid cached user session: $e');
           await prefs.remove('user_data');
           await prefs.remove('auth_token');
+          await prefs.remove('user_role');
           ApiService.setToken(null);
+          _currentUser = null;
         }
       }
     } catch (e) {
@@ -81,17 +101,19 @@ class AuthProvider extends ChangeNotifier {
       _currentUser = User.fromJson(res);
       _currentRole = _currentUser!.role;
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('auth_token', res['access_token']);
+      await prefs.setString('auth_token', res['access_token'] ?? '');
       await prefs.setString('user_data', jsonEncode(res));
+      await prefs.setString('user_role', _currentRole);
+      await prefs.setBool('has_seen_onboarding', true);
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // Quick Switch for SIH Evaluator / Jury demo flow (Evaluator mode only)
+  // Quick Switch for SIH Evaluator / Jury demo flow (Evaluator mode or local dev)
   Future<void> quickSwitchRole(String role, {int? universityId}) async {
-    if (!BuildConfig.isEvaluatorBuild) {
+    if (!BuildConfig.isEvaluatorBuild && !kDebugMode) {
       throw UnsupportedError('Demo quick role switching is strictly disabled in production builds.');
     }
     final email = demoEmails[role];
@@ -107,6 +129,7 @@ class AuthProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('user_data');
+    await prefs.remove('user_role');
     notifyListeners();
   }
 }

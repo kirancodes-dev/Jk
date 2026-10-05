@@ -636,6 +636,47 @@ class AppLocalizations extends ChangeNotifier {
   String get verifiedResolvedOnGround => text('verified_resolved_on_ground');
   String get issueStillPersists => text('issue_still_persists');
 
+  // UX refresh: branding, demo personas, session and load-error states
+  String get appBrandName => text('app_brand_name');
+  String get portalSignInSubtitleCitizen => text('portal_sign_in_subtitle_citizen');
+  String get demoPersonasTitle => text('demo_personas_title');
+  String get demoPersonasSubtitle => text('demo_personas_subtitle');
+  String get personaCitizen => text('persona_citizen');
+  String get personaPri => text('persona_pri');
+  String get personaOfficer => text('persona_officer');
+  String get personaVerifier => text('persona_verifier');
+  String get personaAdmin => text('persona_admin');
+  String get personaUniversity => text('persona_university');
+  String get personaFaculty => text('persona_faculty');
+  String get personaStudent => text('persona_student');
+  String get personaIndustry => text('persona_industry');
+  String get sessionExpiredMessage => text('session_expired_message');
+  String get dashboardLoadErrorTitle => text('dashboard_load_error_title');
+  String get dashboardLoadErrorMessage => text('dashboard_load_error_message');
+  String get yourCollaborations => text('your_collaborations');
+  String get totalSuffix => text('total_suffix');
+  String get stateCommandCenter => text('state_command_center');
+  String get districtCommandCenter => text('district_command_center');
+  String get blockCommandCenter => text('block_command_center');
+  String get panchayatCommandCenter => text('panchayat_command_center');
+  String get reportStepProblem => text('report_step_problem');
+  String get reportStepLocation => text('report_step_location');
+  String get reportStepEvidence => text('report_step_evidence');
+  String get reportStepImpact => text('report_step_impact');
+  String get reportStepReview => text('report_step_review');
+  String get reportStep1Title => text('report_step1_title');
+  String get reportStep1Sub => text('report_step1_sub');
+  String get reportStep2Title => text('report_step2_title');
+  String get reportStep2Sub => text('report_step2_sub');
+  String get reportStep3Title => text('report_step3_title');
+  String get reportStep3Sub => text('report_step3_sub');
+  String get reportStep4Title => text('report_step4_title');
+  String get reportStep4Sub => text('report_step4_sub');
+  String get reportStep5Title => text('report_step5_title');
+  String get reportStep5Sub => text('report_step5_sub');
+  String get languageLabel => text('language_label');
+  String get languagePartialNote => text('language_partial_note');
+
   // Dynamic interpolations
   String unreadCountText(int count) {
     if (_language == AppLanguage.hi) {
@@ -903,23 +944,23 @@ class AppLocalizations extends ChangeNotifier {
       'gov_of_jharkhand_title_case': 'Government of Jharkhand',
 
       // Report Challenge Screen (form fields)
-      'challenge_title_label': 'Challenge Title *',
-      'ground_description_label': 'Detailed Ground Description *',
+      'challenge_title_label': 'Problem title *',
+      'ground_description_label': 'What is happening? *',
       'ground_description_hint': 'Explain the ground reality: who is affected, for how long, and visible community symptoms.',
-      'canonical_domain_label': 'Canonical Problem Domain *',
-      'suggested_sub_domain_label': 'Suggested Sub-Domain',
-      'sub_category_tags_label': 'Sub-Category / Technical Tags (Optional)',
-      'ground_urgency_label': 'Ground Urgency *',
+      'canonical_domain_label': 'Category *',
+      'suggested_sub_domain_label': 'Sub-category',
+      'sub_category_tags_label': 'Keywords (optional)',
+      'ground_urgency_label': 'How urgent is it? *',
       'district_label': 'District (Jharkhand) *',
       'block_tehsil_label': 'Block / Tehsil *',
       'village_ward_label': 'Village / Ward *',
-      'landmark_address_label': 'Specific Landmark / Habitation Address',
-      'geo_coordinates_label': 'Jharkhand Geo-Coordinates (WGS84)',
+      'landmark_address_label': 'Nearby landmark (optional)',
+      'geo_coordinates_label': 'Exact location (GPS)',
       'location_not_captured': 'Not yet captured — required before you can continue',
       'latitude_label': 'Latitude',
       'longitude_label': 'Longitude',
-      'attach_evidence_label': 'Click to Attach Ground Evidence (Images / Reports)',
-      'attach_evidence_hint': 'Supports JPG, PNG, WEBP, PDF, DOCX, MP4 (Max 25MB, Magic Byte Verified)',
+      'attach_evidence_label': 'Tap to add photos, videos or documents',
+      'attach_evidence_hint': 'JPG, PNG, WEBP, PDF, DOCX or MP4, up to 25 MB each',
       'attached_files_label': 'Attached Files',
       'contact_channel_label': 'Contact Channel',
       'data_sharing_consent_label': 'Data Sharing Consent',
@@ -942,7 +983,7 @@ class AppLocalizations extends ChangeNotifier {
       'review_evidence_files': 'Evidence Files',
       'review_idempotency_key': 'Idempotency Key',
       'declaration_text': 'I declare that this societal challenge is reported in good faith for community welfare, and I consent (v1.0) to government verification and research university routing.',
-      'submit_to_government_pipeline': 'Submit to Government Pipeline',
+      'submit_to_government_pipeline': 'Submit report',
       'next_step': 'Next Step',
       'evaluator_mode_title': 'EVALUATOR MODE: SIH Jury & Demo Build',
       'evaluator_mode_subtitle': 'Pre-configured demo roles and credentials are active for evaluation purposes.',
@@ -967,7 +1008,7 @@ class AppLocalizations extends ChangeNotifier {
       'lifecycle_section_title': '10-Stage Solution Lifecycle',
       'real_time_audit': 'Real-time audit',
       'active_label': 'ACTIVE',
-      'sip_jharkhand': 'SIP Jharkhand',
+      'sip_jharkhand': 'SamadhanSetu',
       'skip': 'Skip',
       'get_started': 'Get Started',
       'onboarding_next': 'Next',
@@ -1143,6 +1184,45 @@ class AppLocalizations extends ChangeNotifier {
       'feedback_button_label': 'Feedback',
       'verified_resolved_on_ground': 'Verified Resolved on Ground',
       'issue_still_persists': 'Issue Still Persists',
+      'app_brand_name': 'SamadhanSetu',
+      'portal_sign_in_subtitle_citizen': 'Sign in with your registered email and password.',
+      'demo_personas_title': 'Demo accounts: tap one to sign in',
+      'demo_personas_subtitle': 'Each role opens its own dashboard. All demo accounts share one password.',
+      'persona_citizen': 'Citizen',
+      'persona_pri': 'Gram Panchayat (PRI)',
+      'persona_officer': 'District Officer',
+      'persona_verifier': 'Field Verifier',
+      'persona_admin': 'State Admin',
+      'persona_university': 'University',
+      'persona_faculty': 'Faculty Mentor',
+      'persona_student': 'Student',
+      'persona_industry': 'Industry / CSR',
+      'session_expired_message': 'Your session has expired. Please sign in again.',
+      'dashboard_load_error_title': 'Couldn\'t load your dashboard',
+      'dashboard_load_error_message': 'Check your internet connection and try again.',
+      'your_collaborations': 'Your Collaborations',
+      'total_suffix': 'total',
+      'state_command_center': 'State Command Center',
+      'district_command_center': 'District Command Center',
+      'block_command_center': 'Block Command Center',
+      'panchayat_command_center': 'Panchayat Command Center',
+      'report_step_problem': 'Problem',
+      'report_step_location': 'Location',
+      'report_step_evidence': 'Evidence',
+      'report_step_impact': 'Impact',
+      'report_step_review': 'Review',
+      'report_step1_title': 'Step 1 of 5: What is the problem?',
+      'report_step1_sub': 'Give it a short title, describe what is happening, and pick the closest category.',
+      'report_step2_title': 'Step 2 of 5: Where is it?',
+      'report_step2_sub': 'Choose the district, block and village. Only officials see your exact location; the public sees an approximate area.',
+      'report_step3_title': 'Step 3 of 5: Add photos or documents',
+      'report_step3_sub': 'Photos, videos or reports help officers act faster. Every file is checked for safety before it is stored.',
+      'report_step4_title': 'Step 4 of 5: Who is affected?',
+      'report_step4_sub': 'Tell us roughly how many people are affected and how we should contact you.',
+      'report_step5_title': 'Step 5 of 5: Check and submit',
+      'report_step5_sub': 'Review your report. If your connection drops, it is safe to submit again; it will not be sent twice.',
+      'language_label': 'Language',
+      'language_partial_note': 'Tribal languages are partly translated; the rest appears in Hindi.',
     },
     'hi': {
       // Branding & Metadata
@@ -1452,7 +1532,7 @@ class AppLocalizations extends ChangeNotifier {
       'lifecycle_section_title': '10-चरण समाधान जीवनचक्र',
       'real_time_audit': 'रीयल-टाइम ऑडिट',
       'active_label': 'सक्रिय',
-      'sip_jharkhand': 'एसआईपी झारखंड',
+      'sip_jharkhand': 'समाधानसेतु',
       'skip': 'छोड़ें',
       'get_started': 'शुरू करें',
       'onboarding_next': 'अगला',
@@ -1628,6 +1708,45 @@ class AppLocalizations extends ChangeNotifier {
       'feedback_button_label': 'प्रतिक्रिया',
       'verified_resolved_on_ground': 'ज़मीनी स्तर पर सुलझा हुआ सत्यापित',
       'issue_still_persists': 'समस्या अभी भी बनी है',
+      'app_brand_name': 'समाधानसेतु',
+      'portal_sign_in_subtitle_citizen': 'अपने पंजीकृत ईमेल और पासवर्ड से साइन इन करें।',
+      'demo_personas_title': 'डेमो खाते: साइन इन के लिए किसी एक पर टैप करें',
+      'demo_personas_subtitle': 'हर भूमिका का अपना डैशबोर्ड खुलता है। सभी डेमो खातों का पासवर्ड एक ही है।',
+      'persona_citizen': 'नागरिक',
+      'persona_pri': 'ग्राम पंचायत (PRI)',
+      'persona_officer': 'ज़िला अधिकारी',
+      'persona_verifier': 'क्षेत्र सत्यापनकर्ता',
+      'persona_admin': 'राज्य प्रशासक',
+      'persona_university': 'विश्वविद्यालय',
+      'persona_faculty': 'फैकल्टी मेंटर',
+      'persona_student': 'छात्र',
+      'persona_industry': 'उद्योग / CSR',
+      'session_expired_message': 'आपका सत्र समाप्त हो गया है। कृपया फिर से साइन इन करें।',
+      'dashboard_load_error_title': 'डैशबोर्ड लोड नहीं हो सका',
+      'dashboard_load_error_message': 'अपना इंटरनेट कनेक्शन जांचें और फिर से प्रयास करें।',
+      'your_collaborations': 'आपके सहयोग',
+      'total_suffix': 'कुल',
+      'state_command_center': 'राज्य कमांड सेंटर',
+      'district_command_center': 'ज़िला कमांड सेंटर',
+      'block_command_center': 'प्रखंड कमांड सेंटर',
+      'panchayat_command_center': 'पंचायत कमांड सेंटर',
+      'report_step_problem': 'समस्या',
+      'report_step_location': 'स्थान',
+      'report_step_evidence': 'साक्ष्य',
+      'report_step_impact': 'प्रभाव',
+      'report_step_review': 'समीक्षा',
+      'report_step1_title': 'चरण 1/5: समस्या क्या है?',
+      'report_step1_sub': 'एक छोटा शीर्षक दें, बताएं कि क्या हो रहा है, और सबसे नज़दीकी श्रेणी चुनें।',
+      'report_step2_title': 'चरण 2/5: समस्या कहाँ है?',
+      'report_step2_sub': 'ज़िला, प्रखंड और गाँव चुनें। आपका सटीक स्थान केवल अधिकारी देखते हैं; जनता को अनुमानित क्षेत्र दिखता है।',
+      'report_step3_title': 'चरण 3/5: फ़ोटो या दस्तावेज़ जोड़ें',
+      'report_step3_sub': 'फ़ोटो, वीडियो या रिपोर्ट से अधिकारी जल्दी कार्रवाई कर पाते हैं। हर फ़ाइल को सहेजने से पहले सुरक्षा के लिए जाँचा जाता है।',
+      'report_step4_title': 'चरण 4/5: कौन प्रभावित है?',
+      'report_step4_sub': 'लगभग कितने लोग प्रभावित हैं और हम आपसे कैसे संपर्क करें, यह बताएं।',
+      'report_step5_title': 'चरण 5/5: जाँचें और जमा करें',
+      'report_step5_sub': 'अपनी रिपोर्ट जाँचें। कनेक्शन टूटने पर दोबारा जमा करना सुरक्षित है; यह दो बार नहीं भेजी जाएगी।',
+      'language_label': 'भाषा',
+      'language_partial_note': 'जनजातीय भाषाओं का आंशिक अनुवाद हुआ है; बाकी पाठ हिंदी में दिखता है।',
     },
     // Extension path for Jharkhand Tribal Languages (Santhali, Mundari, Ho, Kurukh, Khortha)
     'sat': {

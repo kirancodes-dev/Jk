@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/file_picker_helper.dart';
 import '../../core/api_service.dart';
 import '../../core/theme.dart';
+import '../../widgets/state_views.dart';
+import '../../core/localization/app_localizations.dart';
 import '../../widgets/sip_app_bar.dart';
 import '../../widgets/sip_card.dart';
 import '../../widgets/section_header.dart';
@@ -21,6 +23,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Map<String, dynamic>? _data;
   List<Map<String, dynamic>> _invitations = [];
   bool _isLoading = true;
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -29,7 +32,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Future<void> _loadDashboard() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
     try {
       final res = await ApiService.getStudentDashboard();
       final invites = await ApiService.getMyTeamInvitations(isStudent: true);
@@ -39,8 +45,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
         _invitations = invites.where((i) => i['status'] == 'PENDING').toList();
       });
     } catch (_) {
+      // Show a retry state instead of zeros that look like real data.
+      if (mounted) setState(() => _loadFailed = true);
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -177,6 +185,19 @@ class _StudentDashboardState extends State<StudentDashboard> {
         backgroundColor: AppTheme.background,
         appBar: SIPAppBar(title: 'Student Portal'),
         body: Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen)),
+      );
+    }
+    if (_loadFailed) {
+      final loc = AppLocalizations.current;
+      return Scaffold(
+        backgroundColor: AppTheme.background,
+        appBar: const SIPAppBar(title: 'Student Portal'),
+        body: ErrorStateView(
+          title: loc.dashboardLoadErrorTitle,
+          message: loc.dashboardLoadErrorMessage,
+          icon: Icons.cloud_off_outlined,
+          onRetry: _loadDashboard,
+        ),
       );
     }
 
