@@ -1,6 +1,6 @@
 import logging
 from typing import Tuple, Optional
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.pool import StaticPool
 from backend.app.core.config import settings
@@ -44,6 +44,22 @@ engine = create_engine(
     database_url,
     **engine_kwargs
 )
+
+if not is_sqlite:
+    # DateTime columns are naive "timestamp without time zone" but the app writes
+    # aware UTC datetimes; PostgreSQL converts those using the session TimeZone.
+    # A server configured for Asia/Kolkata (common on State Data Centre hosts)
+    # would store IST wall-clock time that the app then reads back as UTC, which
+    # makes every token look older than password_changed_at (401 on every call).
+    # Pinning each session to UTC keeps stored values in UTC on any server.
+    @event.listens_for(engine, "connect")
+    def _set_session_timezone_utc(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("SET TIME ZONE 'UTC'")
+        finally:
+            cursor.close()
+        dbapi_connection.commit()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -171,3 +171,13 @@ def test_no_hardcoded_secrets_in_docker_files():
         dockerfile_text = f.read()
     assert "COPY .env.example /app/.env" not in dockerfile_text
     assert "USER appuser" in dockerfile_text
+
+def test_postgres_sessions_are_pinned_to_utc():
+    # Naive DateTime columns must hold UTC regardless of the server's TimeZone;
+    # otherwise password_changed_at lands in local time and every token 401s.
+    from sqlalchemy import text
+    from backend.app.core.database import engine, is_sqlite
+    if is_sqlite:
+        pytest.skip("Session timezone pinning applies to PostgreSQL only")
+    with engine.connect() as conn:
+        assert conn.execute(text("SHOW TIME ZONE")).scalar() == "UTC"
