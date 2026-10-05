@@ -131,7 +131,7 @@ class _MyChallengesScreenState extends State<MyChallengesScreen> with SingleTick
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    ch.status.replaceAll('_', ' '),
+                    AppLocalizations.current.statusLabel(ch.status),
                     style: TextStyle(color: badgeColor, fontSize: 10, fontWeight: FontWeight.bold),
                   ),
                 ),

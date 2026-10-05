@@ -62,7 +62,7 @@ class ChallengeSubmittedScreen extends StatelessWidget {
                     children: [
                       _rowItem(loc.challengeIdLabel, '#$chId'),
                       const Divider(height: 16),
-                      _rowItem(loc.currentStatusLabel, status.toString().replaceAll('_', ' ')),
+                      _rowItem(loc.currentStatusLabel, loc.statusLabel(status.toString())),
                       const Divider(height: 16),
                       _rowItem(loc.categoryRowLabel, category),
                       const Divider(height: 16),

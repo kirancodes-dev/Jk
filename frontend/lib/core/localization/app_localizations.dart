@@ -81,6 +81,14 @@ class AppLocalizations extends ChangeNotifier {
     return _translations['en']?[key] ?? key;
   }
 
+  /// Resolves [key] through [text] (so the fallback chain applies) and fills
+  /// `{name}` placeholders, e.g. `'{count} unread updates'`.
+  String _fill(String key, Map<String, Object?> params) {
+    var result = text(key);
+    params.forEach((name, value) => result = result.replaceAll('{$name}', '$value'));
+    return result;
+  }
+
   // ----------------- TYPED CONVENIENCE ACCESSORS -----------------
 
   String get appTitle => text('app_title');
@@ -199,12 +207,8 @@ class AppLocalizations extends ChangeNotifier {
   String get priLabel => text('pri_label');
   String get ulbLabel => text('ulb_label');
   String get govOfJharkhandTitleCase => text('gov_of_jharkhand_title_case');
-  String submittingAsOrgText(String roleLabel, String name) {
-    if (language == AppLanguage.hi) {
-      return '$roleLabel के रूप में प्रस्तुत: $name। रिपोर्ट आपके पंजीकृत संगठन को आवंटित की जाती है, किसी व्यक्तिगत नागरिक को नहीं।';
-    }
-    return 'Submitting as $roleLabel: $name. Reports are attributed to your registered organisation, not an individual citizen.';
-  }
+  String submittingAsOrgText(String roleLabel, String name) =>
+      _fill('submitting_as_org', {'role': roleLabel, 'name': name});
 
   // Report Challenge Screen
   String get reportChallengeTitle => text('report_challenge_title');
@@ -268,12 +272,12 @@ class AppLocalizations extends ChangeNotifier {
   String get ruralShareLabel => text('rural_share_label');
   String get coordinatesLabel => text('coordinates_label');
   String groundChallengesInDistrict(String district) =>
-      language == AppLanguage.hi ? '$district में ज़मीनी समस्याएं' : 'Ground Challenges in $district';
+      _fill('ground_challenges_in_district', {'district': district});
   String get noPendingChallengesTitle => text('no_pending_challenges_title');
   String get noPendingChallengesDesc => text('no_pending_challenges_desc');
   String get all24DistrictsDirectory => text('all_24_districts_directory');
   String get tapToFilter => text('tap_to_filter');
-  String recordedCountText(int count) => language == AppLanguage.hi ? '$count दर्ज' : '$count recorded';
+  String recordedCountText(int count) => _fill('recorded_count', {'count': count});
 
   // Voice Notes (Report Challenge Screen)
   String get microphonePermissionDenied => text('microphone_permission_denied');
@@ -285,7 +289,7 @@ class AppLocalizations extends ChangeNotifier {
   String recordingInProgressText(int seconds) {
     final mins = (seconds ~/ 60).toString().padLeft(2, '0');
     final secs = (seconds % 60).toString().padLeft(2, '0');
-    return language == AppLanguage.hi ? 'रिकॉर्डिंग जारी है... $mins:$secs' : 'Recording... $mins:$secs';
+    return _fill('recording_in_progress', {'time': '$mins:$secs'});
   }
   String get allNotificationsMarkedRead => text('all_notifications_marked_read');
   String get tapToViewDetails => text('tap_to_view_details');
@@ -308,12 +312,11 @@ class AppLocalizations extends ChangeNotifier {
   String get catEscalationsLabel => text('cat_escalations_label');
   String get catSystemLabel => text('cat_system_label');
   String get dpdpConsentTitle => text('dpdp_consent_title');
-  String lastRecordedText(String timestamp, String version) => language == AppLanguage.hi
-      ? 'अंतिम दर्ज: $timestamp (संस्करण: $version)'
-      : 'Last Recorded: $timestamp (Version: $version)';
+  String lastRecordedText(String timestamp, String version) =>
+      _fill('last_recorded', {'timestamp': timestamp, 'version': version});
   String get savingPreferences => text('saving_preferences');
   String get prefsSavedSuccess => text('prefs_saved_success');
-  String failedToSavePrefsText(String reason) => language == AppLanguage.hi ? 'प्राथमिकताएं सहेजने में विफल: $reason' : 'Failed to save preferences: $reason';
+  String failedToSavePrefsText(String reason) => _fill('failed_to_save_prefs', {'reason': reason});
 
   // Report Challenge Screen (form fields)
   String get challengeTitleLabel => text('challenge_title_label');
@@ -367,15 +370,15 @@ class AppLocalizations extends ChangeNotifier {
   String get tabAssigned => text('tab_assigned');
   String get tabInProgress => text('tab_in_progress');
   String get tabResolved => text('tab_resolved');
-  String noChallengesFoundText(String tab) => language == AppLanguage.hi ? '$tab श्रेणी में कोई समस्या नहीं मिली' : 'No $tab challenges found';
-  String assignedToText(String name) => language == AppLanguage.hi ? 'आवंटित: $name' : 'Assigned to: $name';
+  String noChallengesFoundText(String tab) => _fill('no_challenges_found_in_tab', {'tab': tab});
+  String assignedToText(String name) => _fill('assigned_to_name', {'name': name});
   String get detailsLabel => text('details_label');
 
   // Nearby Challenges
   String get nearbyChallengesTitle => text('nearby_challenges_title');
   String get districtColonLabel => text('district_colon_label');
   String noReportedChallengesInDistrict(String district) =>
-      language == AppLanguage.hi ? '$district में अभी तक कोई समस्या दर्ज नहीं हुई' : 'No reported challenges in $district yet';
+      _fill('no_reported_challenges_in_district', {'district': district});
   String get urgencyColonLabel => text('urgency_colon_label');
   String get statusColonLabel => text('status_colon_label');
 
@@ -386,39 +389,35 @@ class AppLocalizations extends ChangeNotifier {
   String get retryLabel => text('retry_label');
   String get percentComplete => text('percent_complete');
   String get societalChallengeFallback => text('societal_challenge_fallback');
-  String levelGovernanceText(int level) => language == AppLanguage.hi ? 'स्तर $level शासन' : 'Level $level Governance';
+  String levelGovernanceText(int level) => _fill('level_governance', {'level': level});
   String get assignedColonLabel => text('assigned_colon_label');
   String get lifecycleSectionTitle => text('lifecycle_section_title');
   String get realTimeAudit => text('real_time_audit');
   String get activeLabel => text('active_label');
 
-  static const List<Map<String, String>> _lifecycleStagesEn = [
-    {'key': 'SUBMITTED', 'title': '1. Citizen Submission', 'desc': 'Citizen logged societal challenge with GPS coordinates & evidence'},
-    {'key': 'AI_ANALYSIS', 'title': '2. AI Diagnostic Assessment', 'desc': 'AI mapped urgency, keywords & recommended academic institutes'},
-    {'key': 'VALIDATED', 'title': '3. Administrative Validation', 'desc': 'Jharkhand State Admin reviewed and authenticated problem'},
-    {'key': 'UNIVERSITY_ASSIGNED', 'title': '4. HEI Institute Assignment', 'desc': 'Assigned to nodal higher education research center'},
-    {'key': 'TEAM_FORMED', 'title': '5. Multidisciplinary Team', 'desc': 'Student innovators and faculty guide assigned to project'},
-    {'key': 'SOLUTION_PROPOSED', 'title': '6. Technical Solution Proposed', 'desc': 'Detailed schematics, budget and milestones submitted'},
-    {'key': 'PROTOTYPE', 'title': '7. Prototype Fabrication', 'desc': 'Laboratory fabrication and hardware/software testing in progress'},
-    {'key': 'FIELD_TESTING', 'title': '8. Ground Field Trials', 'desc': 'Validation in the affected community with local panchayat'},
-    {'key': 'DEPLOYMENT', 'title': '9. Production Commissioning', 'desc': 'Full deployment with district administration and CSR sponsor'},
-    {'key': 'RESOLVED', 'title': '10. Societal Impact Handover', 'desc': 'Resolution certified with verified citizen beneficiaries'},
+  static const List<String> _lifecycleStageKeys = [
+    'SUBMITTED',
+    'AI_ANALYSIS',
+    'VALIDATED',
+    'UNIVERSITY_ASSIGNED',
+    'TEAM_FORMED',
+    'SOLUTION_PROPOSED',
+    'PROTOTYPE',
+    'FIELD_TESTING',
+    'DEPLOYMENT',
+    'RESOLVED',
   ];
 
-  static const List<Map<String, String>> _lifecycleStagesHi = [
-    {'key': 'SUBMITTED', 'title': '1. नागरिक द्वारा प्रस्तुति', 'desc': 'नागरिक ने जीपीएस निर्देशांक एवं साक्ष्य के साथ सामाजिक समस्या दर्ज की'},
-    {'key': 'AI_ANALYSIS', 'title': '2. एआई निदान मूल्यांकन', 'desc': 'एआई ने तात्कालिकता, कीवर्ड एवं अनुशंसित शैक्षणिक संस्थानों की मैपिंग की'},
-    {'key': 'VALIDATED', 'title': '3. प्रशासनिक सत्यापन', 'desc': 'झारखंड राज्य प्रशासन ने समस्या की समीक्षा एवं प्रमाणीकरण किया'},
-    {'key': 'UNIVERSITY_ASSIGNED', 'title': '4. उच्च शिक्षा संस्थान आवंटन', 'desc': 'नोडल उच्च शिक्षा शोध केंद्र को आवंटित'},
-    {'key': 'TEAM_FORMED', 'title': '5. बहु-विषयक टीम', 'desc': 'छात्र अन्वेषक एवं संकाय मार्गदर्शक परियोजना को आवंटित'},
-    {'key': 'SOLUTION_PROPOSED', 'title': '6. तकनीकी समाधान प्रस्तावित', 'desc': 'विस्तृत योजना, बजट एवं माइलस्टोन प्रस्तुत किए गए'},
-    {'key': 'PROTOTYPE', 'title': '7. प्रोटोटाइप निर्माण', 'desc': 'प्रयोगशाला निर्माण एवं हार्डवेयर/सॉफ़्टवेयर परीक्षण जारी'},
-    {'key': 'FIELD_TESTING', 'title': '8. ज़मीनी क्षेत्र परीक्षण', 'desc': 'स्थानीय पंचायत के साथ प्रभावित समुदाय में सत्यापन'},
-    {'key': 'DEPLOYMENT', 'title': '9. उत्पादन कमीशनिंग', 'desc': 'जिला प्रशासन एवं सीएसआर प्रायोजक के साथ पूर्ण क्रियान्वयन'},
-    {'key': 'RESOLVED', 'title': '10. सामाजिक प्रभाव हस्तांतरण', 'desc': 'सत्यापित नागरिक लाभार्थियों के साथ समाधान प्रमाणित'},
-  ];
-
-  List<Map<String, String>> get lifecycleStages => isHindi ? _lifecycleStagesHi : _lifecycleStagesEn;
+  /// Solution lifecycle shown on the citizen status tracker; titles and
+  /// descriptions resolve through [text] so they follow the fallback chain.
+  List<Map<String, String>> get lifecycleStages => [
+        for (final k in _lifecycleStageKeys)
+          {
+            'key': k,
+            'title': text('lifecycle_${k.toLowerCase()}_title'),
+            'desc': text('lifecycle_${k.toLowerCase()}_desc'),
+          },
+      ];
 
   // Onboarding
   String get sipJharkhand => text('sip_jharkhand');
@@ -438,9 +437,7 @@ class AppLocalizations extends ChangeNotifier {
   // OTP Screen
   String get verifyMobileEmail => text('verify_mobile_email');
   String get verificationCodeSent => text('verification_code_sent');
-  String enterOtpSentTo(String email) => language == AppLanguage.hi
-      ? 'नीचे दिए गए पर भेजा गया 6-अंकीय सत्यापन कोड दर्ज करें:\n$email'
-      : 'Enter the 6-digit verification code sent to:\n$email';
+  String enterOtpSentTo(String email) => _fill('enter_otp_sent_to', {'email': email});
   String get demoOtpNotice => text('demo_otp_notice');
   String get verifyAndCreateAccount => text('verify_and_create_account');
 
@@ -455,9 +452,7 @@ class AppLocalizations extends ChangeNotifier {
   String get forgotPasswordDescription => text('forgot_password_description');
   String get emailAddressLabel => text('email_address_label');
   String get sendVerificationOtpEmail => text('send_verification_otp_email');
-  String otpDispatchedTo(String email) => language == AppLanguage.hi
-      ? '$email पर 6-अंकीय OTP भेजा गया है। कृपया अपना इनबॉक्स या स्पैम फ़ोल्डर देखें।'
-      : 'A 6-digit OTP has been dispatched to $email. Please check your inbox or spam folder.';
+  String otpDispatchedTo(String email) => _fill('otp_dispatched_to', {'email': email});
   String get sixDigitOtpCodeLabel => text('six_digit_otp_code_label');
   String get enterCodeFromEmailHint => text('enter_code_from_email_hint');
   String get newPasswordLabel => text('new_password_label');
@@ -468,7 +463,7 @@ class AppLocalizations extends ChangeNotifier {
   String get officerUserProfileTitle => text('officer_user_profile_title');
   String get innovationPortalSubtitle => text('innovation_portal_subtitle');
   String get anonymousUser => text('anonymous_user');
-  String roleColonLabel(String role) => language == AppLanguage.hi ? 'भूमिका: $role' : 'ROLE: $role';
+  String roleColonLabel(String role) => _fill('role_colon', {'role': role});
   String get sihRoleDemoTitle => text('sih_role_demo_title');
   String get sihRoleDemoSubtitle => text('sih_role_demo_subtitle');
   String get roleCitizen => text('role_citizen_switch');
@@ -567,24 +562,24 @@ class AppLocalizations extends ChangeNotifier {
   String get governancePipelineSubtitle => text('governance_pipeline_subtitle');
   String get aiDecisionSupportTriage => text('ai_decision_support_triage');
   String modelVersionExecText(Object model, Object ver, Object ms) =>
-      language == AppLanguage.hi ? 'मॉडल: $model v$ver ($ms ms)' : 'Model: $model v$ver ($ms ms)';
+      _fill('model_version_exec', {'model': model, 'ver': ver, 'ms': ms});
   String get fallbackBadgeText => text('fallback_badge_text');
   String get mlBadgeText => text('ml_badge_text');
   String get automatedClassificationTitle => text('automated_classification_title');
-  String langConfText(String lang, Object conf) => language == AppLanguage.hi ? 'भाषा: ${lang.toUpperCase()} ($conf%)' : 'Lang: ${lang.toUpperCase()} ($conf%)';
+  String langConfText(String lang, Object conf) => _fill('lang_confidence', {'lang': lang.toUpperCase(), 'conf': conf});
   String get classifiedDomainLabel => text('classified_domain_label');
   String get evaluatedPriorityLabel => text('evaluated_priority_label');
   String get extractedKeywordsTitle => text('extracted_keywords_title');
   String get multidisciplinaryExpertiseTitle => text('multidisciplinary_expertise_title');
   String get aiProposedApproachTitle => text('ai_proposed_approach_title');
   String get duplicateGroundCorrelationTitle => text('duplicate_ground_correlation_title');
-  String relatedCandidatesText(Object count) => language == AppLanguage.hi ? '$count संबंधित उम्मीदवार' : '$count related candidates';
+  String relatedCandidatesText(Object count) => _fill('related_candidates_count', {'count': count});
   String districtStatusText(Object district, Object status) =>
-      language == AppLanguage.hi ? '$district • स्थिति: $status' : '$district • Status: $status';
-  String matchPercentText(Object pct) => language == AppLanguage.hi ? '$pct% मेल' : '$pct% Match';
+      _fill('district_status', {'district': district, 'status': status});
+  String matchPercentText(Object pct) => _fill('match_percent', {'pct': pct});
   String get recommendedInstitutionsTitle => text('recommended_institutions_title');
   String get advisoryRanking => text('advisory_ranking');
-  String fitPercentText(Object pct) => language == AppLanguage.hi ? '$pct% उपयुक्त' : '$pct% Fit';
+  String fitPercentText(Object pct) => _fill('fit_percent', {'pct': pct});
   String get matchingUniversitiesInitialized => text('matching_universities_initialized');
   String get humanInLoopPolicyText => text('human_in_loop_policy_text');
   String get confirmAndViewTracking => text('confirm_and_view_tracking');
@@ -601,29 +596,28 @@ class AppLocalizations extends ChangeNotifier {
   String get cancelLabel => text('cancel_label');
   String get submitFeedbackLabel => text('submit_feedback_label');
   String get thankYouFeedbackRecorded => text('thank_you_feedback_recorded');
-  String failedWithReasonText(String reason) => language == AppLanguage.hi ? 'विफल: $reason' : 'Failed: $reason';
+  String failedWithReasonText(String reason) => _fill('failed_with_reason', {'reason': reason});
   String get challengeDetailsTitle => text('challenge_details_title');
   String get challengeHashPrefix => text('challenge_hash_prefix');
   String get challengeNotFound => text('challenge_not_found');
   String get retryLabelDetails => text('retry_label_details');
   String get trackSolutionLifecycleTooltip => text('track_solution_lifecycle_tooltip');
-  String escalationLevelText(Object level) => language == AppLanguage.hi ? 'एस्केलेशन स्तर: $level / 4' : 'Escalation Level: $level / 4';
-  String escalatedByText(Object name) => language == AppLanguage.hi ? '$name द्वारा एस्केलेट किया गया' : 'Escalated by $name';
-  String villageBlockDistrictText(Object village, Object block, Object district) => language == AppLanguage.hi
-      ? '$village, ब्लॉक: $block, $district'
-      : '$village, Block: $block, $district';
+  String escalationLevelText(Object level) => _fill('escalation_level', {'level': level});
+  String escalatedByText(Object name) => _fill('escalated_by', {'name': name});
+  String villageBlockDistrictText(Object village, Object block, Object district) =>
+      _fill('village_block_district', {'village': village, 'block': block, 'district': district});
   String get assignedHeiLabel => text('assigned_hei_label');
   String get evidenceMediaAttachmentsTitle => text('evidence_media_attachments_title');
-  String fileCountText(int count) => language == AppLanguage.hi ? '$count फ़ाइल(ें)' : '$count file(s)';
+  String fileCountText(int count) => _fill('file_count', {'count': count});
   String get imagePreviewUnavailable => text('image_preview_unavailable');
   String get statusAuditTrailTitle => text('status_audit_trail_title');
   String get initialStatusRecorded => text('initial_status_recorded');
   String get stakeholderDiscussionTitle => text('stakeholder_discussion_title');
-  String messageCountText(int count) => language == AppLanguage.hi ? '$count संदेश' : '$count message(s)';
+  String messageCountText(int count) => _fill('message_count', {'count': count});
   String get noStakeholderComments => text('no_stakeholder_comments');
   String get addInquiryHint => text('add_inquiry_hint');
   String get aiDomainClassificationRationale => text('ai_domain_classification_rationale');
-  String confidencePercentText(String pct) => language == AppLanguage.hi ? '$pct% विश्वास' : '$pct% Confidence';
+  String confidencePercentText(String pct) => _fill('confidence_percent', {'pct': pct});
   String get detectedPriorityLabel => text('detected_priority_label');
   String get strategicRecommendationLabel => text('strategic_recommendation_label');
   String get requiredSkillsetLabel => text('required_skillset_label');
@@ -678,18 +672,29 @@ class AppLocalizations extends ChangeNotifier {
   String get languagePartialNote => text('language_partial_note');
 
   // Dynamic interpolations
-  String unreadCountText(int count) {
-    if (_language == AppLanguage.hi) {
-      return count > 0 ? '$count नई सूचनाएं' : 'सभी सूचनाएं पढ़ी गईं';
-    }
-    return count > 0 ? '$count unread updates' : 'All notifications read';
-  }
+  String unreadCountText(int count) =>
+      count > 0 ? _fill('unread_count', {'count': count}) : text('all_notifications_read_summary');
 
-  String offlineDraftCount(int count) {
-    if (_language == AppLanguage.hi) {
-      return '$count ड्राफ़्ट ऑफ़लाइन सुरक्षित हैं';
-    }
-    return '$count drafts saved offline';
+  String offlineDraftCount(int count) => _fill('offline_draft_count', {'count': count});
+  String failedToUpdateText(Object reason) => _fill('failed_to_update', {'reason': reason});
+  String failedToMarkAllReadText(Object reason) => _fill('failed_to_mark_all_read', {'reason': reason});
+  String openingLinkedResourceText(String link) => _fill('opening_linked_resource', {'link': link});
+
+  /// Display name for a backend ChallengeStatus, priority or escalation tier.
+  /// Unknown values fall back to the humanised enum ("NEEDS_MORE_INFO" ->
+  /// "NEEDS MORE INFO") so a new backend value never renders blank.
+  String statusLabel(String status) => _enumLabel('status', status);
+  String priorityLabel(String priority) => _enumLabel('priority', priority);
+  String tierLabel(String tier) => _enumLabel('tier', tier);
+  /// Display name for a form choice value, e.g. choiceLabel('contact_pref', 'IN_APP').
+  String choiceLabel(String group, String value) => _enumLabel(group, value);
+  String detectedChannelText(String channel) =>
+      _fill('detected_channel', {'channel': choiceLabel('source_type', channel)});
+
+  String _enumLabel(String prefix, String value) {
+    final key = '${prefix}_${value.toLowerCase()}';
+    final resolved = text(key);
+    return resolved == key ? value.replaceAll('_', ' ').toUpperCase() : resolved;
   }
 
   // ----------------- COMPLETE DICTIONARIES -----------------
@@ -1223,6 +1228,94 @@ class AppLocalizations extends ChangeNotifier {
       'report_step5_sub': 'Review your report. If your connection drops, it is safe to submit again; it will not be sent twice.',
       'language_label': 'Language',
       'language_partial_note': 'Tribal languages are partly translated; the rest appears in Hindi.',
+
+      // Interpolated templates and lifecycle stages ({placeholders} filled by _fill)
+      'submitting_as_org': 'Submitting as {role}: {name}. Reports are attributed to your registered organisation, not an individual citizen.',
+      'ground_challenges_in_district': 'Ground Challenges in {district}',
+      'recorded_count': '{count} recorded',
+      'recording_in_progress': 'Recording... {time}',
+      'last_recorded': 'Last Recorded: {timestamp} (Version: {version})',
+      'failed_to_save_prefs': 'Failed to save preferences: {reason}',
+      'no_challenges_found_in_tab': 'No {tab} challenges found',
+      'assigned_to_name': 'Assigned to: {name}',
+      'no_reported_challenges_in_district': 'No reported challenges in {district} yet',
+      'level_governance': 'Level {level} Governance',
+      'lifecycle_submitted_title': '1. Citizen Submission',
+      'lifecycle_submitted_desc': 'Citizen logged societal challenge with GPS coordinates & evidence',
+      'lifecycle_ai_analysis_title': '2. AI Diagnostic Assessment',
+      'lifecycle_ai_analysis_desc': 'AI mapped urgency, keywords & recommended academic institutes',
+      'lifecycle_validated_title': '3. Administrative Validation',
+      'lifecycle_validated_desc': 'Jharkhand State Admin reviewed and authenticated problem',
+      'lifecycle_university_assigned_title': '4. HEI Institute Assignment',
+      'lifecycle_university_assigned_desc': 'Assigned to nodal higher education research center',
+      'lifecycle_team_formed_title': '5. Multidisciplinary Team',
+      'lifecycle_team_formed_desc': 'Student innovators and faculty guide assigned to project',
+      'lifecycle_solution_proposed_title': '6. Technical Solution Proposed',
+      'lifecycle_solution_proposed_desc': 'Detailed schematics, budget and milestones submitted',
+      'lifecycle_prototype_title': '7. Prototype Fabrication',
+      'lifecycle_prototype_desc': 'Laboratory fabrication and hardware/software testing in progress',
+      'lifecycle_field_testing_title': '8. Ground Field Trials',
+      'lifecycle_field_testing_desc': 'Validation in the affected community with local panchayat',
+      'lifecycle_deployment_title': '9. Production Commissioning',
+      'lifecycle_deployment_desc': 'Full deployment with district administration and CSR sponsor',
+      'lifecycle_resolved_title': '10. Societal Impact Handover',
+      'lifecycle_resolved_desc': 'Resolution certified with verified citizen beneficiaries',
+      'enter_otp_sent_to': 'Enter the 6-digit verification code sent to:\n{email}',
+      'otp_dispatched_to': 'A 6-digit OTP has been dispatched to {email}. Please check your inbox or spam folder.',
+      'role_colon': 'ROLE: {role}',
+      'lang_confidence': 'Lang: {lang} ({conf}%)',
+      'related_candidates_count': '{count} related candidates',
+      'match_percent': '{pct}% Match',
+      'fit_percent': '{pct}% Fit',
+      'failed_with_reason': 'Failed: {reason}',
+      'escalation_level': 'Escalation Level: {level} / 4',
+      'escalated_by': 'Escalated by {name}',
+      'file_count': '{count} file(s)',
+      'message_count': '{count} message(s)',
+      'confidence_percent': '{pct}% Confidence',
+      'model_version_exec': 'Model: {model} v{ver} ({ms} ms)',
+      'district_status': '{district} • Status: {status}',
+      'village_block_district': '{village}, Block: {block}, {district}',
+      'unread_count': '{count} unread updates',
+      'all_notifications_read_summary': 'All notifications read',
+      'offline_draft_count': '{count} drafts saved offline',
+
+      // Status, priority and escalation-tier display names; notification errors
+      'status_needs_more_info': 'More Information Needed',
+      'status_duplicate': 'Marked as Duplicate',
+      'status_university_assigned': 'University Assigned',
+      'status_team_formed': 'Team Formed',
+      'status_solution_proposed': 'Solution Proposed',
+      'status_approved': 'Approved',
+      'status_field_verification': 'Field Verification',
+      'status_impact_audited': 'Impact Audited',
+      'status_closed': 'Closed',
+      'status_paused': 'Paused',
+      'status_reopened': 'Reopened',
+      'priority_low': 'Low',
+      'priority_medium': 'Medium',
+      'priority_high': 'High',
+      'priority_critical': 'Critical',
+      'tier_panchayat': 'Level 1: Panchayat (GP)',
+      'tier_block': 'Level 2: Block (BDO)',
+      'tier_district': 'Level 3: District (DC)',
+      'tier_state': 'Level 4: State HQ',
+      'failed_to_update': 'Failed to update: {reason}',
+      'failed_to_mark_all_read': 'Failed to mark all read: {reason}',
+      'opening_linked_resource': 'Opening linked resource: {link}',
+
+      // Report form choices
+      'contact_pref_in_app': 'In the app',
+      'contact_pref_email': 'Email',
+      'contact_pref_phone': 'Phone call',
+      'contact_pref_whatsapp': 'WhatsApp',
+      'contact_pref_do_not_contact': 'Do not contact me',
+      'data_sharing_public_aggregated': 'Public (aggregated, no personal details)',
+      'data_sharing_authorized_research_only': 'Authorised researchers only',
+      'data_sharing_government_only': 'Government only',
+      'source_type_web_portal': 'Web portal',
+      'source_type_mobile_app': 'Mobile app',
+      'detected_channel': 'Detected channel: {channel}',
     },
     'hi': {
       // Branding & Metadata
@@ -1747,6 +1840,94 @@ class AppLocalizations extends ChangeNotifier {
       'report_step5_sub': 'अपनी रिपोर्ट जाँचें। कनेक्शन टूटने पर दोबारा जमा करना सुरक्षित है; यह दो बार नहीं भेजी जाएगी।',
       'language_label': 'भाषा',
       'language_partial_note': 'जनजातीय भाषाओं का आंशिक अनुवाद हुआ है; बाकी पाठ हिंदी में दिखता है।',
+
+      // Interpolated templates and lifecycle stages ({placeholders} filled by _fill)
+      'submitting_as_org': '{role} के रूप में प्रस्तुत: {name}। रिपोर्ट आपके पंजीकृत संगठन को आवंटित की जाती है, किसी व्यक्तिगत नागरिक को नहीं।',
+      'ground_challenges_in_district': '{district} में ज़मीनी समस्याएं',
+      'recorded_count': '{count} दर्ज',
+      'recording_in_progress': 'रिकॉर्डिंग जारी है... {time}',
+      'last_recorded': 'अंतिम दर्ज: {timestamp} (संस्करण: {version})',
+      'failed_to_save_prefs': 'प्राथमिकताएं सहेजने में विफल: {reason}',
+      'no_challenges_found_in_tab': '{tab} श्रेणी में कोई समस्या नहीं मिली',
+      'assigned_to_name': 'आवंटित: {name}',
+      'no_reported_challenges_in_district': '{district} में अभी तक कोई समस्या दर्ज नहीं हुई',
+      'level_governance': 'स्तर {level} शासन',
+      'lifecycle_submitted_title': '1. नागरिक द्वारा प्रस्तुति',
+      'lifecycle_submitted_desc': 'नागरिक ने जीपीएस निर्देशांक एवं साक्ष्य के साथ सामाजिक समस्या दर्ज की',
+      'lifecycle_ai_analysis_title': '2. एआई निदान मूल्यांकन',
+      'lifecycle_ai_analysis_desc': 'एआई ने तात्कालिकता, कीवर्ड एवं अनुशंसित शैक्षणिक संस्थानों की मैपिंग की',
+      'lifecycle_validated_title': '3. प्रशासनिक सत्यापन',
+      'lifecycle_validated_desc': 'झारखंड राज्य प्रशासन ने समस्या की समीक्षा एवं प्रमाणीकरण किया',
+      'lifecycle_university_assigned_title': '4. उच्च शिक्षा संस्थान आवंटन',
+      'lifecycle_university_assigned_desc': 'नोडल उच्च शिक्षा शोध केंद्र को आवंटित',
+      'lifecycle_team_formed_title': '5. बहु-विषयक टीम',
+      'lifecycle_team_formed_desc': 'छात्र अन्वेषक एवं संकाय मार्गदर्शक परियोजना को आवंटित',
+      'lifecycle_solution_proposed_title': '6. तकनीकी समाधान प्रस्तावित',
+      'lifecycle_solution_proposed_desc': 'विस्तृत योजना, बजट एवं माइलस्टोन प्रस्तुत किए गए',
+      'lifecycle_prototype_title': '7. प्रोटोटाइप निर्माण',
+      'lifecycle_prototype_desc': 'प्रयोगशाला निर्माण एवं हार्डवेयर/सॉफ़्टवेयर परीक्षण जारी',
+      'lifecycle_field_testing_title': '8. ज़मीनी क्षेत्र परीक्षण',
+      'lifecycle_field_testing_desc': 'स्थानीय पंचायत के साथ प्रभावित समुदाय में सत्यापन',
+      'lifecycle_deployment_title': '9. उत्पादन कमीशनिंग',
+      'lifecycle_deployment_desc': 'जिला प्रशासन एवं सीएसआर प्रायोजक के साथ पूर्ण क्रियान्वयन',
+      'lifecycle_resolved_title': '10. सामाजिक प्रभाव हस्तांतरण',
+      'lifecycle_resolved_desc': 'सत्यापित नागरिक लाभार्थियों के साथ समाधान प्रमाणित',
+      'enter_otp_sent_to': 'नीचे दिए गए पर भेजा गया 6-अंकीय सत्यापन कोड दर्ज करें:\n{email}',
+      'otp_dispatched_to': '{email} पर 6-अंकीय OTP भेजा गया है। कृपया अपना इनबॉक्स या स्पैम फ़ोल्डर देखें।',
+      'role_colon': 'भूमिका: {role}',
+      'lang_confidence': 'भाषा: {lang} ({conf}%)',
+      'related_candidates_count': '{count} संबंधित उम्मीदवार',
+      'match_percent': '{pct}% मेल',
+      'fit_percent': '{pct}% उपयुक्त',
+      'failed_with_reason': 'विफल: {reason}',
+      'escalation_level': 'एस्केलेशन स्तर: {level} / 4',
+      'escalated_by': '{name} द्वारा एस्केलेट किया गया',
+      'file_count': '{count} फ़ाइल(ें)',
+      'message_count': '{count} संदेश',
+      'confidence_percent': '{pct}% विश्वास',
+      'model_version_exec': 'मॉडल: {model} v{ver} ({ms} ms)',
+      'district_status': '{district} • स्थिति: {status}',
+      'village_block_district': '{village}, ब्लॉक: {block}, {district}',
+      'unread_count': '{count} नई सूचनाएं',
+      'all_notifications_read_summary': 'सभी सूचनाएं पढ़ी गईं',
+      'offline_draft_count': '{count} ड्राफ़्ट ऑफ़लाइन सुरक्षित हैं',
+
+      // Status, priority and escalation-tier display names; notification errors
+      'status_needs_more_info': 'अधिक जानकारी आवश्यक',
+      'status_duplicate': 'दोहराव के रूप में चिह्नित',
+      'status_university_assigned': 'विश्वविद्यालय को सौंपा गया',
+      'status_team_formed': 'टीम गठित',
+      'status_solution_proposed': 'समाधान प्रस्तावित',
+      'status_approved': 'स्वीकृत',
+      'status_field_verification': 'क्षेत्र सत्यापन',
+      'status_impact_audited': 'प्रभाव ऑडिट पूर्ण',
+      'status_closed': 'बंद',
+      'status_paused': 'रोका गया',
+      'status_reopened': 'फिर से खोला गया',
+      'priority_low': 'निम्न',
+      'priority_medium': 'मध्यम',
+      'priority_high': 'उच्च',
+      'priority_critical': 'अति गंभीर',
+      'tier_panchayat': 'स्तर 1: पंचायत (ग्राम पंचायत)',
+      'tier_block': 'स्तर 2: प्रखंड (बीडीओ)',
+      'tier_district': 'स्तर 3: ज़िला (उपायुक्त)',
+      'tier_state': 'स्तर 4: राज्य मुख्यालय',
+      'failed_to_update': 'अपडेट नहीं हो सका: {reason}',
+      'failed_to_mark_all_read': 'सभी को पढ़ा हुआ चिह्नित नहीं किया जा सका: {reason}',
+      'opening_linked_resource': 'जुड़ा हुआ संसाधन खोला जा रहा है: {link}',
+
+      // Report form choices
+      'contact_pref_in_app': 'ऐप में',
+      'contact_pref_email': 'ईमेल',
+      'contact_pref_phone': 'फ़ोन कॉल',
+      'contact_pref_whatsapp': 'व्हाट्सऐप',
+      'contact_pref_do_not_contact': 'मुझसे संपर्क न करें',
+      'data_sharing_public_aggregated': 'सार्वजनिक (समेकित, व्यक्तिगत विवरण नहीं)',
+      'data_sharing_authorized_research_only': 'केवल अधिकृत शोधकर्ता',
+      'data_sharing_government_only': 'केवल सरकार',
+      'source_type_web_portal': 'वेब पोर्टल',
+      'source_type_mobile_app': 'मोबाइल ऐप',
+      'detected_channel': 'पहचाना गया माध्यम: {channel}',
     },
     // Extension path for Jharkhand Tribal Languages (Santhali, Mundari, Ho, Kurukh, Khortha)
     'sat': {

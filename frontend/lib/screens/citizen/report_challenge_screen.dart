@@ -816,7 +816,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
-                      label: Text(u, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : AppTheme.textPrimary)),
+                      label: Text(loc.priorityLabel(u), style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal, color: isSelected ? Colors.white : AppTheme.textPrimary)),
                       selected: isSelected,
                       selectedColor: chipColor,
                       onSelected: (val) {
@@ -1177,7 +1177,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                     const Icon(Icons.podcasts_outlined, size: 18, color: AppTheme.textSecondary),
                     const SizedBox(width: 8),
                     Text(
-                      'Detected channel: ${_sourceType.replaceAll('_', ' ')}',
+                      loc.detectedChannelText(_sourceType),
                       style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
                     ),
                   ],
@@ -1193,7 +1193,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                         labelText: loc.contactChannelLabel,
                         border: const OutlineInputBorder(),
                       ),
-                      items: _contactPreferences.map((p) => DropdownMenuItem(value: p, child: Text(p.replaceAll('_', ' ')))).toList(),
+                      items: _contactPreferences.map((p) => DropdownMenuItem(value: p, child: Text(loc.choiceLabel('contact_pref', p)))).toList(),
                       onChanged: (v) {
                         if (v != null) setState(() => _contactPreference = v);
                       },
@@ -1207,7 +1207,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                         labelText: loc.dataSharingConsentLabel,
                         border: const OutlineInputBorder(),
                       ),
-                      items: _dataSharingChoices.map((d) => DropdownMenuItem(value: d, child: Text(d.replaceAll('_', ' ')))).toList(),
+                      items: _dataSharingChoices.map((d) => DropdownMenuItem(value: d, child: Text(loc.choiceLabel('data_sharing', d)))).toList(),
                       onChanged: (v) {
                         if (v != null) setState(() => _dataSharingChoice = v);
                       },
@@ -1279,7 +1279,7 @@ class _ReportChallengeScreenState extends State<ReportChallengeScreen> {
                   ? '${_latitude!.toStringAsFixed(4)}° N, ${_longitude!.toStringAsFixed(4)}° E'
                   : loc.reviewNotCaptured),
               _buildReviewRow(loc.reviewAffectedCitizens, '${_populationController.text} residents'),
-              _buildReviewRow(loc.submissionChannel, _sourceType.replaceAll('_', ' ')),
+              _buildReviewRow(loc.submissionChannel, loc.choiceLabel('source_type', _sourceType)),
               _buildReviewRow(loc.reviewPublicIdentity, _isAnonymousPublic ? loc.reviewAnonymousCitizen : loc.reviewPublicSubmitterName),
               _buildReviewRow(loc.reviewEvidenceFiles, '${_uploadedAttachments.length} verified attachment(s)'),
               _buildReviewRow(loc.reviewIdempotencyKey, _idempotencyKey.substring(0, 13) + '...'),

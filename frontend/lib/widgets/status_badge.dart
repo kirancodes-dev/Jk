@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/localization/app_localizations.dart';
 import '../core/theme.dart';
 
 enum StatusBadgeType { status, priority, tier }
@@ -58,7 +59,7 @@ class StatusBadge extends StatelessWidget {
         border: Border.all(color: fg.withOpacity(0.2), width: 0.8),
       ),
       child: Text(
-        p,
+        AppLocalizations.current.priorityLabel(p).toUpperCase(),
         style: TextStyle(
           color: fg,
           fontWeight: FontWeight.bold,
@@ -79,26 +80,26 @@ class StatusBadge extends StatelessWidget {
       case 'PANCHAYAT':
         bg = const Color(0xFFFEF3C7);
         fg = const Color(0xFFB45309);
-        label = 'Level 1: Panchayat (GP)';
+        label = AppLocalizations.current.tierLabel('PANCHAYAT');
         icon = Icons.home_work_outlined;
         break;
       case 'BLOCK':
         bg = const Color(0xFFE0E7FF);
         fg = const Color(0xFF3730A3);
-        label = 'Level 2: Block (BDO)';
+        label = AppLocalizations.current.tierLabel('BLOCK');
         icon = Icons.location_city_outlined;
         break;
       case 'DISTRICT':
         bg = const Color(0xFFCCFBF1);
         fg = const Color(0xFF0F766E);
-        label = 'Level 3: District (DC)';
+        label = AppLocalizations.current.tierLabel('DISTRICT');
         icon = Icons.account_balance_outlined;
         break;
       case 'STATE':
       default:
         bg = const Color(0xFFDCFCE7);
         fg = const Color(0xFF15803D);
-        label = 'Level 4: State HQ';
+        label = AppLocalizations.current.tierLabel('STATE');
         icon = Icons.shield_outlined;
         break;
     }
@@ -132,7 +133,7 @@ class StatusBadge extends StatelessWidget {
   Widget _buildStatusBadge() {
     Color bg;
     Color fg;
-    String cleanStatus = status.replaceAll('_', ' ').toUpperCase();
+    String cleanStatus = AppLocalizations.current.statusLabel(status).toUpperCase();
 
     switch (status.toUpperCase()) {
       case 'SUBMITTED':

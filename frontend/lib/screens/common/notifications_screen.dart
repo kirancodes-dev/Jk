@@ -68,7 +68,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update: ${e.toString()}'), backgroundColor: AppTheme.error),
+        SnackBar(content: Text(AppLocalizations.current.failedToUpdateText(e)), backgroundColor: AppTheme.error),
       );
     }
   }
@@ -84,7 +84,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to mark all read: ${e.toString()}'), backgroundColor: AppTheme.error),
+        SnackBar(content: Text(AppLocalizations.current.failedToMarkAllReadText(e)), backgroundColor: AppTheme.error),
       );
     }
   }
@@ -100,7 +100,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Opening linked resource: $link'),
+        content: Text(AppLocalizations.current.openingLinkedResourceText(link)),
         duration: const Duration(seconds: 2),
       ),
     );
