@@ -193,14 +193,6 @@ class AIService:
             challenge.category = domain
         challenge.priority = priority
 
-        WorkflowService.transition_challenge(
-            db=db,
-            challenge=challenge,
-            to_status=ChallengeStatus.AI_ANALYSIS,
-            actor=challenge.submitted_by_user,
-            remarks="Automated AI triage and NLP domain classification"
-        )
-
         # University matching
         top_univs = self.match_universities(domain, dist_name, db)
         for rank, match_info in enumerate(top_univs, start=1):
@@ -231,6 +223,16 @@ class AIService:
                 dismissed=False
             )
             db.add(cs)
+
+        # Record the status change last: appending to the audit hash chain takes a
+        # lock held until commit, so matching and the duplicate search run first.
+        WorkflowService.transition_challenge(
+            db=db,
+            challenge=challenge,
+            to_status=ChallengeStatus.AI_ANALYSIS,
+            actor=challenge.submitted_by_user,
+            remarks="Automated AI triage and NLP domain classification"
+        )
 
         db.commit()
         db.refresh(analysis)
