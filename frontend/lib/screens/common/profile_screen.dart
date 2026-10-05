@@ -9,12 +9,6 @@ import '../../widgets/section_header.dart';
 import '../../widgets/accessibility_settings_sheet.dart';
 import '../../core/role_routing.dart';
 import 'login_screen.dart';
-import '../citizen/citizen_dashboard.dart';
-import '../university/university_dashboard.dart';
-import '../student/student_dashboard.dart';
-import '../faculty/faculty_dashboard.dart';
-import '../industry/industry_dashboard.dart';
-import '../admin/admin_dashboard.dart';
 import '../citizen/privacy_data_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
