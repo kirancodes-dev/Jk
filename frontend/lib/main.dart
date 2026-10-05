@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'core/theme.dart';
 import 'core/api_service.dart';
@@ -17,12 +19,24 @@ final GlobalKey<ScaffoldMessengerState> appMessengerKey = GlobalKey<ScaffoldMess
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _registerFontLicences();
   // Restore the user's saved language before the first frame.
   await AppLocalizations.current.init();
   final authProvider = AuthProvider();
   await authProvider.init();
   _registerSessionExpiryHandler(authProvider);
   runApp(LanguageRebuildScope(child: SIHCollaborationPortalApp(authProvider: authProvider)));
+}
+
+/// The bundled script fonts are SIL OFL 1.1, which asks that the licence
+/// travel with the font; this lists it on Flutter's licence page.
+void _registerFontLicences() {
+  LicenseRegistry.addLicense(() async* {
+    for (final family in AppTheme.scriptFallbackFonts) {
+      final text = await rootBundle.loadString('assets/fonts/OFL-$family.txt');
+      yield LicenseEntryWithLineBreaks([family], text);
+    }
+  });
 }
 
 /// When the backend rejects a stored token (expired, revoked, password

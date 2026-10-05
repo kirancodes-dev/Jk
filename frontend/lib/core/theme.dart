@@ -8,6 +8,10 @@ class AppTheme {
   // contrast against white text — below WCAG AA's 4.5:1 text threshold. primaryGreen
   // below is the same hue darkened to ~6.5:1, since this app uses it as the AppBar/
   // button background behind white text almost everywhere.
+  /// Bundled fallbacks so Ol Chiki (Santali) and Warang Citi (Ho) render on
+  /// devices and browsers without those scripts; see pubspec.yaml.
+  static const List<String> scriptFallbackFonts = ['NotoSansOlChiki', 'NotoSansWarangCiti'];
+
   static const Color primaryGreen = Color(0xFF2C6E04); // Official hue, AA-safe for white text
   static const Color primaryGreenDark = Color(0xFF215403);
   static const Color primaryGreenLight = Color(0xFF43A906); // True official brand green — accents/icons only
@@ -57,6 +61,7 @@ class AppTheme {
       ),
       scaffoldBackgroundColor: surfaceLight,
       fontFamily: 'Roboto',
+      fontFamilyFallback: scriptFallbackFonts,
       appBarTheme: const AppBarTheme(
         backgroundColor: primaryGreen,
         foregroundColor: Colors.white,

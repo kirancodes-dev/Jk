@@ -68,6 +68,21 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Licence texts for the bundled script fonts (registered in main.dart).
+  assets:
+    - assets/fonts/OFL-NotoSansOlChiki.txt
+    - assets/fonts/OFL-NotoSansWarangCiti.txt
+
+  # Fallback fonts for tribal-language scripts (SIL Open Font License 1.1):
+  # Ol Chiki for Santali, Warang Citi for Ho's native name in the language picker.
+  fonts:
+    - family: NotoSansOlChiki
+      fonts:
+        - asset: assets/fonts/NotoSansOlChiki-Variable.ttf
+    - family: NotoSansWarangCiti
+      fonts:
+        - asset: assets/fonts/NotoSansWarangCiti-Regular.ttf
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
