@@ -9,9 +9,9 @@ We have completed **Stage 11: Harden Storage, Observability, Resilience, and Sec
 | Suite / Artifact | Scope | Status | Notes |
 | :--- | :--- | :--- | :--- |
 | **Stage 11 Security & Ops Tests** | 15 test cases in [test_stage11_security_and_operations.py](file:///Users/kiranbiradar/JK/tests/test_stage11_security_and_operations.py) | **PASSED (15/15)** | Headers, limits, proxies, PII scrub, metrics, SSE-S3, EICAR, EXIF, soft-delete, worker lock, DPDP rights, backups |
-| **Stage 12 Negative/Property Tests** | 6 test cases in [test_stage12_security_negative_properties.py](file:///Users/kiranbiradar/JK/tests/test_stage12_security_negative_properties.py) | **PASSED (6/6)** | Vertical privilege escalation, horizontal BOLA, cross-district tampering, path traversal, fail-closed production config, unauthenticated access |
+| **Stage 12 Negative/Property Tests** | 8 test cases in [test_stage12_security_negative_properties.py](file:///Users/kiranbiradar/JK/tests/test_stage12_security_negative_properties.py) | **PASSED (8/8)** | Vertical privilege escalation, horizontal BOLA, cross-district tampering, path traversal, fail-closed production config, unauthenticated access, rate-limit spoofing, demo jurisdiction |
 | **Stage 12 E2E User Journeys** | 5 test cases in [test_stage12_e2e_journeys.py](file:///Users/kiranbiradar/JK/tests/test_stage12_e2e_journeys.py) | **PASSED (5/5)** | Citizen crowdsourcing, district officer review, HEI collaboration, industry sponsorship, executive analytics |
-| **Flutter Mobile/Web Test Suite** | 17 widget & unit tests in [frontend/test/](file:///Users/kiranbiradar/JK/frontend/test/) | **PASSED (17/17)** | Offline sync, draft UUIDs, multi-role auth, dashboards, state views, and localization |
+| **Flutter Mobile/Web Test Suite** | 62 widget & unit test cases (79 runs) in [frontend/test/](file:///Users/kiranbiradar/JK/frontend/test/) | **PASSED (79/79)** | Offline sync, draft UUIDs, multi-role auth, dashboards, state views, localization, and tribal-language coverage |
 | **Traceability Matrix** | [TRACEABILITY_MATRIX.md](file:///Users/kiranbiradar/JK/TRACEABILITY_MATRIX.md) | **COMPLETE** | Bidirectional mapping for REQ-01 through REQ-12 to models, APIs, UI screens, and test suites |
 | **Pilot Acceptance Pack** | [PILOT_ACCEPTANCE_PACK.md](file:///Users/kiranbiradar/JK/docs/PILOT_ACCEPTANCE_PACK.md) | **COMPLETE** | 8 evaluator personas, 5 step-by-step evaluator scenarios, verification commands, and sign-off criteria |
 | **Disaster Recovery & Ops Runbooks** | 4 runbooks in [docs/runbooks/](file:///Users/kiranbiradar/JK/docs/runbooks/) | **COMPLETE** | DR/PITR drill, Zero-Downtime Deployment & Rollback, Secrets Rotation, Incident Response |
@@ -99,25 +99,27 @@ We have completed **Stage 11: Harden Storage, Observability, Resilience, and Sec
 The [TRACEABILITY_MATRIX.md](file:///Users/kiranbiradar/JK/TRACEABILITY_MATRIX.md) artifact provides 100% bidirectional requirement coverage for Smart India Hackathon problem statement **SIH 26043**:
 - **REQ-01: Citizen & PRI Challenge Ingestion** -> Models, APIs, Mobile Screens, Automated Tests.
 - **REQ-02: Controlled Taxonomy & Geographic Scoping** -> 11 canonical domains, 24 districts, bounding box.
-- **REQ-03: Multi-Role RBAC & District Isolation** -> 8 roles, hierarchical permissions, district tenancy.
-- **REQ-04: Finite State Machine Workflow** -> 13 states, valid transitions, domain event ledger.
+- **REQ-03: Multi-Role RBAC & District Isolation** -> 12 roles, hierarchical permissions, district tenancy.
+- **REQ-04: Finite State Machine Workflow** -> 21 states (15 on the main path), valid transitions, domain event ledger.
 - **REQ-05: Governable & Explainable AI Engine** -> Confidence scores, human override ledger, fallback.
 - **REQ-06: University & HEI R&D Lifecycle** -> Multi-institutional collaboration, milestone reviews.
 - **REQ-07: Industry CSR & IP Commercialization** -> CSR funding tranches, 4-way IP allocation agreements.
 - **REQ-08: Field Verification & Impact Closure** -> Geo-tagged evidence, tamper resistance, before/after metrics.
-- **REQ-09: Multi-Channel Outbox & Localization** -> Durable outbox, English/Hindi localization.
+- **REQ-09: Multi-Channel Outbox & Localization** -> Durable outbox, English/Hindi localization, machine-drafted Santali/Mundari/Ho/Kurukh/Khortha pending native review.
 - **REQ-10: Executive Command Analytics** -> District heatmaps, sector breakdown, live aggregates.
 - **REQ-11: Production Security & Object Storage** -> Headers, SSE-S3, PII masking, rate limiting, DPDP rights.
 - **REQ-12: Operational Resilience & DevSecOps** -> Backup encryption, restore drills, runbooks, CI/CD SAST.
 
 ### B. Security Negative & Invariant Property Tests
-Executed in [test_stage12_security_negative_properties.py](file:///Users/kiranbiradar/JK/tests/test_stage12_security_negative_properties.py) (**6/6 PASSED**):
+Executed in [test_stage12_security_negative_properties.py](file:///Users/kiranbiradar/JK/tests/test_stage12_security_negative_properties.py) (**8/8 PASSED**):
 1. **Vertical Privilege Escalation**: Citizen attempting to access Government Admin endpoints (`GET /api/v1/admin/dashboard`) is rejected with `403 Forbidden`.
 2. **Horizontal Privilege Escalation (BOLA)**: Citizen A cannot edit or delete draft challenges belonging to Citizen B.
 3. **Cross-District Tampering**: District Officer in Ranchi cannot approve or reject challenges situated in Dhanbad.
 4. **Path Traversal & Filename Sanitization**: Filenames like `../../../../etc/passwd` or `..\\windows\\system32` are sanitized to safe UUID-prefixed basenames without directory traversal.
 5. **Fail-Closed Production Configuration**: Initializing application in production environment without a configured S3 bucket or with default insecure secrets raises immediate `ValueError`.
 6. **Unauthenticated Access**: Requests to protected routes without a valid Bearer token are rejected with `401 Unauthorized`.
+7. **Rate-Limit Spoofing**: Rotating `X-Forwarded-For` values from an untrusted client does not evade the per-IP sign-in limit (`429` is returned).
+8. **Demo Jurisdiction**: The Ranchi demo officer and verifier are scoped to Ranchi district, so the cross-district walkthrough behaves as described.
 
 ### C. End-to-End User Journeys
 Executed in [test_stage12_e2e_journeys.py](file:///Users/kiranbiradar/JK/tests/test_stage12_e2e_journeys.py) (**5/5 PASSED**):
@@ -129,7 +131,7 @@ Executed in [test_stage12_e2e_journeys.py](file:///Users/kiranbiradar/JK/tests/t
 
 ### D. Pilot Acceptance Pack for Evaluators
 The [docs/PILOT_ACCEPTANCE_PACK.md](file:///Users/kiranbiradar/JK/docs/PILOT_ACCEPTANCE_PACK.md) artifact provides a complete turnkey evaluator guide:
-- **8 Pre-Configured Test Personas**: Passwords, roles, and district assignments for immediate login.
+- **9 Demo Personas (10 accounts)**: Passwords, roles, and district assignments for immediate login; they exist only when the server runs with `DEMO_MODE=true`.
 - **5 Guided Step-by-Step Test Scenarios**: Exact inputs, UI actions, API calls, and expected outcomes.
 - **One-Command Automated Verification**: Single CLI command to execute all backend and frontend tests.
 - **Evaluator Sign-Off Sheet**: Formal checklist confirming compliance with SIH 26043 problem statement requirements.
@@ -141,15 +143,19 @@ The [docs/PILOT_ACCEPTANCE_PACK.md](file:///Users/kiranbiradar/JK/docs/PILOT_ACC
 ```bash
 # Combined Stage 11 & Stage 12 Security Test Suite
 PYTHONPATH=. backend/.venv/bin/pytest tests/test_stage11_security_and_operations.py tests/test_stage12_security_negative_properties.py -v
-# Output: 21 passed in 53.45s
+# Output: 23 passed
 
 # Stage 12 End-to-End User Journeys Suite
 PYTHONPATH=. backend/.venv/bin/pytest tests/test_stage12_e2e_journeys.py -v
-# Output: 5 passed in 256.09s
+# Output: 5 passed
 
 # Flutter Mobile/Web Test Suite
-DEVELOPER_DIR=/Library/Developer/CommandLineTools flutter test frontend/
-# Output: All 17 tests passed!
+cd frontend && flutter test
+# Output: All 79 tests passed!
+
+# Full backend suite (as in CI, on PostgreSQL 16)
+PYTHONPATH=. pytest tests/ -q
+# Output: 214 passed
 ```
 
 All deliverables for Stage 11 and Stage 12 have been implemented, tested against PostgreSQL, and verified.
