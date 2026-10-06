@@ -248,3 +248,31 @@ def test_unauthenticated_requests_rejected():
     # Access my-data without auth
     privacy_resp = client.get("/api/v1/privacy/my-data")
     assert privacy_resp.status_code == 401
+
+
+def test_login_rate_limit_cannot_be_bypassed_by_spoofing_forwarded_for(monkeypatch):
+    """
+    A client that is not a trusted proxy must not choose its own rate-limit key
+    by sending a different X-Forwarded-For on each request.
+    """
+    from fastapi.testclient import TestClient
+    from backend.app.core.config import settings
+    from backend.app.main import app
+    from backend.app.services.rate_limiter import rate_limiter
+
+    monkeypatch.setattr(settings, "DEMO_MODE", False)
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    rate_limiter.reset()
+    try:
+        with TestClient(app) as client:
+            codes = [
+                client.post(
+                    "/api/v1/auth/login",
+                    json={"email": f"nobody{i}@example.org", "password": "wrong-password"},
+                    headers={"X-Forwarded-For": f"203.0.113.{i}"},
+                ).status_code
+                for i in range(25)
+            ]
+    finally:
+        rate_limiter.reset()
+    assert 429 in codes, codes

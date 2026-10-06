@@ -85,11 +85,13 @@ class RateLimiter:
 
     @staticmethod
     def get_client_ip(request: Request) -> str:
-        """Extracts client IP considering standard forwarding headers."""
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        return request.client.host if request.client else "127.0.0.1"
+        """
+        Client IP for rate-limit keys. X-Forwarded-For is honoured only when the
+        direct peer is a trusted proxy (TrustedProxyHelper); taking its first entry
+        from anyone let a client pick a fresh "IP" per request and bypass the limits.
+        """
+        from backend.app.core.security_headers import TrustedProxyHelper
+        return TrustedProxyHelper.get_trusted_client_ip(request)
 
 
 rate_limiter = RateLimiter()
