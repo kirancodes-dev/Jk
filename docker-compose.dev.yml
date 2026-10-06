@@ -9,6 +9,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        EVALUATOR_MODE: "true"   # one-tap demo accounts on the login screen
     container_name: jharkhand_sih_web_dev
     restart: unless-stopped
     ports:
@@ -19,6 +21,9 @@ services:
       - SECRET_KEY=dev-local-insecure-secret-key-32chars-min-length
       - ALLOWED_CORS_ORIGINS=http://localhost:3000,http://localhost:8008,http://127.0.0.1:3000,http://127.0.0.1:8008
       - DEMO_MODE=true
+      # Apply migrations and seed every demo account on start (docker-entrypoint.sh)
+      - RUN_MIGRATIONS_ON_START=true
+      - WEB_CONCURRENCY=1
     volumes:
       - ./backend:/app/backend
       - uploads_dev_data:/app/uploads
