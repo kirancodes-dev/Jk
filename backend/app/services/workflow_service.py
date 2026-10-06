@@ -639,13 +639,32 @@ class WorkflowService:
                 admin_tier="STATE"
             )
 
-        # 1. Enforce optimistic concurrency first
+        from_status = challenge.status
+        if from_status != to_status:
+            # 1. Authorise before revealing anything about the challenge's state:
+            #    checking the version first answered unauthorised callers with 409
+            #    and the current version. This check depends only on the target.
+            roles_for_target = {
+                role for (_, target), roles in ALLOWED_CHALLENGE_TRANSITIONS.items()
+                if target == to_status for role in roles
+            }
+            if actor.role not in roles_for_target:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Actor with role '{actor.role.value}' is not authorized to transition challenges to '{to_status.value}'."
+                )
+            # Enforce jurisdiction for government actors
+            if actor.role in {UserRole.GOVERNMENT_OFFICER, UserRole.GOVERNMENT_ADMIN}:
+                verify_challenge_jurisdiction(challenge, actor, db, action=f"transition_to_{to_status.value.lower()}")
+
+        # 2. Optimistic concurrency: an authorised caller acting on a stale view gets
+        #    409 and a reload URL before the transition is judged against current state.
         cls._check_and_increment_version(challenge, expected_version)
 
-        from_status = challenge.status
         if from_status == to_status:
             return challenge
 
+        # 3. The specific transition must be legal from the current state, for this role.
         transition = (from_status, to_status)
         allowed_roles = ALLOWED_CHALLENGE_TRANSITIONS.get(transition)
         if not allowed_roles:
@@ -660,10 +679,6 @@ class WorkflowService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Actor with role '{actor.role.value}' is not authorized to transition challenge to '{to_status.value}'. Required role: {allowed_str}."
             )
-
-        # Enforce jurisdiction for government actors
-        if actor.role in {UserRole.GOVERNMENT_OFFICER, UserRole.GOVERNMENT_ADMIN}:
-            verify_challenge_jurisdiction(challenge, actor, db, action=f"transition_to_{to_status.value.lower()}")
 
         # Deployment gate: at least one recorded field/lab/user-trial test outcome
         # (PASS or PARTIAL) across the challenge's project(s) is required before a

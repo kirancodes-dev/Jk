@@ -71,9 +71,15 @@ def test_vertical_privilege_escalation_rejected(db_session):
     citizen = _mk_user(db_session, f"cit.unauth.{uuid.uuid4().hex[:6]}@jharkhand.gov.in", UserRole.CITIZEN)
     headers = _auth_header(citizen)
 
-    # Attempt to change challenge status (officer/admin only)
-    resp = client.post("/api/v1/challenges/1/status", headers=headers, json={"status": "VALIDATED", "expected_version": 1})
-    assert resp.status_code in (400, 401, 403), f"Expected 400/403 for unauthorized status transition, got: {resp.status_code}"
+    # Attempt to change challenge status (officer/admin only), on a challenge this
+    # test owns, with a stale version: authorisation must win (403, not 409).
+    ch = Challenge(title=f"Escalation probe {uuid.uuid4().hex[:6]}", description="Vertical escalation test.",
+                   category="Water Resources", status=ChallengeStatus.UNDER_REVIEW)
+    db_session.add(ch)
+    db_session.commit()
+    resp = client.post(f"/api/v1/challenges/{ch.id}/status", headers=headers,
+                       json={"status": "VALIDATED", "expected_version": 99})
+    assert resp.status_code == 403, f"Expected 403 for unauthorized status transition, got: {resp.status_code}"
 
     # Attempt to access admin overview analytics
     admin_resp = client.get("/api/v1/admin/dashboard", headers=headers)

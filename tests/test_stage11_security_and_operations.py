@@ -20,7 +20,7 @@ from backend.app.core.logging_config import redact_sensitive_text, redact_sensit
 from backend.app.services.storage_service import storage_service, EICAR_SIGNATURE
 from backend.app.worker import BackgroundWorker
 from backend.app.models.models import (
-    User, UserRole, ChallengeAttachment, AIJob, AIJobStatus,
+    User, UserRole, Challenge, ChallengeAttachment, AIJob, AIJobStatus,
     NotificationOutbox, Notification, utc_now
 )
 
@@ -259,8 +259,13 @@ def test_background_worker_cycle_and_stale_recovery(db_session):
     # Insert a stale processing job with unique idempotency key
     stale_time = utc_now() - timedelta(seconds=10)
     unique_key = f"TEST_STALE_JOB_{uuid.uuid4().hex[:8]}"
+    # Own challenge, so the test does not depend on data from other modules.
+    challenge = Challenge(title=f"Stale job probe {unique_key}", description="Worker recovery test.",
+                          category="Water Resources")
+    db_session.add(challenge)
+    db_session.flush()
     stale_ai = AIJob(
-        challenge_id=1,
+        challenge_id=challenge.id,
         idempotency_key=unique_key,
         status=AIJobStatus.PROCESSING,
         attempts=1,
@@ -284,6 +289,7 @@ def test_background_worker_cycle_and_stale_recovery(db_session):
 
     # Cleanup
     db_session.delete(stale_ai)
+    db_session.delete(challenge)
     db_session.commit()
 
 
