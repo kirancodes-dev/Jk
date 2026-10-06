@@ -17,6 +17,25 @@ from backend.app.models.models import (
     DomainAuditEvent, AuditLog
 )
 
+# Demo accounts whose names promise a jurisdiction. User.admin_tier defaults to
+# STATE, which silently gave the "Ranchi" officer statewide access, so the
+# district-isolation walkthrough in the README could not work.
+DEMO_ACCOUNT_SCOPES = {
+    "officer.ranchi@jharkhand.gov.in": ("DISTRICT", "Ranchi"),
+    "verifier.ranchi@jharkhand.gov.in": ("DISTRICT", "Ranchi"),
+}
+
+
+def apply_demo_account_scopes(db: Session) -> None:
+    """Sets (or corrects) the district scope of the district-named demo accounts."""
+    for email, (tier, district) in DEMO_ACCOUNT_SCOPES.items():
+        user = db.query(User).filter(User.email == email).first()
+        if user and (user.admin_tier != tier or user.district_name != district):
+            user.admin_tier = tier
+            user.district_name = district
+    db.commit()
+
+
 def run_seed():
     db: Session = SessionLocal()
     try:
@@ -71,6 +90,8 @@ def run_seed():
             db.add(verifier_user)
             db.commit()
             db.refresh(verifier_user)
+
+        apply_demo_account_scopes(db)
 
         # 4. PRI Representative (Angara Gram Panchayat Mukhiya)
         pri_user = db.query(User).filter(User.email == "pri.angara@jharkhand.gov.in").first()

@@ -276,3 +276,19 @@ def test_login_rate_limit_cannot_be_bypassed_by_spoofing_forwarded_for(monkeypat
     finally:
         rate_limiter.reset()
     assert 429 in codes, codes
+
+
+def test_ranchi_demo_officers_are_district_scoped(db_session):
+    """The district-isolation demo needs officer.ranchi / verifier.ranchi scoped to Ranchi."""
+    from backend.app.services.seed_flagship_demo import DEMO_ACCOUNT_SCOPES, apply_demo_account_scopes
+    for email in DEMO_ACCOUNT_SCOPES:
+        if not db_session.query(User).filter(User.email == email).first():
+            db_session.add(User(email=email, hashed_password="!", full_name="Demo officer",
+                                role=UserRole.GOVERNMENT_OFFICER))
+    db_session.commit()
+
+    apply_demo_account_scopes(db_session)
+
+    for email in DEMO_ACCOUNT_SCOPES:
+        user = db_session.query(User).filter(User.email == email).first()
+        assert (user.admin_tier, user.district_name) == ("DISTRICT", "Ranchi")
