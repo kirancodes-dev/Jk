@@ -466,7 +466,7 @@ class WorkflowService:
         # reads the committed head. SQLite already serialises writers.
         if db.get_bind().dialect.name == "postgresql":
             db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": AUDIT_CHAIN_LOCK_KEY})
-        last_event =db.query(DomainAuditEvent).order_by(desc(DomainAuditEvent.sequence_number)).first()
+        last_event = db.query(DomainAuditEvent).order_by(desc(DomainAuditEvent.sequence_number)).first()
         prev_event_hash = last_event.event_hash if last_event else ("0" * 64)
         new_seq = (last_event.sequence_number + 1) if last_event else 1
 
