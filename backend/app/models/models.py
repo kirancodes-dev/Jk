@@ -1459,7 +1459,8 @@ class ChallengeAttachment(Base):
     storage_key = Column(String(500), nullable=False)
     scan_status = Column(String(50), default="CLEAN")
     access_classification = Column(String(50), default="RESTRICTED")
-    retention_state = Column(String(50), default="ACTIVE")
+    retention_state = Column(String(50), default="ACTIVE")  # ACTIVE, SOFT_DELETED, PURGED
+    soft_deleted_at = Column(DateTime, nullable=True, index=True)  # starts the purge clock
     created_at = Column(DateTime, default=utc_now)
 
     owner = relationship("User")

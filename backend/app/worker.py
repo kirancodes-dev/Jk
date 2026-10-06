@@ -25,6 +25,9 @@ from backend.app.models.models import AIJob, AIJobStatus, NotificationOutbox, ut
 from backend.app.services.ai.queue_service import ai_queue_service
 from backend.app.services.notification_service import notification_service
 from backend.app.core.telemetry import update_queue_depth
+from backend.app.services.storage_service import storage_service
+
+PURGE_INTERVAL_SECONDS = 3600
 
 logger = logging.getLogger("worker")
 logger.setLevel(logging.INFO)
@@ -42,6 +45,7 @@ class BackgroundWorker:
         self.visibility_timeout_seconds = visibility_timeout_seconds
         self.running = False
         self._is_postgres = not settings.DATABASE_URL.startswith("sqlite")
+        self._last_purge = 0.0
 
     def signal_handler(self, signum, frame):
         """Gracefully handle termination signals."""
@@ -174,6 +178,11 @@ class BackgroundWorker:
         pending_outbox = db.query(NotificationOutbox).filter(NotificationOutbox.delivery_status == "PENDING").count()
         update_queue_depth("ai_jobs", pending_ai)
         update_queue_depth("notification_outbox", pending_outbox)
+
+        # 5. Hourly: delete files of attachments soft-deleted beyond the retention window
+        if time.time() - self._last_purge >= PURGE_INTERVAL_SECONDS:
+            storage_service.purge_expired_attachments(db)
+            self._last_purge = time.time()
 
         return ai_count + outbox_count
 

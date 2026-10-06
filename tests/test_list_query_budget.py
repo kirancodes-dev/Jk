@@ -9,8 +9,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import event
 
+from backend.app.core.config import settings
 from backend.app.core.database import Base, SessionLocal, engine
 from backend.app.main import app
+from backend.app.services.seed_data import seed_database
 from backend.app.models.models import Challenge, ChallengeLocation, University, User, UserRole
 
 PAGE = 15
@@ -21,6 +23,9 @@ MAX_QUERIES = 4
 def seeded_challenges():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
+    # Demo data first: seed_database() skips seeding once any user exists.
+    settings.DEMO_MODE = True
+    seed_database(db)
     tag = uuid.uuid4().hex[:8]
     try:
         owner = User(email=f"qb-{tag}@university.example.org", hashed_password="!", full_name="Query Budget",

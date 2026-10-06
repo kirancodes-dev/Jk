@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     ALLOWED_UPLOAD_EXTENSIONS: List[str] = [".jpg", ".jpeg", ".png", ".pdf", ".mp4", ".doc", ".docx", ".m4a", ".wav", ".webm", ".mp3"]
     # Uploaded photos are scaled so the longest edge is at most this many pixels and
     # re-encoded at this JPEG/WebP quality (see storage_service.strip_image_metadata).
+    # Soft-deleted attachments stay restorable for this many days, then the stored
+    # file is purged (StorageService.purge_expired_attachments).
+    ATTACHMENT_PURGE_DAYS: int = int(os.getenv("ATTACHMENT_PURGE_DAYS", "30"))
     IMAGE_MAX_DIMENSION: int = int(os.getenv("IMAGE_MAX_DIMENSION", "2048"))
     IMAGE_JPEG_QUALITY: int = int(os.getenv("IMAGE_JPEG_QUALITY", "82"))
     ALLOWED_MIME_TYPES: List[str] = [

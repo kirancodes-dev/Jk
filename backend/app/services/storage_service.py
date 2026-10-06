@@ -4,11 +4,13 @@ import uuid
 import re
 import hashlib
 import io
+import logging
+from datetime import timedelta
 from typing import Optional, Tuple, Dict, Any
 from fastapi import UploadFile, HTTPException, status
 from sqlalchemy.orm import Session
 from backend.app.core.config import settings
-from backend.app.models.models import ChallengeAttachment, EvidenceFile
+from backend.app.models.models import ChallengeAttachment, EvidenceFile, utc_now
 
 # Dangerous executable / script magic byte signatures
 DANGEROUS_SIGNATURES = [
@@ -39,6 +41,8 @@ MIME_TO_EXTENSIONS = {
     "audio/mpeg": [".mp3"],
 }
 
+
+logger = logging.getLogger("backend.storage")
 
 class StorageService:
     def __init__(self):
@@ -573,6 +577,7 @@ class StorageService:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to delete this attachment")
 
         att.retention_state = "SOFT_DELETED"
+        att.soft_deleted_at = utc_now()
         db.commit()
         db.refresh(att)
         return att
@@ -591,9 +596,37 @@ class StorageService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attachment not found")
 
         att.retention_state = "ACTIVE"
+        att.soft_deleted_at = None
         db.commit()
         db.refresh(att)
         return att
+
+    def purge_expired_attachments(self, db: Session, retention_days: Optional[int] = None) -> int:
+        """
+        Deletes the stored file of every attachment soft-deleted more than
+        `retention_days` (ATTACHMENT_PURGE_DAYS, 30 by default) ago and marks it
+        PURGED. The database row, with its checksum, stays as an audit record.
+        Returns the number of attachments purged.
+        """
+        days = settings.ATTACHMENT_PURGE_DAYS if retention_days is None else retention_days
+        cutoff = utc_now() - timedelta(days=days)
+        expired = (
+            db.query(ChallengeAttachment)
+            .filter(ChallengeAttachment.retention_state == "SOFT_DELETED",
+                    ChallengeAttachment.soft_deleted_at.isnot(None),
+                    ChallengeAttachment.soft_deleted_at < cutoff)
+            .all()
+        )
+        for att in expired:
+            if att.storage_key.startswith("active/") and self.storage_type == "s3":
+                self.get_s3_client().delete_object(Bucket=settings.S3_BUCKET_NAME, Key=att.storage_key)
+            elif os.path.isfile(att.storage_key):
+                os.remove(att.storage_key)
+            att.retention_state = "PURGED"
+        db.commit()
+        if expired:
+            logger.info("Purged %d attachments soft-deleted before %s", len(expired), cutoff.isoformat())
+        return len(expired)
 
 
 storage_service = StorageService()
