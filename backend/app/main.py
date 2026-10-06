@@ -131,8 +131,11 @@ def health_check():
         "status": status_str,
         "service": settings.PROJECT_NAME,
         "database": "connected" if db_ok else "unavailable",
-        "storage": settings.STORAGE_TYPE,
-        "environment": settings.ENVIRONMENT
+        # Local storage in the demo deployment lives on the container's disk and is
+        # wiped on every restart; say so rather than implying uploads persist.
+        "storage": "local-ephemeral" if settings.STORAGE_TYPE == "local" and settings.ENVIRONMENT == "demo" else settings.STORAGE_TYPE,
+        "environment": settings.ENVIRONMENT,
+        "demo_mode": settings.DEMO_MODE,
     }
     if not db_ok:
         return JSONResponse(status_code=503, content=payload)

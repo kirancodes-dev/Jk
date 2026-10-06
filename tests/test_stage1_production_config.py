@@ -181,3 +181,42 @@ def test_postgres_sessions_are_pinned_to_utc():
         pytest.skip("Session timezone pinning applies to PostgreSQL only")
     with engine.connect() as conn:
         assert conn.execute(text("SHOW TIME ZONE")).scalar() == "UTC"
+
+
+_DEMO_OK = dict(
+    ENVIRONMENT="demo",
+    SECRET_KEY="d" * 48,
+    DATABASE_URL="postgresql://demo:pwd@db:5432/demo",
+    ALLOWED_CORS_ORIGINS=["https://samadhansetu-demo.onrender.com"],
+    STORAGE_TYPE="local",
+    DEMO_MODE=True,
+)
+
+
+def test_demo_environment_allows_demo_mode_and_local_storage():
+    s = Settings(**_DEMO_OK)
+    assert s.ENVIRONMENT == "demo" and s.DEMO_MODE is True and s.STORAGE_TYPE == "local"
+
+
+@pytest.mark.parametrize("override, message", [
+    ({"SECRET_KEY": "short"}, "at least 32 characters"),
+    ({"SECRET_KEY": "changeme"}, "at least 32 characters"),
+    ({"DATABASE_URL": "sqlite:///./demo.db"}, "SQLite is strictly prohibited"),
+    ({"ALLOWED_CORS_ORIGINS": ["*"]}, "wildcard"),
+    ({"STORAGE_TYPE": "s3", "AWS_ACCESS_KEY_ID": None}, "STORAGE_TYPE='s3'"),
+])
+def test_demo_environment_keeps_production_safety_checks(override, message):
+    with pytest.raises((ValueError, ValidationError)) as exc_info:
+        Settings(**{**_DEMO_OK, **override})
+    assert message in str(exc_info.value)
+
+
+def test_production_still_rejects_demo_mode_and_local_storage():
+    prod = {**_DEMO_OK, "ENVIRONMENT": "production"}
+    with pytest.raises((ValueError, ValidationError)) as exc_info:
+        Settings(**prod)
+    assert "Local storage is strictly prohibited" in str(exc_info.value)
+    with pytest.raises((ValueError, ValidationError)) as exc_info:
+        Settings(**{**prod, "STORAGE_TYPE": "s3", "AWS_ACCESS_KEY_ID": "k", "AWS_SECRET_ACCESS_KEY": "s",
+                    "S3_BUCKET_NAME": "b"})
+    assert "DEMO_MODE must be false" in str(exc_info.value)

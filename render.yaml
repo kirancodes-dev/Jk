@@ -1,0 +1,55 @@
+# One-click Render Blueprint for the SamadhanSetu EVALUATION DEMO (SIH 2026, PS 26043).
+#
+# Deploy: Render dashboard -> New -> Blueprint -> select this repository. Nothing
+# needs filling in: Render creates the PostgreSQL database, generates SECRET_KEY,
+# builds the Dockerfile (Flutter web app + API), runs Alembic migrations and seeds
+# the demo accounts on start. See DEPLOYMENT.md ("One-click demo on Render").
+#
+# ENVIRONMENT=demo keeps every production safety check (strong secret, PostgreSQL
+# only, no wildcard CORS) but allows DEMO_MODE and local file storage. Local storage
+# is on the container's disk and is wiped on every restart or redeploy; set the
+# optional S3-compatible variables in DEPLOYMENT.md to keep uploads.
+# For a production pilot use deploy/render.production.yaml instead.
+#
+# Free-plan limits: the web service sleeps after 15 minutes without traffic (the next
+# visit takes up to ~1 minute), and a free PostgreSQL database expires 30 days after
+# creation. Use paid plans for a demo that must stay up longer.
+
+databases:
+  - name: samadhansetu-demo-db
+    databaseName: samadhansetu
+    plan: free
+    region: singapore
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: samadhansetu-demo
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /live
+    envVars:
+      - key: ENVIRONMENT
+        value: demo
+      - key: DEMO_MODE
+        value: "true"
+      # Build arg: shows the one-tap demo persona picker on the login screen.
+      - key: EVALUATOR_MODE
+        value: "true"
+      - key: RUN_MIGRATIONS_ON_START
+        value: "true"
+      # One worker fits the free plan's 512 MB of memory.
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: samadhansetu-demo-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: STORAGE_TYPE
+        value: local
+      - key: AI_EMBEDDINGS_ENABLED
+        value: "false"

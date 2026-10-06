@@ -1,46 +1,69 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
+    $FLUTTER_BASE_HREF is replaced by the `--base-href` argument of `flutter build`.
+    It must start and end with "/".
   -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SamadhanSetu: report local problems in Jharkhand and track how government, universities and industry solve them.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="frontend">
+  <meta name="apple-mobile-web-app-title" content="SamadhanSetu">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>frontend</title>
+  <title>SamadhanSetu</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    #boot {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 12px; padding: 24px;
+      background: #F7F9F4; color: #1F2937; text-align: center;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    #boot .spinner {
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 4px solid #D6E4CC; border-top-color: #2C6E04;
+      animation: boot-spin 0.9s linear infinite;
+    }
+    #boot .name { font-size: 22px; font-weight: 700; color: #2C6E04; margin: 0; }
+    #boot p { margin: 0; max-width: 420px; line-height: 1.45; }
+    #boot-slow { font-size: 14px; color: #4B5563; }
+    @keyframes boot-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { #boot .spinner { animation: none; } }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
+  <!-- Shown until Flutter draws its first frame. -->
+  <div id="boot" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <p class="name">SamadhanSetu</p>
+    <p>Loading the portal…</p>
+    <p id="boot-slow" hidden>
+      Still loading. The free demo server sleeps when nobody is using it and can take up to a minute to wake up.
+      Please keep this page open.
+    </p>
+  </div>
+  <script>
+    setTimeout(function () {
+      var slow = document.getElementById('boot-slow');
+      if (slow) slow.hidden = false;
+    }, 6000);
+    window.addEventListener('flutter-first-frame', function () {
+      var boot = document.getElementById('boot');
+      if (boot) boot.remove();
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

@@ -111,49 +111,56 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_production_and_runtime_constraints(self) -> "Settings":
         env = self.ENVIRONMENT.lower()
-        if env not in ("development", "test", "production"):
-            raise ValueError(f"ENVIRONMENT must be one of 'development', 'test', 'production'. Got: '{self.ENVIRONMENT}'")
+        if env not in ("development", "test", "demo", "production"):
+            raise ValueError(f"ENVIRONMENT must be one of 'development', 'test', 'demo', 'production'. Got: '{self.ENVIRONMENT}'")
+        # "demo" is the public evaluation deployment: the same fail-closed checks as
+        # production, except that DEMO_MODE (seeded demo accounts) and ephemeral local
+        # file storage are allowed.
+        hardened = env in ("production", "demo")
 
         # Fallback secret for dev/test if not specified
         if not self.SECRET_KEY:
-            if env == "production":
-                raise ValueError("In production, SECRET_KEY must be explicitly set and cannot be empty.")
+            if hardened:
+                raise ValueError(f"In {env}, SECRET_KEY must be explicitly set and cannot be empty.")
             # Dev fallback
             self.SECRET_KEY = "dev-insecure-secret-key-32chars-minimum-length-for-local-testing"
 
-        # Production security validations (Fail Closed)
-        if env == "production":
+        # Production and demo security validations (Fail Closed)
+        if hardened:
             # 1. Strong secret key requirement
             if len(self.SECRET_KEY) < 32:
-                raise ValueError("In production, SECRET_KEY must be at least 32 characters long.")
+                raise ValueError(f"In {env}, SECRET_KEY must be at least 32 characters long.")
             if self.SECRET_KEY in INSECURE_DEFAULT_SECRETS:
-                raise ValueError("In production, SECRET_KEY cannot use an insecure default or placeholder value.")
+                raise ValueError(f"In {env}, SECRET_KEY cannot use an insecure default or placeholder value.")
 
-            # 2. Database validation: No SQLite in production
+            # 2. Database validation: No SQLite in production or demo
             if not self.DATABASE_URL or self.DATABASE_URL.startswith("sqlite"):
-                raise ValueError("In production, DATABASE_URL must be a valid PostgreSQL connection URL. SQLite is strictly prohibited.")
+                raise ValueError(f"In {env}, DATABASE_URL must be a valid PostgreSQL connection URL. SQLite is strictly prohibited.")
             if not (self.DATABASE_URL.startswith("postgresql://") or self.DATABASE_URL.startswith("postgresql+psycopg2://") or self.DATABASE_URL.startswith("postgres://")):
-                raise ValueError("In production, DATABASE_URL must start with 'postgresql://' or 'postgresql+psycopg2://'.")
+                raise ValueError(f"In {env}, DATABASE_URL must start with 'postgresql://' or 'postgresql+psycopg2://'.")
 
-            # 3. CORS validation: No wildcard in production
+            # 3. CORS validation: No wildcard in production or demo
             if not self.ALLOWED_CORS_ORIGINS:
-                raise ValueError("In production, ALLOWED_CORS_ORIGINS must be configured with explicit origins.")
+                raise ValueError(f"In {env}, ALLOWED_CORS_ORIGINS must be configured with explicit origins.")
             if "*" in self.ALLOWED_CORS_ORIGINS:
-                raise ValueError("In production, ALLOWED_CORS_ORIGINS cannot contain wildcard '*'.")
+                raise ValueError(f"In {env}, ALLOWED_CORS_ORIGINS cannot contain wildcard '*'.")
 
-            # 4. Storage configuration validation: Local storage strictly prohibited in production
+            # 4. No personal email defaults
+            if "biradark56@gmail.com" in self.SMTP_FROM_EMAIL.lower():
+                raise ValueError(f"In {env}, SMTP_FROM_EMAIL cannot use a personal email address.")
+
+            # 5. S3 storage, when chosen, needs credentials
+            if self.STORAGE_TYPE == "s3" and not (self.AWS_ACCESS_KEY_ID and self.AWS_SECRET_ACCESS_KEY and self.S3_BUCKET_NAME):
+                raise ValueError(f"When STORAGE_TYPE='s3' in {env}, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and S3_BUCKET_NAME must all be set.")
+
+        if env == "production":
+            # 6. Storage configuration validation: Local storage strictly prohibited in production
             if self.STORAGE_TYPE != "s3":
                 raise ValueError("In production, STORAGE_TYPE must be 's3'. Local storage is strictly prohibited in production.")
-            if not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY or not self.S3_BUCKET_NAME:
-                raise ValueError("When STORAGE_TYPE='s3' in production, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and S3_BUCKET_NAME must all be set.")
 
-            # 5. Demo mode strictly forbidden in production
+            # 7. Demo mode strictly forbidden in production
             if self.DEMO_MODE:
                 raise ValueError("In production, DEMO_MODE must be false. Demo mode is strictly prohibited in production.")
-
-            # 6. No personal email defaults in production
-            if "biradark56@gmail.com" in self.SMTP_FROM_EMAIL.lower():
-                raise ValueError("In production, SMTP_FROM_EMAIL cannot use a personal email address.")
 
         # General validations (all environments)
         if self.STORAGE_TYPE not in ("local", "s3"):

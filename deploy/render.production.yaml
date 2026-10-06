@@ -1,4 +1,6 @@
-# Render.com Blueprint for SIH 2026 Portal (PS 26043).
+# Render.com Blueprint for a PRODUCTION pilot of the SIH 2026 Portal (PS 26043).
+# The one-click evaluation demo is the root render.yaml; to use this file instead,
+# point the Render Blueprint at deploy/render.production.yaml.
 #
 # This is a simpler, faster-to-stand-up alternative to the AWS ECS/RDS path
 # documented in DEPLOYMENT.md — suited for a demo/evaluation deployment or a
