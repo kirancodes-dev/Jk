@@ -124,14 +124,17 @@ aws s3api put-bucket-cors --bucket sih-jharkhand-portal-media-prod --cors-config
 ## 5. Dockerized Backend Deployment
 
 ### 5.1 Dockerfile (`Dockerfile`)
-The backend container runs as an unprivileged non-root user (`appuser`, UID 10001) for container security compliance.
+A two-stage build: stage 1 builds the Flutter web app with the pinned `ghcr.io/cirruslabs/flutter:3.41.9` image; stage 2 is the Python 3.12 API runtime, which serves that web app at `/` and the API at `/api/v1`. The container runs as an unprivileged user (`appuser`, UID 10001).
 
-```dockerfile
-FROM python:3.12-slim AS runtime
-# Installs libpq5 and minimal dependencies
-# Copies application and creates unprivileged appuser (UID 10001)
-# Exposes port 8008 and defines HEALTHCHECK on /live
-```
+`docker-entrypoint.sh` starts the container:
+
+| Variable | Default | Effect |
+|---|---|---|
+| `RUN_MIGRATIONS_ON_START` | `false` | `true` runs `alembic upgrade head` before the server starts. Use it for single-instance deployments; with several replicas, run migrations as a separate release step. |
+| `DEMO_MODE` | `false` | With `ENVIRONMENT` other than `production`, seeds the demo data and every demo account once, before the workers start. |
+| `WEB_CONCURRENCY` | `4` | Uvicorn worker processes. |
+| `PORT` | `8008` | Listen port (Render sets its own). |
+| `EVALUATOR_MODE` (build arg) | `false` | `true` adds the one-tap demo persona picker to the login screen. |
 
 Build and push to AWS ECR:
 ```bash
@@ -254,34 +257,57 @@ After deployment, perform the 5-point sanity check:
 
 ---
 
-## 10. Render Deployment (Blueprint) — Faster Alternative to AWS
+## 10. Render Deployment (Blueprint)
 
-For a demo/evaluation deployment or a small production pilot, `render.yaml`
-at the repo root defines a [Render Blueprint](https://render.com/docs/blueprint-spec)
-that builds the same root `Dockerfile` used everywhere else in this repo (no
-separate deployment-only image) plus a managed PostgreSQL instance. It is not
-a lighter-weight substitute for the fail-closed production checks in
-`backend/app/core/config.py` — those still apply identically.
+### 10.1 One-click demo on Render
+`render.yaml` at the repository root is a [Render Blueprint](https://render.com/docs/blueprint-spec) for the public evaluation demo. It needs no input.
 
-### 10.1 Deploy the Blueprint
-1. In the Render dashboard: **New → Blueprint**, point it at this repository. Render reads `render.yaml` and proposes a `sih-jharkhand-backend` web service plus a `sih-jharkhand-postgres` database.
-2. Render auto-fills `DATABASE_URL` (from the managed database) and generates `SECRET_KEY`. Everything else marked `sync: false` in `render.yaml` must be filled in manually in the dashboard before the first deploy — the app fails closed at startup without them (same validator as the AWS path in Section 2):
-   - `ALLOWED_CORS_ORIGINS` — explicit origins, no wildcard (e.g. `https://your-app.onrender.com`).
-   - `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET_NAME` — production mode requires real S3 storage; local disk storage is rejected in production.
-   - `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL` — a real departmental address, not a personal inbox.
-   - `CLAMAV_HOST` / `FINANCE_INTEGRATION_PROVIDER` — leave unset unless you are wiring up the corresponding real integration; the app runs correctly without them (basic-signature malware scan, `NOT_CONFIGURED` finance settlement — see `TRACEABILITY_MATRIX.md`).
+**Deploy**
+1. Push this repository to GitHub (or GitLab) and sign in to [Render](https://render.com).
+2. **New → Blueprint**, pick the repository, and click **Apply**. Render creates:
+   - `samadhansetu-demo-db`: PostgreSQL 16, free plan, Singapore;
+   - `samadhansetu-demo`: a Docker web service, free plan, built from the root `Dockerfile` with `EVALUATOR_MODE=true`.
+3. The first build takes several minutes (Flutter web app, then Python dependencies). On start the container applies Alembic migrations and seeds the demo data.
+4. Copy the service URL (`https://<service-name>.onrender.com`) into the "Live demo" line of `README.md`.
 
-### 10.2 Run Migrations
-Render's Docker runtime does not auto-run Alembic. After the first deploy (and after every schema-changing release), run migrations from a Render Shell session on the service, or from any machine with network access to the managed database:
+**What the Blueprint sets:** `ENVIRONMENT=demo`, `DEMO_MODE=true`, `RUN_MIGRATIONS_ON_START=true`, `WEB_CONCURRENCY=1` (fits 512 MB), a generated `SECRET_KEY`, `DATABASE_URL` from the managed database, `STORAGE_TYPE=local`.
+
+`ENVIRONMENT=demo` applies the same fail-closed checks as production (`backend/app/core/config.py`): a strong `SECRET_KEY`, PostgreSQL only, no wildcard CORS, and S3 credentials whenever `STORAGE_TYPE=s3`. It differs from production in only two ways: demo accounts (`DEMO_MODE`) are allowed, and so is local file storage. **Production still rejects both.**
+
+**Verify** (replace the host):
 ```bash
-export DATABASE_URL="<copy from the Render Postgres dashboard>"
-alembic upgrade head
+curl https://<service>.onrender.com/health   # "status":"healthy","environment":"demo","demo_mode":true,"storage":"local-ephemeral"
+curl https://<service>.onrender.com/live     # {"status":"alive"}
+open https://<service>.onrender.com/docs     # Swagger UI
+open https://<service>.onrender.com/         # web app; the login screen lists one-tap demo accounts
 ```
+The demo accounts (`GET /api/v1/demo/accounts`) share the password `password123` and exist only when `DEMO_MODE=true`.
 
-### 10.3 Frontend
-The `frontend-web-build` job in `.github/workflows/ci.yml` produces a
-`flutter-web-build` artifact (`frontend/build/web`) on every push. Deploy that
-artifact to a Render **Static Site** (or any static host / CDN) pointed at
-the backend's public Render URL via `--dart-define=API_URL=...` at build
-time, following the same `flutter build web --release` command as the AWS
-path in Section 7.1.
+**Free-plan behaviour**
+- **Cold start.** The web service sleeps after 15 minutes without traffic, and the next request waits up to about a minute while it wakes. The page then shows a loading message, which after 6 seconds explains the wait. To keep the demo warm during judging, point an uptime monitor at `/live` every 10 minutes; one always-on free service uses about 720 of Render's 750 free instance-hours a month.
+- **Uploads are not persistent.** `STORAGE_TYPE=local` writes to the container disk, which is wiped on every restart and redeploy; `/health` reports `"storage":"local-ephemeral"`.
+- **Free PostgreSQL expires 30 days after creation.** For a longer-lived demo, switch the database to a paid plan. A new database is migrated and re-seeded automatically on the next start.
+
+**Optional: persistent uploads in a free S3-compatible bucket** (e.g. Cloudflare R2, 10 GB free). In the service's **Environment** settings, set:
+```
+STORAGE_TYPE=s3
+S3_ENDPOINT_URL=https://<account-id>.r2.cloudflarestorage.com
+AWS_REGION=auto
+AWS_ACCESS_KEY_ID=<R2 access key>
+AWS_SECRET_ACCESS_KEY=<R2 secret key>
+S3_BUCKET_NAME=<bucket>
+```
+`storage_service.py` passes `S3_ENDPOINT_URL` to boto3, so any S3-compatible store works. This path has not been tested against R2 for this release.
+
+**If the build fails** with out-of-memory errors on the free build machine, build the image elsewhere (`docker build --build-arg EVALUATOR_MODE=true -t samadhansetu .`), push it to a registry, and create the Render service from that image with the same environment variables.
+
+**Verified locally** (2026-10-06): the web build (`flutter build web --release --dart-define=EVALUATOR_MODE=true`) and `docker-entrypoint.sh` were run, with the Blueprint's environment, against an empty PostgreSQL 16 database. Migrations and seeding completed; `/health`, `/live`, `/docs` and the web app responded; and all 10 demo accounts signed in. The Docker image itself and a live Render deployment have not been tested from this repository.
+
+### 10.2 Production pilot on Render
+`deploy/render.production.yaml` describes a production configuration (`ENVIRONMENT=production`, `DEMO_MODE=false`, S3 storage). Point a Blueprint at that file. Before the first deploy, fill in every `sync: false` variable in the dashboard; the app refuses to start without them:
+- `ALLOWED_CORS_ORIGINS`: explicit origins, no wildcard (e.g. `https://your-app.onrender.com`).
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `S3_BUCKET_NAME`: production requires S3 and rejects local storage.
+- `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`: a departmental address, not a personal inbox.
+- `CLAMAV_HOST`, `FINANCE_INTEGRATION_PROVIDER`: leave unset unless you are wiring up those integrations.
+
+Run migrations as a release step (`alembic upgrade head` from a Render Shell, with `DATABASE_URL` set), or set `RUN_MIGRATIONS_ON_START=true` while the service has a single instance. The web app is built into the same image and served at `/`; it calls the API on its own origin, so it needs no API URL setting.
