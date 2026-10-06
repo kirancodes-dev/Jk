@@ -7,16 +7,38 @@
 ### A village reports a broken hand pump. A university builds the fix. A CSR partner funds it. A field inspector proves it works.<br/>One platform runs that whole journey, across all 24 districts, with a human signing off every step.
 
 [![CI/CD Pipeline](https://github.com/kirancodes-dev/Jk/actions/workflows/ci.yml/badge.svg)](https://github.com/kirancodes-dev/Jk/actions/workflows/ci.yml)
-[![Backend tests](https://img.shields.io/badge/backend%20tests-172%20passing-brightgreen.svg)](tests/)
-[![Flutter tests](https://img.shields.io/badge/flutter%20tests-69%20passed-brightgreen.svg)](frontend/test/)
-[![AI benchmark](https://img.shields.io/badge/AI%20benchmark-published-blueviolet.svg)](ai_accuracy_report.json)
+[![Backend tests](https://img.shields.io/badge/backend%20tests-214%20passing-brightgreen.svg)](tests/)
+[![Flutter tests](https://img.shields.io/badge/flutter%20tests-79%20passing-brightgreen.svg)](frontend/test/)
+[![AI accuracy](https://img.shields.io/badge/AI%20accuracy-89.9%25%20held--out-blueviolet.svg)](docs/AI_GOVERNANCE.md)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
 [![Flutter](https://img.shields.io/badge/Flutter-Web%20%26%20Mobile-02569B.svg)](https://flutter.dev)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org)
 
-**[Live demo](https://prerighteous-shante-unctuous.ngrok-free.dev)** · **[API docs](https://prerighteous-shante-unctuous.ngrok-free.dev/docs)** · **[Try it in 5 minutes](#-try-it-in-5-minutes)** · **[Team testing guide (PDF)](docs/JK_Portal_Team_Testing_Guide.pdf)** · **[Traceability matrix](TRACEABILITY_MATRIX.md)**
+**[For judges](#-for-judges)** · **[Try it in 5 minutes](#-try-it-in-5-minutes)** · **[Team testing guide (PDF)](docs/JK_Portal_Team_Testing_Guide.pdf)** · **[Traceability matrix](TRACEABILITY_MATRIX.md)**
 
 </div>
+
+---
+
+## 🧑‍⚖️ For judges
+
+**What it is.** SamadhanSetu turns a citizen's report (a broken hand pump, a closed health centre) into a tracked project. A district officer validates it, a university builds the fix, a CSR partner funds it, and a field verifier proves it works. Every step is checked by role and district and written to a tamper-evident audit trail.
+
+**Live demo.** *The public URL will be added here once the Render deployment is live.* Anyone can stand it up from this repository with the [one-click Render Blueprint](DEPLOYMENT.md#101-one-click-demo-on-render): [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/kirancodes-dev/Jk) (deploys the default branch). The demo accounts below sign in with `password123`.
+
+**Three numbers, each with its evidence:**
+
+| | | |
+| :---: | :--- | :--- |
+| **89.9%** | AI domain classification on 198 held-out reports (was 68.2%) | [AI governance](docs/AI_GOVERNANCE.md) · [`ai_accuracy_report.json`](ai_accuracy_report.json) |
+| **0 failures** | in 43,364 requests at 241.8 req/s, with 200 simulated users on one laptop | [Load test report](docs/LOAD_TEST.md) |
+| **214 + 79** | backend tests (on PostgreSQL 16, as in CI) and Flutter tests passing | [Tests](#-tests) |
+
+**Run it locally in one command** (Docker):
+```bash
+git clone https://github.com/kirancodes-dev/Jk.git && cd Jk && docker compose -f docker-compose.dev.yml up --build
+```
+Then open http://localhost:8008. Migrations and every demo account are created on first start.
 
 ---
 
@@ -41,29 +63,30 @@ flowchart LR
 
 ## By the numbers
 
-| 24 | 11 | 8 | 15 | 179 | 61 |
+| 24 | 11 | 12 | 21 | 179 | 61 |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| districts, each with GIS boundary checks | challenge domains in a fixed taxonomy | stakeholder personas, each with its own dashboard | lifecycle stages, none skippable | REST API endpoints | database tables, 14 versioned migrations |
+| districts, each with GIS boundary checks | challenge domains in a fixed taxonomy | user roles with server-side access control | workflow states (15 on the main path) | REST API operations under `/api/v1` | database tables, 15 versioned migrations |
+
+**The 12 roles** (`UserRole`): Citizen · Community organisation · Gram Panchayat (PRI) · Urban local body (ULB) · Government officer (district officers and field verifiers) · Government admin (state) · University · Faculty mentor · Student · Industry / CSR · Research lab · Innovation hub.
 
 ---
 
 ## ⚡ Try it in 5 minutes
 
-**1. Open the [live demo](https://prerighteous-shante-unctuous.ngrok-free.dev)** (if ngrok shows a warning page, click *Visit Site*), or run it locally:
+**1. Open the live demo** (link in [For judges](#-for-judges)) or run it locally:
 
 ```bash
 git clone https://github.com/kirancodes-dev/Jk.git && cd Jk
-docker compose -f docker-compose.dev.yml up -d --build        # http://localhost:8008
-docker compose -f docker-compose.dev.yml exec web python -m backend.app.services.seed_flagship_demo   # adds officer, verifier and PRI accounts
+docker compose -f docker-compose.dev.yml up --build        # http://localhost:8008
 ```
 
-**2. Log in.** Every demo account uses the password **`password123`**:
+**2. Log in.** These demo accounts exist **only when the server runs with `DEMO_MODE=true`** (the demo deployment and the dev compose file). Production refuses to start with `DEMO_MODE` on. Every demo account uses the password **`password123`**, and the login screen of the demo build lists them for one-tap sign-in:
 
 | Persona | Email | What to look at |
 | :--- | :--- | :--- |
 | 🧑‍🌾 Citizen | `citizen@jharkhand.gov.in` | Report a challenge, see the AI analysis, track it to closure |
 | 🏡 Gram Panchayat (PRI) | `pri.angara@jharkhand.gov.in` | Report on behalf of a village |
-| 🏛️ District Officer, Ranchi | `officer.ranchi@jharkhand.gov.in` | Review queue scoped to Ranchi only; override the AI |
+| 🏛️ District Officer, Ranchi | `officer.ranchi@jharkhand.gov.in` | Review and act on Ranchi challenges; override the AI |
 | 🔍 Field Verifier | `verifier.ranchi@jharkhand.gov.in` | Geotagged inspections and lab test results |
 | 🎓 University (BIT Mesra) | `university@bitmesra.ac.in` | Accept assignments, create projects |
 | 👩‍🏫 Faculty Mentor | `faculty@bitmesra.ac.in` | Approve milestones or request revisions |
@@ -79,7 +102,7 @@ docker compose -f docker-compose.dev.yml exec web python -m backend.app.services
 4. As **Faculty**, approve the milestone. As **Industry**, pledge a funding tranche.
 5. As **Citizen**, open *Track Solution* and see every step, with who did it and when.
 
-**Then try to break it:** open a Dhanbad challenge as the Ranchi officer, paste an admin URL as a citizen, or upload a disguised `.exe`. Each attempt is refused.
+**Then try to break it:** as the Ranchi officer, try to accept or validate a Dhanbad challenge; paste an admin URL as a citizen; or upload a disguised `.exe`. Each attempt is refused.
 
 The full test plan (60+ checks across every role, device and language) is in the **[Team testing guide](docs/JK_Portal_Team_Testing_Guide.pdf)**.
 
@@ -89,10 +112,10 @@ The full test plan (60+ checks across every role, device and language) is in the
 
 | | Differentiator | Proof in the repo |
 | :---: | :--- | :--- |
-| 🔒 | **A lifecycle that cannot be skipped.** 15 stages from *Submitted* to *Closed*. Every transition is checked against role, jurisdiction and version, then written to a hash-chained audit trail. | [`workflow_service.py`](backend/app/services/workflow_service.py) · [state machine tests](tests/test_stage4_workflow_state_machine.py) |
+| 🔒 | **A lifecycle that cannot be skipped.** 15 states on the main path from *Submitted* to *Closed*, 21 in all. Every transition is checked against role, jurisdiction and version, then written to a hash-chained audit trail. | [`workflow_service.py`](backend/app/services/workflow_service.py) · [state machine tests](tests/test_stage4_workflow_state_machine.py) |
 | 🧠 | **AI that shows its work and never decides alone.** Transparent scoring, a published accuracy benchmark, and a mandatory human-override ledger. | [`services/ai/`](backend/app/services/ai/) · [benchmark](ai_accuracy_report.json) · [AI governance](docs/AI_GOVERNANCE.md) |
-| 🗺️ | **District-level isolation.** A Ranchi officer cannot read or act on a Dhanbad challenge, and the server enforces this, not just the UI. | [negative security tests](tests/test_stage12_security_negative_properties.py) |
-| 📶 | **Built for rural connectivity.** Offline drafts with client UUIDs and idempotency keys sync once, with no duplicates. Voice notes, Hindi/English UI, text scaling, high contrast and screen readers are supported. | [`offline_draft_service.dart`](frontend/lib/core/offline_draft_service.dart) · [localization tests](frontend/test/) |
+| 🗺️ | **District-level isolation.** A Ranchi officer cannot act on a Dhanbad challenge (accept, validate, assign, reject), and the server enforces this, not just the UI. | [negative security tests](tests/test_stage12_security_negative_properties.py) |
+| 📶 | **Built for rural connectivity and tribal languages.** Offline drafts with client UUIDs and idempotency keys sync once, with no duplicates. Voice notes, text scaling, high contrast and screen readers are supported. Full Hindi and English; Santali (Ol Chiki) drafted for the whole citizen journey and Mundari, Ho, Kurukh and Khortha for its core, all awaiting native-speaker review. | [`offline_draft_service.dart`](frontend/lib/core/offline_draft_service.dart) · [translation review](docs/TRANSLATION_REVIEW.md) |
 | ✅ | **Impact you can audit.** Closure needs geotagged field evidence, lab measurements with before/after deltas, and a citizen satisfaction rating. | [verification tests](tests/test_stage8_verification_and_closure.py) |
 | 🛡️ | **Citizen data rights (DPDP), built in.** Citizens can export, correct and erase their data. Erasure pseudonymizes the person but keeps the audit trail intact. Logs scrub Aadhaar, phone numbers, OTPs and GPS. | [`privacy.py`](backend/app/routers/privacy.py) · [ops & security tests](tests/test_stage11_security_and_operations.py) |
 
@@ -127,7 +150,7 @@ stateDiagram-v2
     CLOSED --> [*]
 ```
 
-Any active stage can be **PAUSED** and resumed. Closed, rejected and duplicate challenges can be **REOPENED** for re-review. Every change records the actor, their role, the reason and the time.
+`ChallengeStatus` has **21 states**: the 15 on the main path above, the side states **NEEDS_MORE_INFO**, **DUPLICATE** and **REJECTED**, plus **PAUSED** (any active stage can be paused and resumed) and **REOPENED** (closed, rejected and duplicate challenges can return for re-review). **IN_PROGRESS** is a legacy status still counted by the analytics; the state machine does not move challenges into it. Every change records the actor, their role, the reason and the time.
 
 ---
 
@@ -145,13 +168,41 @@ Challenges from NITI Aayog **aspirational districts** (such as Khunti, Simdega a
 
 **Human override ledger.** When an officer changes an AI classification or priority, the platform records the original output, the new value, the officer and their mandatory justification.
 
-**Published accuracy, not marketing.** We benchmarked the domain classifier on **198 real-style reports (18 per domain) in English, Hindi and romanized Hindi**:
+**Published accuracy, measured on held-out data.** The domain classifier (`JHARKHAND_TAXONOMY_CLASSIFIER_V3`) matches a weighted English, Hinglish and Devanagari lexicon (`pani`, `nali`, `bijli`, `rojgar`, `aspatal`, `sadak`, `चापाकल`…) with word boundaries, title weighting and topic-negation handling. Every prediction returns its matched keywords, per-domain scores, runner-up and confidence. Anything below **0.70** confidence goes to an officer.
 
-| Overall | Best domains | Hardest domains | Sent to human review |
-| :---: | :--- | :--- | :---: |
-| **68.2%** | Water Resources 100% · Education 83% · Agriculture 78% · Sanitation 78% | Rural Livelihoods 50% · Healthcare 56% · Environment 56% · Public Admin 56% | 21 low-confidence cases |
+It was tuned only on a separate set of 440 reports (330 TRAIN, 110 DEV). The **198-report TEST set** (18 per domain; English, Hindi, Hinglish) is frozen by a SHA-256 check in CI:
 
-Most misses are short romanized-Hindi reports such as *"aspatal me dawai khatam ho gayi hai"*. The classifier marks these *Unclassified* with 0.30 confidence, which sends them to an officer instead of guessing. Full confusion matrix and misclassified examples: [`ai_accuracy_report.json`](ai_accuracy_report.json).
+| Model | TEST accuracy | Lowest domains |
+| :--- | :---: | :--- |
+| V2 (previous release) | 68.2% | Rural Livelihoods 50% · Healthcare, Environment, Public Admin 56% |
+| **V3 (this release)** | **89.9% (178/198)** | Education 78% · Rural Livelihoods 78% · Accessibility 83% · all others ≥ 88.9% |
+
+Predictions under the review threshold were right 52.9% of the time, against 93.4% for those accepted automatically, so the threshold catches the doubtful ones. One caveat: the developer saw the TEST set before tuning. Removing all 50 lexicon terms that match only TEST reports lowers accuracy to 89.4%, which bounds that effect. CI fails if TEST accuracy drops below 87.9%. Full method, ablation and limitations: [AI governance](docs/AI_GOVERNANCE.md) · [`ai_accuracy_report.json`](ai_accuracy_report.json).
+
+### 🗣️ Languages
+
+From [`scripts/translation_coverage.py`](scripts/translation_coverage.py). Every tribal-language string is a machine draft: **none is native-reviewed yet** ([review status and sheets](docs/TRANSLATION_REVIEW.md)). Missing strings fall back to Hindi, then English, and production builds can hide unreviewed drafts with `HIDE_UNREVIEWED_TRANSLATIONS=true`.
+
+| Language | Script | Strings | Citizen flow (261 keys) | Core flow (73 keys) | Native-reviewed |
+|---|---|---:|---:|---:|---:|
+| English | Latin | 575 | 100% | 100% | source |
+| Hindi | Devanagari | 575 | 100% | 100% | source |
+| Santali | Ol Chiki (font bundled) | 264 | 100% | 100% | 0 |
+| Mundari | Devanagari | 75 | 28.4% | 100% | 0 |
+| Ho | Devanagari | 74 | 28.4% | 100% | 0 |
+| Kurukh | Devanagari | 75 | 28.4% | 100% | 0 |
+| Khortha | Devanagari | 75 | 28.4% | 100% | 0 |
+
+### ⚡ Performance
+
+[Load test](docs/LOAD_TEST.md) with Locust on one Apple M5 laptop (server, PostgreSQL and load generator together), 1,215 challenges across 24 districts:
+
+| Users | Throughput | p50 | p95 | p99 | Failures |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 100, realistic think time | 48.9 req/s | 7 ms | 300 ms | 340 ms | 0 / 8,769 |
+| 200, stress | 241.8 req/s | 100 ms | 770 ms | 1.4 s | 0 / 43,364 |
+
+The test found and fixed an audit-chain race that failed 7–27% of submissions under load, and N+1 queries (102 → 2 per review-queue page). Raw results are in [`docs/load_test/`](docs/load_test/).
 
 ---
 
@@ -160,7 +211,7 @@ Most misses are short romanized-Hindi reports such as *"aspatal me dawai khatam 
 ```mermaid
 flowchart TB
     subgraph Client["Flutter 3 · Web & Mobile"]
-        UI["8 role dashboards · Hindi/English · offline drafts · voice notes · accessibility"]
+        UI["Role dashboards · Hindi/English + tribal-language drafts · offline drafts · voice notes · accessibility"]
     end
     subgraph API["FastAPI gateway"]
         SEC["JWT dual-token auth · RBAC + district tenancy · rate limiting · CSP/HSTS · 25 MB body cap"]
@@ -187,7 +238,7 @@ flowchart TB
 | Frontend | Flutter 3 (web + Android/iOS), Provider, custom Jharkhand government theme |
 | Backend | Python 3.12+, FastAPI, SQLAlchemy, Pydantic, Alembic |
 | Data | PostgreSQL 16, S3/MinIO object storage |
-| AI | Rule-based explainable scoring, optional Sentence-Transformers embeddings |
+| AI | Explainable multilingual lexicon classifier (2.7 ms per report, no GPU), transparent priority and duplicate scoring, optional Sentence-Transformers embeddings |
 | Ops | Docker Compose, GitHub Actions CI (bandit SAST, pip-audit), Prometheus `/metrics`, encrypted backups |
 
 <details>
@@ -195,14 +246,14 @@ flowchart TB
 
 <br/>
 
-- **Access control:** 8 personas across 12 role types with server-side RBAC. Vertical privilege escalation and horizontal BOLA are both tested, and district officers are confined to their own jurisdiction.
+- **Access control:** 12 role types with server-side RBAC. Vertical privilege escalation and horizontal BOLA are both tested, and district officers are confined to their own jurisdiction.
 - **Transport & headers:** CSP tuned for Flutter CanvasKit/Wasm, HSTS behind HTTPS, `X-Frame-Options: DENY`, `nosniff`, a strict `Permissions-Policy`, and `no-store` on API responses.
-- **Request limits:** 25 MB body cap, 60 s timeout, and trusted-proxy handling of `X-Forwarded-For`.
-- **Uploads:** magic-byte type checks reject disguised executables and scripts. EICAR detection, EXIF/GPS stripping on photos, UUID-safe filenames (no path traversal), a quarantine prefix, and soft delete with a 30-day restore window.
+- **Request limits:** 25 MB body cap, 60 s timeout. Rate limits key on the client IP, and `X-Forwarded-For` is honoured only when the request arrives through a private-network proxy (localhost, 10/8, 172.16/12, 192.168/16).
+- **Uploads:** magic-byte type checks reject disguised executables and scripts. EICAR detection; photos are stored upright, without EXIF/GPS, at most 2,048 px (86.8% smaller on real photos); UUID-safe filenames; a quarantine prefix; and soft delete with a 30-day restore window, after which the file is purged.
 - **Storage:** private buckets with AES-256 SSE and 15-minute presigned URLs. Production refuses to start without S3 or with default secrets (fail closed).
 - **Logging:** structured JSON with request IDs. Passwords, JWTs, OTPs, Aadhaar numbers, mobile numbers and precise GPS are redacted automatically.
 - **DPDP rights:** `GET /api/v1/privacy/notices` · `GET /api/v1/privacy/my-data` · `PUT /api/v1/privacy/correct-data` · `POST /api/v1/privacy/request-erasure`. These are technical controls, not a legal certification.
-- **Demo safety:** `DEMO_MODE` endpoints (`/demo/reset`, `/demo/accounts`) are blocked in production, and production refuses to boot with `DEMO_MODE=true`.
+- **Demo safety:** `DEMO_MODE` endpoints (`/demo/reset`, `/demo/accounts`) are blocked in production, and production refuses to boot with `DEMO_MODE=true`. The public demo runs as `ENVIRONMENT=demo`, which keeps production's other fail-closed checks.
 
 </details>
 
@@ -222,8 +273,8 @@ flowchart TB
 ## 🧪 Tests
 
 ```bash
-PYTHONPATH=. backend/.venv/bin/pytest tests/ -q     # backend: 172 passed (CI)
-cd frontend && flutter test                          # frontend: 69 passed
+PYTHONPATH=. pytest tests/ -q        # backend: 214 passed (200 test functions) on PostgreSQL 16, as in CI
+cd frontend && flutter test           # frontend: 79 passed (62 test cases; some generate several)
 ```
 
 | Area | Suite |
@@ -233,8 +284,10 @@ cd frontend && flutter test                          # frontend: 69 passed
 | Headers, PII masking, metrics, SSE-S3, EICAR, EXIF, worker locks, DPDP | [`test_stage11_security_and_operations.py`](tests/test_stage11_security_and_operations.py) |
 | Lifecycle transitions and illegal-jump rejection | [`test_stage4_workflow_state_machine.py`](tests/test_stage4_workflow_state_machine.py) |
 | AI triage, priority, duplicates, override ledger | [`test_stage5_ai_governance.py`](tests/test_stage5_ai_governance.py) |
+| Classifier accuracy gate (held-out TEST ≥ 87.9%), frozen test set, explainability | [`test_ai_classifier_v3.py`](tests/test_ai_classifier_v3.py) |
+| Audit-chain concurrency, list query budget, SPA path traversal, photo optimisation, attachment purge | [`tests/`](tests/) |
 | HEI projects, CSR funding and IP, field verification, notifications, analytics | [`tests/`](tests/) (stages 6–10) |
-| Offline sync, multi-role routing, dashboards, localization guard (no hard-coded English) | [`frontend/test/`](frontend/test/) |
+| Offline sync, multi-role routing, dashboards, localization guard (no hard-coded English), tribal-language coverage and fonts | [`frontend/test/`](frontend/test/) |
 
 Every requirement of PS 26043 is mapped to its models, APIs, screens and tests in the **[Traceability matrix](TRACEABILITY_MATRIX.md)**.
 
@@ -248,7 +301,9 @@ Every requirement of PS 26043 is mapped to its models, APIs, screens and tests i
 # Backend (also serves the compiled Flutter web app)
 python3 -m venv backend/.venv && source backend/.venv/bin/activate
 pip install -r backend/requirements.txt
+export DATABASE_URL=postgresql://USER:PASS@localhost:5432/sih   # the app also reads a local .env
 alembic upgrade head
+DEMO_MODE=true PYTHONPATH=. python -m backend.app.services.demo_bootstrap   # every demo account
 DEMO_MODE=true PYTHONPATH=. uvicorn backend.app.main:app --port 8008 --reload
 
 # Frontend with hot reload (optional)
@@ -263,9 +318,11 @@ With `DEMO_MODE=true`, demo data is seeded on first start. Reset it with `POST /
 
 | For | Read |
 | :--- | :--- |
-| Testers and evaluators | [Team testing guide](docs/JK_Portal_Team_Testing_Guide.pdf) · [Pilot acceptance pack](docs/PILOT_ACCEPTANCE_PACK.md) |
+| Testers and evaluators | [Team testing guide](docs/JK_Portal_Team_Testing_Guide.pdf) · [Pilot acceptance pack](docs/PILOT_ACCEPTANCE_PACK.md) · [Load test](docs/LOAD_TEST.md) · [AI benchmark](docs/AI_GOVERNANCE.md) |
 | Architects | [ARCHITECTURE.md](ARCHITECTURE.md) · [DATABASE.md](DATABASE.md) · [API.md](API.md) · [Full system report (PDF)](docs/SIH_26043_COMPLETE_ARCHITECTURE_AND_SYSTEM_REPORT.pdf) |
 | Security reviewers | [SECURITY.md](docs/SECURITY.md) · [AI governance](docs/AI_GOVERNANCE.md) |
+| Language reviewers | [Translation review](docs/TRANSLATION_REVIEW.md) · [review sheets](docs/translations/) |
+| Decision makers | [Sustainability, cost and funding](docs/SUSTAINABILITY_AND_COST.md) |
 | Operations | [DEPLOYMENT.md](DEPLOYMENT.md) · [Disaster recovery](docs/runbooks/disaster_recovery_runbook.md) · [Zero-downtime deploy & rollback](docs/runbooks/deployment_and_rollback.md) · [Secrets rotation](docs/runbooks/secrets_rotation.md) · [Incident response](docs/runbooks/incident_response.md) |
 
 ---
