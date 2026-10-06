@@ -74,3 +74,14 @@ def test_db_migrate_runner_raises_on_error():
     from backend.app.core.db_migrate import run_migrations
     with pytest.raises(Exception):
         run_migrations("non_existent_revision_xyz_123")
+
+
+def test_db_migrate_uses_application_engine():
+    """
+    The programmatic runner must not hand Alembic the raw DATABASE_URL: env.py
+    would build its own engine from it, skipping the psycopg2 driver pin (SQLAlchemy
+    2.1 maps "postgresql://" to psycopg v3, which is not installed) and the UTC
+    session time zone. With the placeholder left in place env.py uses the app engine.
+    """
+    from backend.app.core.db_migrate import get_alembic_config
+    assert get_alembic_config().get_main_option("sqlalchemy.url") == "driver://user:pass@localhost/dbname"

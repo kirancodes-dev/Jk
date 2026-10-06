@@ -14,9 +14,12 @@ def get_alembic_config() -> Config:
     if not os.path.exists(ini_path):
         raise FileNotFoundError(f"alembic.ini not found at expected path: {ini_path}")
     
-    cfg = Config(ini_path)
-    cfg.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
-    return cfg
+    # Leave sqlalchemy.url at alembic.ini's placeholder so alembic/env.py uses the
+    # application engine (built from settings.DATABASE_URL), which pins the
+    # psycopg2 driver and the UTC session time zone. Passing the raw
+    # "postgresql://" URL here made SQLAlchemy 2.1 pick psycopg (v3), which is not
+    # installed, so migrations on container start failed.
+    return Config(ini_path)
 
 def run_migrations(target_revision: str = "head"):
     """
