@@ -180,19 +180,31 @@ class StorageService:
     @staticmethod
     def strip_image_metadata(data: bytes, mime_type: str) -> bytes:
         """
-        Strips EXIF, GPS, and camera metadata from image uploads to protect citizen privacy.
+        Prepares an uploaded image for storage:
+        - applies the EXIF orientation first, so portrait phone photos stay upright
+          once the orientation tag is gone;
+        - drops all metadata (EXIF, GPS, camera) to protect citizen privacy;
+        - scales the longest edge down to IMAGE_MAX_DIMENSION px (2048 by default),
+          ample for officers to read evidence, and re-encodes it (JPEG/WebP at
+          IMAGE_JPEG_QUALITY, optimised), which cuts storage for typical phone photos.
         """
         if mime_type not in ("image/jpeg", "image/png", "image/webp"):
             return data
         try:
-            from PIL import Image
-            img = Image.open(io.BytesIO(data))
+            from PIL import Image, ImageOps
+            img = ImageOps.exif_transpose(Image.open(io.BytesIO(data)))
+            max_dim = settings.IMAGE_MAX_DIMENSION
+            if max(img.size) > max_dim:
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
             out = io.BytesIO()
-            fmt = "JPEG" if mime_type == "image/jpeg" else ("PNG" if mime_type == "image/png" else "WEBP")
-            if fmt == "JPEG" and img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
-            # Save clean image without EXIF metadata
-            img.save(out, format=fmt)
+            if mime_type == "image/jpeg":
+                if img.mode not in ("RGB", "L"):
+                    img = img.convert("RGB")
+                img.save(out, format="JPEG", quality=settings.IMAGE_JPEG_QUALITY, optimize=True, progressive=True)
+            elif mime_type == "image/png":
+                img.save(out, format="PNG", optimize=True)
+            else:
+                img.save(out, format="WEBP", quality=settings.IMAGE_JPEG_QUALITY, method=6)
             return out.getvalue()
         except Exception:
             # If Pillow fails or format is corrupted, return original bytes

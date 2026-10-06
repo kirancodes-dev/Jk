@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     # (see report_challenge_screen.dart's voice recorder); detected and validated
     # by real magic-byte signatures in storage_service.py, same as every other type.
     ALLOWED_UPLOAD_EXTENSIONS: List[str] = [".jpg", ".jpeg", ".png", ".pdf", ".mp4", ".doc", ".docx", ".m4a", ".wav", ".webm", ".mp3"]
+    # Uploaded photos are scaled so the longest edge is at most this many pixels and
+    # re-encoded at this JPEG/WebP quality (see storage_service.strip_image_metadata).
+    IMAGE_MAX_DIMENSION: int = int(os.getenv("IMAGE_MAX_DIMENSION", "2048"))
+    IMAGE_JPEG_QUALITY: int = int(os.getenv("IMAGE_JPEG_QUALITY", "82"))
     ALLOWED_MIME_TYPES: List[str] = [
         "image/jpeg", "image/png", "application/pdf",
         "video/mp4", "application/msword",
